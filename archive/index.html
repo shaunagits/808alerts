@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hawaiʻi Storm Info</title>
+<style>
+  :root{
+    /* Ground and surfaces. Dark is functional, not decorative: battery life
+       on a phone during an outage. */
+    --ink:#04141a;
+    --panel:#0b2029;
+    --panel-2:#123039;
+    --line:#1e4551;
+    --text:#e6f4f6;
+    --dim:#8fb3bc;
+
+    /* Severity ramp. These carry National Weather Service meaning, not brand.
+       Do not retune them for aesthetics and never let an accent colour land
+       in this range, or a decorative element starts reading as a warning. */
+    --extreme:#ff453a;
+    --severe:#ff9f0a;
+    --moderate:#ffd60a;
+
+    /* 911 banner only. Deeper than --extreme so white body text clears
+       WCAG AA at 5.38:1; the banner is 16px bold and so does not qualify
+       for the relaxed large-text threshold. */
+    --emergency:#d70015;
+
+    --ok:#3ddc97;
+    --focus:#4fd1c5;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--ink);color:var(--text)}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:17px;line-height:1.45;
+    -webkit-text-size-adjust:100%;
+    padding:0 0 4rem;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 1rem}
+
+  header{padding:1.25rem 0 .75rem;border-bottom:1px solid var(--line);margin-bottom:1rem}
+  h1{font-size:1.5rem;font-weight:800;margin:0;letter-spacing:-.03em;
+     display:flex;align-items:center;gap:.6rem}
+  h1 svg{flex:0 0 auto;color:var(--focus)}
+  .sub{color:var(--dim);font-size:.85rem;margin-top:.25rem}
+
+  .emergency{
+    position:sticky;top:0;z-index:10;
+    background:var(--emergency);color:#fff;font-weight:800;
+    text-align:center;padding:.65rem;font-size:1rem;letter-spacing:.01em;
+  }
+  .emergency a{color:#fff}
+
+  .q{font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
+     font-weight:700;margin:2.25rem 0 .7rem;display:block}
+  .q:first-of-type{margin-top:1rem}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        padding:1rem 1.15rem;margin-bottom:.6rem}
+  .card h3{margin:0 0 .2rem;font-size:1.05rem;font-weight:700}
+
+  .alert{border-left:5px solid var(--dim)}
+  .alert.Extreme{border-left-color:var(--extreme)}
+  .alert.Severe{border-left-color:var(--severe)}
+  .alert.Moderate{border-left-color:var(--moderate)}
+  .alert .ev{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+  .alert .area{color:var(--dim);font-size:.85rem;margin-top:.15rem}
+  details.alert-body{margin-top:.5rem}
+  details.alert-body summary{cursor:pointer;color:var(--focus);font-size:.85rem;
+    font-weight:600;list-style:none}
+  details.alert-body summary::-webkit-details-marker{display:none}
+  details.alert-body summary::after{content:" ▾"}
+  details.alert-body[open] summary::after{content:" ▴"}
+  pre.instr{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.78rem;color:var(--dim);margin:.5rem 0 0;max-height:22rem;overflow:auto}
+
+  .confirm{background:#3a2000;border:1px solid var(--severe);color:#ffcf99;
+    border-radius:10px;padding:.6rem .75rem;font-size:.85rem;font-weight:600;margin:.6rem 0 .9rem}
+
+  ul.locs{list-style:none;margin:.6rem 0 0;padding:0}
+  ul.locs li{padding:.5rem 0;border-top:1px solid var(--line)}
+  ul.locs .nm{font-weight:600}
+  ul.locs .ad{color:var(--dim);font-size:.85rem}
+  ul.locs .nt{color:var(--moderate);font-size:.78rem;margin-top:.15rem}
+  a.dir{color:var(--focus);font-size:.82rem;text-decoration:none;font-weight:600}
+  a.dir:hover{text-decoration:underline}
+
+  .meta{color:var(--dim);font-size:.76rem;margin-top:.7rem;padding-top:.6rem;
+        border-top:1px solid var(--line)}
+  .meta a{color:var(--focus)}
+  .guide{font-size:.88rem;color:var(--text);margin-top:.35rem}
+  .disc{font-size:.8rem;color:var(--moderate);margin-top:.5rem}
+
+  .src{display:flex;justify-content:space-between;align-items:center;gap:.75rem;
+       text-decoration:none;color:inherit}
+  .src .go{color:var(--focus);font-weight:700;font-size:.85rem;white-space:nowrap}
+  .src .pub{color:var(--dim);font-size:.8rem}
+  .tag{display:inline-block;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--dim);
+    padding:.1rem .4rem;border-radius:4px;margin-top:.3rem;font-weight:700}
+
+  .picker{display:flex;flex-wrap:wrap;gap:.4rem;margin:.75rem 0 0}
+  button{font:inherit}
+  .isl{background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:.55rem .9rem;border-radius:999px;font-size:.85rem;font-weight:600;cursor:pointer}
+  .isl[aria-pressed="true"]{background:var(--focus);color:#062033;border-color:var(--focus)}
+  .isl:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+  .btn{display:block;width:100%;background:var(--focus);color:#062033;border:none;
+    padding:.85rem;border-radius:12px;font-weight:800;font-size:1rem;cursor:pointer;margin-top:.75rem}
+
+  .phone{display:inline-block;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--focus);text-decoration:none;padding:.45rem .7rem;border-radius:8px;
+    font-weight:700;font-size:.88rem;margin:.35rem .35rem 0 0}
+
+  .quiet{color:var(--dim);font-size:.85rem}
+  footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line);
+    color:var(--dim);font-size:.78rem}
+  @media (prefers-reduced-motion:no-preference){
+    .card{transition:border-color .15s ease}
+  }
+</style>
+</head>
+<body>
+
+<div class="emergency">In immediate danger? Call 911</div>
+
+<div class="wrap">
+  <header>
+    <h1><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false"><circle cx="13" cy="13" r="12" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".55"/><path d="M3 15c2.6 0 2.6-2.6 5.2-2.6S10.8 15 13.4 15s2.6-2.6 5.2-2.6S21.2 15 23 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5 19.5c2.2 0 2.2-2 4.4-2s2.2 2 4.4 2 2.2-2 4.4-2 2.2 2 3.8 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".5"/></svg><span>Hawaiʻi Storm Info</span></h1>
+    <div class="sub">Official sources in one place. This is not an official alert system.</div>
+  </header>
+
+  <span class="q">Where are you?</span>
+  <div class="card">
+    <div id="locline" class="quiet">Pick your island, or use your location.</div>
+    <div class="picker" id="picker"></div>
+    <button class="btn" id="geo">Use my location</button>
+  </div>
+
+  <span class="q">What is happening?</span>
+  <div id="alerts"><div class="card quiet">Select an island to load current National Weather Service alerts.</div></div>
+
+  <span class="q">Where can I go?</span>
+  <div id="shelters"><div class="card quiet">Select an island.</div></div>
+
+  <span class="q">Official sources for your county</span>
+  <div id="sources"><div class="card quiet">Select an island.</div></div>
+
+  <span class="q">Statewide</span>
+  <div id="statewide"></div>
+
+  <footer>
+    Alerts come live from the National Weather Service API. Shelter entries are
+    reports observed from the sources listed on each card, not live status.
+    Always confirm a location is open before you travel.
+    <span id="built"></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- registry (mirrors sources.json) ---------- */
+
+const COUNTIES = {
+  HIC001:{name:"Hawaiʻi County", island:"Hawaiʻi Island", agency:"Hawaiʻi County Civil Defense",
+    phones:[{l:"Civil Defense",n:"808-935-0031"},{l:"Sandbags / Public Works",n:"808-961-8349"}]},
+  HIC003:{name:"Honolulu County", island:"Oʻahu", agency:"Honolulu Dept. of Emergency Management", phones:[]},
+  HIC007:{name:"Kauaʻi County", island:"Kauaʻi", agency:"Kauaʻi Emergency Management Agency", phones:[]},
+  HIC009:{name:"Maui County", island:"Maui Nui", agency:"Maui Emergency Management Agency", phones:[]}
+};
+
+/* zone is the NWS public forecast zone containing that point, verified against
+   /points on 2026-08-15. Hardcoded so the zone alert query still runs when the
+   /points endpoint is slow or unreachable, which is exactly when it matters. */
+const ISLANDS = [
+  {label:"Oʻahu", county:"HIC003", zone:"HIZ033", lat:21.3099, lon:-157.8581},
+  {label:"Hawaiʻi Island", county:"HIC001", zone:"HIZ053", lat:19.7297, lon:-155.0900},
+  {label:"Maui", county:"HIC009", zone:"HIZ018", lat:20.8783, lon:-156.6825},
+  {label:"Molokaʻi", county:"HIC009", zone:"HIZ041", lat:21.1444, lon:-157.0226},
+  {label:"Lānaʻi", county:"HIC009", zone:"HIZ015", lat:20.8283, lon:-156.9197},
+  {label:"Kauaʻi", county:"HIC007", zone:"HIZ030", lat:21.9811, lon:-159.3711}
+];
+
+const SOURCES = [
+  {c:"HIC003", name:"Live shelter dashboard", pub:"City & County of Honolulu",
+   url:"https://p.veoci.com/hnlshelter", tag:"shelter status"},
+  {c:"HIC003", name:"Tsunami assembly areas map", pub:"City & County of Honolulu",
+   url:"https://p.veoci.com/hnlevac", tag:"evacuation"},
+  {c:"HIC003", name:"Mayor's office releases", pub:"City & County of Honolulu",
+   url:"https://www.honolulu.gov/mayor/", tag:"announced first"},
+  {c:"HIC003", name:"Emergency Management shelters", pub:"City & County of Honolulu",
+   url:"https://www.honolulu.gov/dem/shelter/", tag:"locations"},
+  {c:"HIC001", name:"Civil Defense", pub:"County of Hawaiʻi",
+   url:"https://www.hawaiicounty.gov/departments/civil-defense", tag:"shelters, roads"},
+  {c:"HIC009", name:"County alert center", pub:"County of Maui",
+   url:"https://www.mauicounty.gov/CivicAlerts.aspx", tag:"evacuation points"},
+  {c:"HIC007", name:"Emergency Management Agency", pub:"County of Kauaʻi",
+   url:"https://www.kauai.gov/Government/Departments-Agencies/Emergency-Management-Agency", tag:"shelters, alerts"}
+];
+
+const STATEWIDE = [
+  {name:"Hawaiʻi Emergency Management Agency", pub:"State of Hawaiʻi",
+   url:"https://dod.hawaii.gov/hiema/", tag:"statewide"},
+  {name:"National Weather Service Honolulu", pub:"NOAA",
+   url:"https://www.weather.gov/hfo", tag:"forecast"},
+  {name:"Pacific Tsunami Warning Center", pub:"NOAA",
+   url:"https://www.tsunami.gov/", tag:"tsunami"}
+];
+
+const REPORTS = [
+  {c:"HIC001", kind:"Shelters",
+   headline:"Hawaiʻi County shelters opened 6:00 PM Friday, Aug 14",
+   guide:"Bring your own food, water and necessary medicine.",
+   at:"Reported Aug 14, 5:58 AM HST",
+   srcName:"Hawaii News Now",
+   srcUrl:"https://www.hawaiinewsnow.com/2026/08/14/hawaii-county-open-shelters-adjust-bus-service-ahead-tropical-storm-lala/",
+   disc:"Two outlets name the Honokaʻa and Pāhoa sites differently. Confirm with Civil Defense.",
+   locs:[
+     ["Ikuo Hisaoka Gymnasium","54-382 Kamehameha Park Rd, Kapaʻau"],
+     ["Waikoloa Elementary School cafeteria","68-1730 Hoʻoko St, Waikoloa"],
+     ["Kahilu Town Hall","67-1182 Lindsey Rd, Waimea"],
+     ["Honokaʻa Gym","45-541 Lehua St, Honokaʻa"],
+     ["Laupāhoehoe Public Charter School band room","35-2605 Mamalahoa Hwy, Laupāhoehoe"],
+     ["Waiākea High School Gym","155 W. Kawili St, Hilo"],
+     ["Keaʻau Armory","16-512 Volcano Rd, Keaʻau"],
+     ["Pāhoa Neighborhood Facility","15-2910 Kauhale St, Pāhoa"],
+     ["Robert N. Herkes Gym","96-1219 Kamani St, Pāhala"],
+     ["Nāʻālehu Elementary School gym","95-5545 Mamalahoa Hwy, Nāʻālehu"],
+     ["Kealakehe High School Gym","74-5000 Puohulihuli St, Kailua-Kona"],
+     ["Yano Hall","Captain Cook","Listed by one outlet only, address unconfirmed"]
+   ]},
+  {c:"HIC003", kind:"Hurricane refuge areas",
+   headline:"Oʻahu refuge areas open 8:00 AM Saturday, Aug 15",
+   guide:"Bring your own food, water and medications. Pet-friendly, but pets must be leashed or in a carrier and you bring their supplies.",
+   at:"Reported Aug 14, ~2:00 PM HST",
+   srcName:"Honolulu Star-Advertiser",
+   srcUrl:"https://www.staradvertiser.com/2026/08/14/breaking-news/honolulu-to-open-7-hurricane-refuge-areas-saturday/",
+   disc:"Eight refuge areas were announced but only seven are named in available reporting. Check the live dashboard for the full list.",
+   locs:[
+     ["Blanche Pope Elementary School","Waimānalo"],
+     ["Castle High School","45-386 Kaneohe Bay Dr, Kāneʻohe"],
+     ["Kahuku Elementary School","56-170 Pualalea St, Kahuku"],
+     ["Kapolei High School","91-5007 Kapolei Parkway, Kapolei"],
+     ["Mililani High School","Mililani"],
+     ["Moanalua High School","Moanalua"],
+     ["Nānākuli Elementary School","Nānākuli"]
+   ]},
+  {c:"HIC009", kind:"Temporary evacuation points",
+   headline:"Maui County temporary evacuation points",
+   guide:"TEPs are a safe gathering area only and do not stock supplies. Bring food, water and medications. Pets allowed only in crates or cages. TEPs can convert to full shelters if conditions warrant.",
+   at:"Reported Aug 14, ~11:00 AM HST",
+   srcName:"Hawaiʻi Public Radio",
+   srcUrl:"https://www.hawaiipublicradio.org/local-news/2026-08-14/where-to-find-shelters-as-tropical-storm-lala-approaches",
+   disc:"Molokaʻi and Lānaʻi points are on-call only. Contact MEMA or check the county alert center.",
+   locs:[
+     ["Baldwin High School","1650 Kaahumanu Ave, Wailuku","Opened 7:00 PM Friday"],
+     ["Hāna High & Elementary School cafeteria","4111 Hāna Hwy, Hāna","Opened 7:00 PM Friday"],
+     ["Lahaina Civic Center gym","1840 Honoapiʻilani Hwy, Lahaina","Opened 7:00 PM Friday"],
+     ["Mayor Hannibal Tavares Community Center","91 Pukalani St, Pukalani","Opens 6:00 AM Saturday"],
+     ["South Maui Community Park and Gym","1501 Liloa Dr, Kīhei","Opens 6:00 AM Saturday"]
+   ]}
+];
+
+/* ---------- helpers ---------- */
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let state = { county:null, label:null, lat:null, lon:null };
+
+function maps(q){ return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q + ", Hawaii"); }
+
+/* ---------- island picker ---------- */
+
+$("picker").innerHTML = ISLANDS.map((i,n) =>
+  `<button class="isl" data-i="${n}" aria-pressed="false">${esc(i.label)}</button>`).join("");
+
+$("picker").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]");
+  if(!b) return;
+  const i = ISLANDS[+b.dataset.i];
+  select(i.county, i.label, i.lat, i.lon, "Selected manually", i.zone);
+});
+
+function select(county, label, lat, lon, how, zone){
+  state = { county, label, lat, lon, zone: zone || null };
+  $("locline").innerHTML =
+    `<strong>${esc(label)}</strong> &middot; ${esc(COUNTIES[county].name)}
+     <div class="quiet" style="margin-top:.15rem">${esc(how)}</div>`;
+  document.querySelectorAll(".isl").forEach(b =>
+    b.setAttribute("aria-pressed", ISLANDS[+b.dataset.i].label === label ? "true" : "false"));
+  renderShelters();
+  renderSources();
+  loadAlerts();
+}
+
+/* ---------- geolocation ---------- */
+
+$("geo").addEventListener("click", () => {
+  if(!navigator.geolocation){
+    $("locline").textContent = "Location is not available in this browser. Pick your island below.";
+    return;
+  }
+  $("geo").textContent = "Locating…";
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const {latitude:lat, longitude:lon} = pos.coords;
+    $("geo").textContent = "Use my location";
+    try{
+      const r = await fetch(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`);
+      if(!r.ok) throw new Error("points " + r.status);
+      const p = (await r.json()).properties;
+      const county = (p.county || "").split("/").pop();
+      const zone = (p.forecastZone || "").split("/").pop() || null;
+      const city = p.relativeLocation?.properties?.city || "your location";
+      if(!COUNTIES[county]){
+        $("locline").textContent = "You do not appear to be in Hawaiʻi. Pick an island below.";
+        return;
+      }
+      select(county, city, lat, lon, "From your device location", zone);
+    }catch(err){
+      $("locline").textContent = "Could not identify your county. Pick your island below.";
+    }
+  }, () => {
+    $("geo").textContent = "Use my location";
+    $("locline").textContent = "Location permission denied. Pick your island below.";
+  }, {timeout:10000, maximumAge:60000});
+});
+
+/* ---------- live NWS alerts ---------- */
+
+const RANK = {Extreme:0, Severe:1, Moderate:2, Minor:3, Unknown:4};
+
+/* A point query matches an alert's polygon whenever it has one, so a warning
+   issued for an entire forecast zone can miss a point that sits inside that
+   zone. Observed live: the Hurricane Warning for Big Island East (HIZ053) has
+   a polygon that excludes Hilo, so a point query dropped it entirely.
+   Query the point and its forecast zone, then merge and de-duplicate by id. */
+async function loadAlerts(){
+  const el = $("alerts");
+  el.innerHTML = `<div class="card quiet">Loading National Weather Service alerts…</div>`;
+  const pt = `${state.lat.toFixed(4)},${state.lon.toFixed(4)}`;
+  try{
+    if(!state.zone){
+      try{
+        const pr = await fetch(`https://api.weather.gov/points/${pt}`);
+        if(pr.ok) state.zone = ((await pr.json()).properties.forecastZone || "").split("/").pop() || null;
+      }catch(e){ /* zone lookup is best effort; fall back to the point query */ }
+    }
+    const urls = [`https://api.weather.gov/alerts/active?point=${pt}`];
+    if(state.zone) urls.push(`https://api.weather.gov/alerts/active?zone=${state.zone}`);
+    const rs = await Promise.all(urls.map(u => fetch(u).catch(() => null)));
+    const ok = rs.filter(r => r && r.ok);
+    if(!ok.length) throw new Error("alerts unavailable");
+    const sets = await Promise.all(ok.map(r => r.json()));
+    const seen = new Set();
+    const f = [];
+    sets.forEach(s => (s.features || []).forEach(x => {
+      const k = x.id || x.properties?.id;
+      if(k){ if(seen.has(k)) return; seen.add(k); }
+      f.push(x);
+    }));
+    if(!f.length){
+      el.innerHTML = `<div class="card"><h3>No active alerts</h3>
+        <div class="quiet">The National Weather Service has nothing in effect for this location right now.</div>
+        <div class="meta">Checked ${esc(new Date().toLocaleTimeString())} &middot;
+          <a href="https://www.weather.gov/hfo" target="_blank" rel="noopener">NWS Honolulu</a></div></div>`;
+      return;
+    }
+    f.sort((a,b) => (RANK[a.properties.severity] ?? 9) - (RANK[b.properties.severity] ?? 9));
+    el.innerHTML = f.map(x => {
+      const p = x.properties;
+      const body = [p.description, p.instruction].filter(Boolean).join("\n\n");
+      return `<div class="card alert ${esc(p.severity)}">
+        <div class="ev">${esc(p.event)}</div>
+        <div class="area">${esc(p.areaDesc)}</div>
+        ${p.headline ? `<div class="quiet" style="margin-top:.4rem">${esc(p.headline)}</div>` : ""}
+        ${body ? `<details class="alert-body"><summary>Read the full advisory</summary>
+          <pre class="instr">${esc(body)}</pre></details>` : ""}
+        <div class="meta">National Weather Service &middot; issued ${esc(new Date(p.sent).toLocaleString())}</div>
+      </div>`;
+    }).join("");
+  }catch(err){
+    el.innerHTML = `<div class="card"><h3>Alerts did not load</h3>
+      <div class="quiet">You may be offline. Go straight to the source:</div>
+      <a class="phone" href="https://www.weather.gov/hfo" target="_blank" rel="noopener">NWS Honolulu</a>
+      <a class="phone" href="https://www.tsunami.gov/" target="_blank" rel="noopener">Tsunami warnings</a></div>`;
+  }
+}
+
+/* ---------- shelter reports ---------- */
+
+function renderShelters(){
+  const rs = REPORTS.filter(r => r.c === state.county);
+  const el = $("shelters");
+  if(!rs.length){
+    const s = SOURCES.filter(x => x.c === state.county)[0];
+    el.innerHTML = `<div class="card"><h3>Nothing reported yet for ${esc(COUNTIES[state.county].name)}</h3>
+      <div class="quiet">No shelter or evacuation point openings have been recorded here.
+      That does not mean none exist. Check with your county directly.</div>
+      ${s ? `<a class="phone" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.pub)} &rarr;</a>` : ""}
+      </div>`;
+    return;
+  }
+  el.innerHTML = rs.map(r => `
+    <div class="card">
+      <div class="tag">${esc(r.kind)}</div>
+      <h3 style="margin-top:.4rem">${esc(r.headline)}</h3>
+      <div class="confirm">Confirm this location is open before you travel. Conditions change fast and this list is a report, not live status.</div>
+      <div class="guide">${esc(r.guide)}</div>
+      ${r.disc ? `<div class="disc">Note: ${esc(r.disc)}</div>` : ""}
+      <ul class="locs">${r.locs.map(l => `
+        <li>
+          <div class="nm">${esc(l[0])}</div>
+          <div class="ad">${esc(l[1])}</div>
+          ${l[2] ? `<div class="nt">${esc(l[2])}</div>` : ""}
+          <a class="dir" href="${esc(maps(l[0] + " " + l[1]))}" target="_blank" rel="noopener">Directions &rarr;</a>
+        </li>`).join("")}</ul>
+      <div class="meta">${esc(r.at)} &middot; source:
+        <a href="${esc(r.srcUrl)}" target="_blank" rel="noopener">${esc(r.srcName)}</a></div>
+    </div>`).join("");
+}
+
+/* ---------- source cards ---------- */
+
+function srcCard(s){
+  return `<a class="card src" href="${esc(s.url)}" target="_blank" rel="noopener">
+    <span><span style="font-weight:700">${esc(s.name)}</span>
+      <span class="pub" style="display:block">${esc(s.pub)}</span>
+      <span class="tag">${esc(s.tag)}</span></span>
+    <span class="go">Open &rarr;</span></a>`;
+}
+
+function renderSources(){
+  const c = COUNTIES[state.county];
+  const list = SOURCES.filter(s => s.c === state.county);
+  const phones = c.phones.map(p =>
+    `<a class="phone" href="tel:${esc(p.n.replace(/-/g,""))}">${esc(p.l)}: ${esc(p.n)}</a>`).join("");
+  $("sources").innerHTML =
+    list.map(srcCard).join("") +
+    (phones ? `<div class="card"><h3>${esc(c.agency)}</h3>${phones}</div>` : "");
+}
+
+$("statewide").innerHTML = STATEWIDE.map(srcCard).join("");
+$("built").textContent = " Built " + new Date().toLocaleDateString();
+</script>
+</body>
+</html>

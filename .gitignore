@@ -1,0 +1,16 @@
+# Backups
+*.bak
+
+# Dependencies
+node_modules/
+
+# Deploy staging directories (ephemeral copies of index.html + CLI link state)
+/cf/
+/stage/
+
+# Cloudflare / Vercel CLI state
+.vercel/
+.wrangler/
+
+# macOS
+.DS_Store

@@ -1,0 +1,8 @@
+name = "808alerts-api"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# First deploy goes to 808alerts-api.<account>.workers.dev (no DNS needed).
+# To put it on api.808alerts.com later, add a route once the zone token has
+# Workers Routes edit scope:
+#   routes = [{ pattern = "api.808alerts.com/*", zone_name = "808alerts.com" }]

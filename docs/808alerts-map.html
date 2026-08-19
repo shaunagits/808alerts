@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>808 Alerts — Dashboard with map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<style>
+  :root{
+    --ink:#101010; --ink-2:#1c1c1c; --surface:#faf8f5; --surface-2:#f0ece4; --surface-border:#e6e1d9;
+    --accent:#ffd93b; --accent-hover:#fff06b;
+    --warn:#c22e22; --advis:#e8a317; --watch:#1c6f7d;
+    --muted:#8c8c8c; --muted-2:#9a9a9a; --muted-3:#8a8a8a; --body:#3d3d3d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);font-family:'Archivo',system-ui,sans-serif;color:var(--ink)}
+  a{color:var(--ink);text-decoration:none}
+  a:hover{color:#000}
+  button{font-family:'Archivo',system-ui,sans-serif;border:none;border-radius:0;cursor:pointer}
+
+  .nav{background:var(--ink);padding:20px 40px;display:flex;align-items:center;justify-content:space-between}
+  .wordmark{font-weight:900;font-size:22px;line-height:1;letter-spacing:-.02em;color:#fff}
+  .wordmark span{color:var(--accent)}
+  .nav-right{display:flex;align-items:center;gap:28px}
+  .nav-link{font-family:'Archivo Narrow';font-weight:700;font-size:11px;line-height:1;letter-spacing:.16em;color:var(--muted)}
+  .btn-accent{background:var(--accent);color:var(--ink);font-weight:800;font-size:11px;line-height:1;letter-spacing:.1em;padding:12px 15px}
+  .btn-accent:hover{background:var(--accent-hover)}
+
+  .hero{background:var(--ink);padding:44px 40px 36px;display:grid;grid-template-columns:1fr 420px;gap:64px;align-items:end}
+  .hero h1{margin:0;font-weight:800;font-size:60px;line-height:.96;letter-spacing:-.04em;color:#fff;text-wrap:pretty}
+  .controls{display:flex;flex-direction:column;gap:10px}
+  .controls button{background:var(--accent);color:var(--ink);padding:17px 16px;font-weight:800;font-size:13px;line-height:1;letter-spacing:.06em}
+  .controls button:hover{background:var(--accent-hover)}
+  .controls input{background:transparent;border:2px solid #3a3a3a;padding:15px 16px;font-family:'Archivo';font-weight:600;font-size:13px;letter-spacing:.04em;color:#fff}
+  .controls input::placeholder{color:#7d7d7d}
+  .controls input:focus{outline:none;border-color:var(--accent)}
+
+  .strip{background:var(--ink-2);padding:18px 40px;display:flex;align-items:baseline;justify-content:space-between;gap:20px}
+  .strip-left{display:flex;align-items:baseline;gap:18px}
+  .place{font-weight:800;font-size:24px;line-height:1;color:#fff}
+  .meta{font-family:'Archivo Narrow';font-weight:600;font-size:11px;line-height:1;letter-spacing:.14em;color:var(--muted-2)}
+
+  /* map panel */
+  .mapwrap{position:relative;background:var(--surface-border);height:360px;transition:height .28s ease}
+  .mapwrap.tall{height:calc(100vh - 76px)}
+  #map{position:absolute;inset:0}
+  .leaflet-container{background:#dedad2;font-family:'Archivo',sans-serif}
+  .leaflet-tile-pane{filter:grayscale(1) contrast(.86) brightness(1.06)}
+  .leaflet-control-attribution{font-family:'Archivo Narrow';font-size:10px;background:rgba(250,248,245,.9)}
+  .leaflet-bar a{border-radius:0!important;color:var(--ink)!important}
+
+  .map-ui{position:absolute;z-index:500;pointer-events:none}
+  .map-ui > *{pointer-events:auto}
+  .filters{top:16px;left:16px;display:flex;gap:2px;flex-wrap:wrap}
+  .chip{background:rgba(16,16,16,.14);color:var(--ink);font-weight:800;font-size:10px;line-height:1;letter-spacing:.1em;padding:10px 12px;display:flex;align-items:center;gap:7px;backdrop-filter:blur(3px)}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .chip i{width:8px;height:8px;display:block}
+  .expand{top:16px;right:16px;background:var(--accent);color:var(--ink);font-weight:800;font-size:10px;line-height:1;letter-spacing:.1em;padding:11px 13px;display:flex;align-items:center;gap:8px}
+  .expand:hover{background:var(--accent-hover)}
+  .scalenote{bottom:16px;left:16px;background:var(--surface);padding:10px 13px;font-family:'Archivo Narrow';font-weight:600;font-size:11px;line-height:1;letter-spacing:.12em;color:var(--body)}
+
+  /* expanded-only floating list */
+  .mapwrap.tall .scalenote{display:none}
+  .maplist{position:absolute;z-index:500;top:64px;right:16px;width:320px;max-height:calc(100% - 96px);overflow:auto;background:var(--surface);display:none}
+  .mapwrap.tall .maplist{display:block}
+  .maplist h2{margin:0;padding:16px 18px;font-weight:800;font-size:11px;letter-spacing:.12em;border-bottom:2px solid var(--surface-border)}
+  .maplist button{display:block;width:100%;text-align:left;background:var(--surface);padding:14px 18px;border-bottom:1px solid var(--surface-border)}
+  .maplist button:hover{background:#f3efe7}
+  .maplist .cat{font-family:'Archivo Narrow';font-weight:700;font-size:9.5px;letter-spacing:.18em;color:var(--muted-3)}
+  .maplist .ttl{font-weight:800;font-size:15px;line-height:1.25;letter-spacing:-.01em;margin-top:6px}
+  .maplist .sub{font-weight:500;font-size:12.5px;line-height:1.4;color:#5c5c5c;margin-top:3px}
+
+  .pop{font-family:'Archivo',sans-serif}
+  .leaflet-popup-content-wrapper{border-radius:0;padding:0;box-shadow:0 6px 24px rgba(0,0,0,.22)}
+  .leaflet-popup-content{margin:0;width:264px!important}
+  .pop-head{padding:15px 16px}
+  .pop-head .cat{font-family:'Archivo Narrow';font-weight:700;font-size:9.5px;letter-spacing:.18em}
+  .pop-head .ttl{font-weight:800;font-size:19px;line-height:1.1;letter-spacing:-.02em;margin-top:7px}
+  .pop-body{padding:14px 16px;background:var(--surface)}
+  .pop-body .sub{font-weight:500;font-size:13px;line-height:1.45;color:#5c5c5c}
+  .pop-body .kv{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--surface-border)}
+  .pop-body .k{font-family:'Archivo Narrow';font-weight:700;font-size:9.5px;letter-spacing:.14em;color:var(--muted-3)}
+  .pop-body .v{font-weight:800;font-size:13px}
+  .pop-link{display:block;padding:13px 16px;background:var(--ink);color:#fff!important;font-weight:800;font-size:10.5px;letter-spacing:.12em}
+
+  /* tiles */
+  .grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:2px;background:var(--surface)}
+  .tile{display:flex;flex-direction:column;justify-content:space-between;padding:28px 30px;min-height:149px}
+  .tile.feature{grid-row:span 2;padding:32px 34px;min-height:300px}
+  .tile .top{display:flex;align-items:center;justify-content:space-between}
+  .tile .cat{font-family:'Archivo Narrow';font-weight:700;font-size:11px;line-height:1;letter-spacing:.2em}
+  .tile .arrow{font-weight:700;font-size:18px;line-height:1}
+  .tile.feature .arrow{font-size:22px}
+  .tile .head{font-weight:800;font-size:28px;line-height:1.02;letter-spacing:-.025em}
+  .tile.feature .head{font-size:60px;line-height:.98;letter-spacing:-.035em}
+  .tile .sub{font-weight:500;font-size:14px;line-height:1.3;margin-top:7px}
+  .tile.feature .sub{font-size:17px;line-height:1.35;margin-top:12px}
+  .t-warn{background:var(--warn);color:#fff}
+  .t-warn .cat{color:rgba(255,255,255,.75)}
+  .t-warn .sub{color:rgba(255,255,255,.85)}
+  .t-advis{background:var(--advis);color:var(--ink)}
+  .t-advis .cat{color:rgba(0,0,0,.7)}
+  .t-advis .sub{color:rgba(0,0,0,.7)}
+  .t-watch{background:var(--watch);color:#fff}
+  .t-watch .cat{color:rgba(255,255,255,.7)}
+  .t-clear{background:var(--surface-2);color:var(--body)}
+  .t-clear .cat{color:var(--muted-3)}
+  .t-clear .head{font-weight:600;font-size:22px;line-height:1.15;letter-spacing:0}
+  .tile.link:hover{filter:brightness(1.06)}
+
+  .foot{padding:26px 40px 40px;display:flex;align-items:baseline;justify-content:space-between;gap:24px;border-top:2px solid var(--surface-border);margin-top:2px}
+  .foot p{margin:0;font-weight:500;font-size:12.5px;line-height:1.55;color:var(--muted-3);max-width:620px}
+
+  /* ≥1024: map column left, alerts as rows right */
+  @media (min-width:1024px){
+    .board{display:grid;grid-template-columns:1.15fr 1fr;gap:2px;background:var(--surface);align-items:stretch}
+    .mapwrap{height:auto;min-height:640px}
+    .mapwrap.tall{grid-column:1/-1;height:calc(100vh - 76px)}
+    .board:has(.mapwrap.tall) .grid{display:none}
+    .grid{grid-template-columns:1fr;grid-auto-rows:1fr}
+    .tile,.tile.feature{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:22px;padding:26px 30px;min-height:0}
+    .tile.feature{grid-row:auto}
+    .tile .top{display:contents}
+    .tile .cat{grid-column:1;grid-row:1}
+    .tile .arrow{grid-column:3;grid-row:1;font-size:19px}
+    .tile .content,.tile > .head{grid-column:2;grid-row:1}
+    .tile .head{font-size:25px;line-height:1.05;letter-spacing:-.02em}
+    .tile.feature .head{font-size:33px;line-height:1.02;letter-spacing:-.03em}
+    .tile .sub,.tile.feature .sub{font-size:14px;line-height:1.35;margin-top:5px}
+    .tile.t-clear .head{font-size:19px}
+  }
+
+  @media (max-width:1023px){
+    .nav,.hero,.strip,.foot{padding-left:20px;padding-right:20px}
+    .hero{grid-template-columns:1fr;gap:26px;padding-top:32px}
+    .hero h1{font-size:34px;letter-spacing:-.03em}
+    .controls{max-width:none}
+    .place{font-size:17px}
+    .mapwrap{height:280px}
+    .mapwrap.tall{height:calc(100vh - 60px)}
+    .maplist{left:16px;right:64px;width:auto;top:auto;bottom:16px;max-height:44%}
+    .grid{grid-template-columns:1fr;gap:2px}
+    .tile.feature{grid-row:auto;min-height:0;padding:22px 20px}
+    .tile{padding:22px 20px;min-height:0}
+    .tile.feature .head{font-size:32px;line-height:1.02}
+    .tile.feature .sub{font-size:14px;margin-top:7px}
+    .foot{flex-direction:column;padding-bottom:32px}
+  }
+</style>
+</head>
+<body>
+
+<template id="__bundler_thumbnail" data-bg-color="#101010">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#101010"/>
+    <rect x="360" y="250" width="480" height="300" fill="#c22e22"/>
+    <rect x="360" y="250" width="480" height="14" fill="#ffd93b"/>
+    <circle cx="600" cy="400" r="58" fill="none" stroke="#ffffff" stroke-width="16"/>
+    <circle cx="600" cy="400" r="14" fill="#ffffff"/>
+    <text x="600" y="620" text-anchor="middle" font-family="Archivo, sans-serif" font-weight="900" font-size="72" letter-spacing="-2" fill="#ffffff">808<tspan fill="#ffd93b">ALERTS</tspan></text>
+  </svg>
+</template>
+
+<nav class="nav">
+  <div class="wordmark">808<span>ALERTS</span></div>
+  <div class="nav-right">
+    <div class="nav-link">ABOUT</div>
+    <button class="btn-accent">GET TEXT ALERTS</button>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1>WHAT'S HAPPENING NEAR YOU?</h1>
+  <div class="controls">
+    <button>USE MY LOCATION</button>
+    <input type="text" placeholder="CITY / ZIP" aria-label="City or ZIP code" value="">
+  </div>
+</header>
+
+<div class="strip">
+  <div class="strip-left">
+    <div class="place">KAILUA ALERTS</div>
+    <div class="meta">OʻAHU</div>
+  </div>
+  <div class="meta">UPDATED 1:32 PM</div>
+</div>
+
+<div class="board" id="board">
+<section class="mapwrap" id="mapwrap" aria-label="Map of active alerts near Kailua">
+  <div id="map"></div>
+
+  <div class="map-ui filters" id="filters">
+    <button class="chip" data-cat="power" aria-pressed="true"><i style="background:#c22e22"></i>POWER 3</button>
+    <button class="chip" data-cat="roads" aria-pressed="true"><i style="background:#e8a317"></i>ROADS 4</button>
+    <button class="chip" data-cat="weather" aria-pressed="true"><i style="background:#c22e22"></i>WEATHER 1</button>
+    <button class="chip" data-cat="ocean" aria-pressed="true"><i style="background:#1c6f7d"></i>OCEAN 1</button>
+  </div>
+
+  <button class="map-ui expand" id="expandBtn" aria-expanded="false">
+    <span id="expandLabel">EXPAND MAP</span>
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#101010" stroke-width="3" aria-hidden="true"><path d="M4 10V4h6M20 14v6h-6"/></svg>
+  </button>
+
+  <div class="map-ui scalenote">5 MI RADIUS · KAILUA</div>
+
+  <div class="maplist" id="maplist">
+    <h2>9 ALERTS ON THIS MAP</h2>
+    <div id="maplistItems"></div>
+  </div>
+</section>
+
+<section class="grid">
+  <a class="tile feature t-warn link" href="#">
+    <div class="top"><div class="cat">POWER</div><div class="arrow">→</div></div>
+    <div class="content"><div class="head">3 ACTIVE OUTAGES</div><div class="sub">1,284 customers affected</div></div>
+  </a>
+  <a class="tile t-warn link" href="#">
+    <div class="top"><div class="cat">WEATHER</div><div class="arrow">→</div></div>
+    <div class="content"><div class="head">FLASH FLOOD WARNING</div><div class="sub">Wind Advisory</div></div>
+  </a>
+  <a class="tile t-advis link" href="#">
+    <div class="top"><div class="cat">ROADS</div><div class="arrow">→</div></div>
+    <div class="content"><div class="head">4 CLOSURES</div><div class="sub">7 major incidents</div></div>
+  </a>
+  <a class="tile t-watch link" href="#">
+    <div class="top"><div class="cat">OCEAN</div><div class="arrow">→</div></div>
+    <div class="head">HIGH SURF WARNING</div>
+  </a>
+  <div class="tile t-clear">
+    <div class="cat">EMERGENCY</div>
+    <div class="head">No active evacuation orders</div>
+  </div>
+</section>
+</div>
+
+<footer class="foot">
+  <p>Map shows alerts within 5 miles of Kailua. Sources: Hawaiian Electric outage feed, HDOT and Honolulu DEM closures, NWS Honolulu products. Refreshed every 5 minutes. Always follow posted signs and first responders on scene.</p>
+  <button class="btn-accent">TEXT ME KAILUA ALERTS</button>
+</footer>
+
+<script>
+const COLOR = { power:'#c22e22', roads:'#e8a317', weather:'#c22e22', ocean:'#1c6f7d' };
+const LABEL = { power:'POWER', roads:'ROADS', weather:'WEATHER', ocean:'OCEAN' };
+
+const alerts = [
+  { cat:'power', title:'Enchanted Lake', sub:'742 customers out since 10:12 AM. Cause: downed line, crew on site.',
+    k:'EST. RESTORE', v:'3:30 PM', at:[21.3856,-157.7418], r:620 },
+  { cat:'power', title:'Maunawili', sub:'398 customers out since 12:41 PM. Cause under investigation.',
+    k:'EST. RESTORE', v:'Unknown', at:[21.3789,-157.7570], r:520 },
+  { cat:'power', title:'Lanikai', sub:'144 customers out since 1:05 PM. Planned repair.',
+    k:'EST. RESTORE', v:'2:15 PM', at:[21.3925,-157.7156], r:380 },
+  { cat:'roads', title:'Kalanianaʻole Hwy at Waimānalo', sub:'Both directions closed for flood debris. Detour via Kalākaupua St.',
+    k:'CLOSED SINCE', v:'11:05 AM', at:[21.3400,-157.7150], severity:'full' },
+  { cat:'roads', title:'Pali Hwy near Nuʻuanu Pali Lookout', sub:'Townbound left lane closed, rockfall crew on scene. Expect 20 min delay.',
+    k:'CLOSED SINCE', v:'9:40 AM', at:[21.3660,-157.7930] },
+  { cat:'roads', title:'Kapaʻa Quarry Rd at Mokapu Blvd', sub:'Standing water, shoulder closed.',
+    k:'REOPENS', v:'4:00 PM', at:[21.4155,-157.7495] },
+  { cat:'roads', title:'Auloa Rd at Maunawili Stream', sub:'Stream over roadway. Closed until water recedes.',
+    k:'CLOSED SINCE', v:'12:50 PM', at:[21.3819,-157.7502], severity:'full' },
+  { cat:'weather', title:'Flash Flood Warning', sub:'Windward Oʻahu, Kaneʻohe to Waimānalo. Move to higher ground if near a stream.',
+    k:'UNTIL', v:'6:15 PM', at:[21.398,-157.775],
+    area:[[21.474,-157.826],[21.470,-157.712],[21.395,-157.679],[21.330,-157.686],[21.318,-157.744],[21.366,-157.812],[21.428,-157.845]] },
+  { cat:'ocean', title:'High Surf Warning', sub:'Faces 12 to 18 ft along east-facing shores. Strong currents, avoid entering the water.',
+    k:'UNTIL', v:'6:00 AM Thu', at:[21.410,-157.705],
+    line:[[21.451,-157.729],[21.435,-157.717],[21.412,-157.706],[21.393,-157.704],[21.372,-157.708],[21.352,-157.710]] }
+];
+
+const map = L.map('map', { center:[21.399,-157.752], zoom:12, zoomControl:false, scrollWheelZoom:false });
+L.control.zoom({ position:'bottomright' }).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap contributors', maxZoom:19
+}).addTo(map);
+
+const layers = { power:L.layerGroup().addTo(map), roads:L.layerGroup().addTo(map), weather:L.layerGroup().addTo(map), ocean:L.layerGroup().addTo(map) };
+const handles = [];
+
+function popupHtml(a){
+  const c = COLOR[a.cat];
+  const dark = a.cat === 'roads';
+  const fg = dark ? '#101010' : '#ffffff';
+  const catFg = dark ? 'rgba(0,0,0,.62)' : 'rgba(255,255,255,.75)';
+  return '<div class="pop">'
+    + '<div class="pop-head" style="background:'+c+';color:'+fg+'">'
+    + '<div class="cat" style="color:'+catFg+'">'+LABEL[a.cat]+'</div>'
+    + '<div class="ttl">'+a.title+'</div></div>'
+    + '<div class="pop-body"><div class="sub">'+a.sub+'</div>'
+    + '<div class="kv"><span class="k">'+a.k+'</span><span class="v">'+a.v+'</span></div></div>'
+    + '<a class="pop-link" href="#">OPEN '+LABEL[a.cat]+' DETAIL →</a></div>';
+}
+
+alerts.forEach((a, i) => {
+  const c = COLOR[a.cat];
+  const group = layers[a.cat];
+  let focus;
+
+  if (a.area) {
+    focus = L.polygon(a.area, { color:c, weight:2, opacity:.9, fillColor:c, fillOpacity:.22, dashArray:'6 4' }).addTo(group);
+  } else if (a.line) {
+    focus = L.polyline(a.line, { color:c, weight:9, opacity:.85, lineCap:'butt' }).addTo(group);
+  } else if (a.cat === 'power') {
+    L.circle(a.at, { radius:a.r, color:c, weight:2, fillColor:c, fillOpacity:.2 }).addTo(group);
+    focus = L.circleMarker(a.at, { radius:7, color:'#fff', weight:2, fillColor:c, fillOpacity:1 }).addTo(group);
+  } else {
+    const full = a.severity === 'full';
+    focus = L.marker(a.at, { icon: L.divIcon({
+      className:'', iconSize:[22,22], iconAnchor:[11,11],
+      html:'<div style="width:22px;height:22px;background:'+(full?'#c22e22':c)+';border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font:800 11px/1 Archivo,sans-serif;color:'+(full?'#fff':'#101010')+'">'+(full?'✕':'!')+'</div>'
+    })}).addTo(group);
+  }
+
+  focus.bindPopup(popupHtml(a), { closeButton:true, maxWidth:264, autoPanPadding:[24,24] });
+  handles.push({ a, focus });
+
+  const item = document.createElement('button');
+  item.innerHTML = '<div class="cat">'+LABEL[a.cat]+'</div><div class="ttl">'+a.title+'</div><div class="sub">'+a.sub+'</div>';
+  item.addEventListener('click', () => {
+    map.setView(a.at, 14, { animate:true });
+    focus.openPopup();
+  });
+  item.dataset.cat = a.cat;
+  document.getElementById('maplistItems').appendChild(item);
+});
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const cat = chip.dataset.cat;
+    const on = chip.getAttribute('aria-pressed') === 'true';
+    chip.setAttribute('aria-pressed', String(!on));
+    if (on) map.removeLayer(layers[cat]); else map.addLayer(layers[cat]);
+    document.querySelectorAll('#maplistItems button[data-cat="'+cat+'"]').forEach(b => b.style.display = on ? 'none' : 'block');
+  });
+});
+
+const wrap = document.getElementById('mapwrap');
+const btn = document.getElementById('expandBtn');
+const label = document.getElementById('expandLabel');
+btn.addEventListener('click', () => {
+  const tall = wrap.classList.toggle('tall');
+  btn.setAttribute('aria-expanded', String(tall));
+  label.textContent = tall ? 'COLLAPSE MAP' : 'EXPAND MAP';
+  map.scrollWheelZoom[tall ? 'enable' : 'disable']();
+  setTimeout(() => {
+    map.invalidateSize();
+    if (tall) window.scrollTo({ top: wrap.offsetTop - 8, behavior:'smooth' });
+  }, 300);
+});
+</script>
+</body>
+</html>

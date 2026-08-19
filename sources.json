@@ -1,0 +1,557 @@
+{
+  "schemaVersion": "0.2",
+  "updatedAt": "2026-08-18T15:00:00-10:00",
+  "notes": "Registry of official emergency information sources for Hawaii, plus timestamped reports observed during a specific event. Reports are NEVER status assertions. Every report must carry sourceName, sourceUrl and reportedAt, and the UI must render 'confirm before you travel' alongside them.",
+  "counties": [
+    {
+      "id": "HIC001",
+      "name": "Hawaii County",
+      "displayName": "Hawaiʻi Island",
+      "islands": [
+        "Hawaiʻi"
+      ],
+      "emAgency": "Hawaiʻi County Civil Defense",
+      "phones": [
+        {
+          "label": "Civil Defense",
+          "number": "808-935-0031"
+        },
+        {
+          "label": "Sandbags / Public Works",
+          "number": "808-961-8349"
+        }
+      ],
+      "planLinks": {
+        "zone": {
+          "name": "Look up your evacuation zone",
+          "url": "https://hawaiicountygis.maps.arcgis.com/apps/instant/lookup/index.html?appid=d196b8925d534c1d9c4b0375110f5838",
+          "publisher": "County of Hawaii GIS (HCCDA)"
+        },
+        "more": [
+          {
+            "name": "Live hazards, closures and evacuations",
+            "url": "https://www.arcgis.com/apps/dashboards/5865229bcba74020992b372ef18b6f17",
+            "publisher": "County of Hawaii GIS (HCCDA)"
+          },
+          {
+            "name": "Look up your lava hazard zone",
+            "url": "https://hawaiicountygis.maps.arcgis.com/apps/instant/lookup/index.html?appid=165b51f91ca74763ad21304aeb887f8c",
+            "publisher": "County of Hawaii GIS (HCCDA)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "HIC003",
+      "name": "Honolulu County",
+      "displayName": "Oʻahu",
+      "islands": [
+        "Oʻahu"
+      ],
+      "emAgency": "Honolulu Department of Emergency Management",
+      "phones": [],
+      "planLinks": {
+        "zone": {
+          "name": "Oʻahu Hazard Explorer",
+          "url": "https://www.honolulu.gov/dem/oahu-hazard-explorer/",
+          "publisher": "Honolulu DEM"
+        },
+        "sites": {
+          "name": "Potential hurricane refuge sites",
+          "url": "http://www.honolulu.gov/hurricaneevac",
+          "publisher": "Honolulu DEM"
+        },
+        "alerts": {
+          "name": "Sign up for HNL Alert",
+          "url": "https://www.honolulu.gov/dem/hnl-alert/",
+          "publisher": "Honolulu DEM"
+        },
+        "kit": {
+          "name": "Build a kit",
+          "url": "https://www.honolulu.gov/dem/build-a-kit/",
+          "publisher": "Honolulu DEM"
+        }
+      }
+    },
+    {
+      "id": "HIC007",
+      "name": "Kauai County",
+      "displayName": "Kauaʻi",
+      "islands": [
+        "Kauaʻi",
+        "Niʻihau"
+      ],
+      "emAgency": "Kauaʻi Emergency Management Agency",
+      "phones": [],
+      "planLinks": {
+        "zone": {
+          "name": "Look up your evacuation zone",
+          "url": "https://tsunami.coast.noaa.gov/",
+          "publisher": "NOAA Office for Coastal Management"
+        },
+        "sites": {
+          "name": "Refuge area status",
+          "url": "https://kauaigis.maps.arcgis.com/apps/webappviewer/index.html?id=10e03a2de60b4d3ba620bbeb570b4ade",
+          "publisher": "County of Kauaʻi GIS (KEMA)"
+        }
+      }
+    },
+    {
+      "id": "HIC009",
+      "name": "Maui County",
+      "displayName": "Maui Nui",
+      "islands": [
+        "Maui",
+        "Molokaʻi",
+        "Lānaʻi",
+        "Kahoʻolawe"
+      ],
+      "emAgency": "Maui Emergency Management Agency (MEMA)",
+      "phones": [],
+      "planLinks": {
+        "zone": {
+          "name": "Look up your evacuation zone",
+          "url": "https://tsunami.coast.noaa.gov/",
+          "publisher": "NOAA Office for Coastal Management"
+        },
+        "more": [
+          {
+            "name": "Tsunami maps from Maui County",
+            "url": "https://www.mauicounty.gov/261/Tsunami-Awareness-and-Preparedness",
+            "publisher": "County of Maui"
+          }
+        ]
+      }
+    }
+  ],
+  "sources": [
+    {
+      "id": "hnl-veoci-shelter",
+      "countyId": "HIC003",
+      "name": "Honolulu live shelter dashboard",
+      "publisher": "City & County of Honolulu",
+      "url": "https://p.veoci.com/hnlshelter",
+      "sourceType": "dashboard",
+      "authoritativeFor": [
+        "shelter-status"
+      ],
+      "machineReadable": false,
+      "linkOnly": true,
+      "note": "Renders client-side, tagged noindex. Link out, do not scrape or embed."
+    },
+    {
+      "id": "hnl-veoci-evac",
+      "countyId": "HIC003",
+      "name": "Oʻahu tsunami assembly areas map",
+      "publisher": "City & County of Honolulu",
+      "url": "https://p.veoci.com/hnlevac",
+      "sourceType": "dashboard",
+      "authoritativeFor": [
+        "evacuation-points"
+      ],
+      "machineReadable": false,
+      "linkOnly": true
+    },
+    {
+      "id": "hnl-dem",
+      "countyId": "HIC003",
+      "name": "Department of Emergency Management shelters",
+      "publisher": "City & County of Honolulu",
+      "url": "https://www.honolulu.gov/dem/shelter/",
+      "sourceType": "agency-page",
+      "authoritativeFor": [
+        "shelter-locations",
+        "preparedness"
+      ],
+      "machineReadable": false
+    },
+    {
+      "id": "hnl-mayor",
+      "countyId": "HIC003",
+      "name": "Mayor's office releases",
+      "publisher": "City & County of Honolulu",
+      "url": "https://www.honolulu.gov/mayor/",
+      "sourceType": "press-release",
+      "authoritativeFor": [
+        "shelter-openings",
+        "closures"
+      ],
+      "machineReadable": false,
+      "note": "Where Oʻahu shelter openings are announced first."
+    },
+    {
+      "id": "hawaii-cd",
+      "countyId": "HIC001",
+      "name": "Hawaiʻi County Civil Defense",
+      "publisher": "County of Hawaiʻi",
+      "url": "https://www.hawaiicounty.gov/departments/civil-defense",
+      "sourceType": "agency-page",
+      "authoritativeFor": [
+        "shelter-openings",
+        "road-closures",
+        "alerts"
+      ],
+      "machineReadable": false
+    },
+    {
+      "id": "maui-alerts",
+      "countyId": "HIC009",
+      "name": "County of Maui alert center",
+      "publisher": "County of Maui",
+      "url": "https://www.mauicounty.gov/CivicAlerts.aspx",
+      "sourceType": "press-release",
+      "authoritativeFor": [
+        "temporary-evacuation-points",
+        "closures"
+      ],
+      "machineReadable": false
+    },
+    {
+      "id": "kauai-ema",
+      "countyId": "HIC007",
+      "name": "Kauaʻi Emergency Management Agency",
+      "publisher": "County of Kauaʻi",
+      "url": "https://www.kauai.gov/Government/Departments-Agencies/Emergency-Management-Agency",
+      "sourceType": "agency-page",
+      "authoritativeFor": [
+        "shelter-openings",
+        "alerts"
+      ],
+      "machineReadable": false
+    },
+    {
+      "id": "hiema",
+      "countyId": null,
+      "name": "Hawaiʻi Emergency Management Agency",
+      "publisher": "State of Hawaiʻi",
+      "url": "https://dod.hawaii.gov/hiema/",
+      "sourceType": "agency-page",
+      "authoritativeFor": [
+        "statewide-coordination",
+        "event-pages"
+      ],
+      "machineReadable": false
+    },
+    {
+      "id": "nws-hfo",
+      "countyId": null,
+      "name": "National Weather Service Honolulu",
+      "publisher": "NOAA",
+      "url": "https://www.weather.gov/hfo",
+      "apiUrl": "https://api.weather.gov/alerts/active?area=HI",
+      "sourceType": "alert-feed",
+      "authoritativeFor": [
+        "warnings",
+        "watches",
+        "forecast"
+      ],
+      "machineReadable": true,
+      "cors": true
+    },
+    {
+      "id": "ptwc",
+      "countyId": null,
+      "name": "Pacific Tsunami Warning Center",
+      "publisher": "NOAA",
+      "url": "https://www.tsunami.gov/",
+      "sourceType": "alert-feed",
+      "authoritativeFor": [
+        "tsunami"
+      ],
+      "machineReadable": true
+    },
+    {
+      "id": "heco-outage-map-oahu",
+      "countyId": "HIC003",
+      "name": "Oʻahu outage map",
+      "publisher": "Hawaiian Electric",
+      "url": "https://www.hawaiianelectric.com/safety-and-outages/power-outages/oahu-outage-map",
+      "sourceType": "map",
+      "authoritativeFor": [
+        "power-outage"
+      ],
+      "machineReadable": false,
+      "linkOnly": true,
+      "note": "Blazor app. Its API is bearer-token gated and origin-allowlisted, and HECO's terms forbid republishing. Link out only."
+    },
+    {
+      "id": "heco-outage-map-hawaii",
+      "countyId": "HIC001",
+      "name": "Hawaiʻi Island outage map",
+      "publisher": "Hawaiian Electric",
+      "url": "https://www.hawaiianelectric.com/safety-and-outages/power-outages/hawaii-island-outage-map",
+      "sourceType": "map",
+      "authoritativeFor": [
+        "power-outage"
+      ],
+      "machineReadable": false,
+      "linkOnly": true,
+      "note": "Same gated API as the Oʻahu map. Link out only."
+    },
+    {
+      "id": "heco-outage-map-maui",
+      "countyId": "HIC009",
+      "name": "Maui County outage map",
+      "publisher": "Hawaiian Electric",
+      "url": "https://www.hawaiianelectric.com/safety-and-outages/power-outages/maui-county-outage-map",
+      "sourceType": "map",
+      "authoritativeFor": [
+        "power-outage"
+      ],
+      "machineReadable": false,
+      "linkOnly": true,
+      "note": "Same gated API as the Oʻahu map. Link out only."
+    },
+    {
+      "id": "heco-newsroom",
+      "countyId": null,
+      "name": "Hawaiian Electric newsroom",
+      "publisher": "Hawaiian Electric",
+      "url": "https://www.hawaiianelectric.com/about-us/newsroom",
+      "sourceType": "press",
+      "authoritativeFor": [
+        "power-outage",
+        "restoration-estimate"
+      ],
+      "machineReadable": false,
+      "linkOnly": true,
+      "note": "Dated restoration updates, published for redistribution. This is the only HECO channel the app carries as content, hand entered into POWERREPORTS. No RSS; their Medium feed is feature writing, not storm updates."
+    },
+    {
+      "id": "kiuc-outage-center",
+      "countyId": "HIC007",
+      "name": "Outage center",
+      "publisher": "Kauaʻi Island Utility Cooperative",
+      "url": "https://kiuc.coop/outage-center",
+      "sourceType": "map",
+      "authoritativeFor": [
+        "power-outage"
+      ],
+      "machineReadable": false,
+      "linkOnly": true,
+      "note": "Kauaʻi is KIUC, not Hawaiian Electric. Outage map at kiuc.outagemap.coop; not assessed for auth or terms. Trouble line 808-246-4300 option 5."
+    }
+  ],
+  "events": [
+    {
+      "id": "lala-2026",
+      "name": "Tropical Storm Lala",
+      "startedAt": "2026-08-13",
+      "active": true
+    }
+  ],
+  "reports": [
+    {
+      "eventId": "lala-2026",
+      "countyId": "HIC001",
+      "kind": "shelter",
+      "headline": "Hawaiʻi County shelters opened 6:00 PM Friday, Aug 14",
+      "guidance": "Bring your own food, water and necessary medicine.",
+      "reportedAt": "2026-08-14T05:58:00-10:00",
+      "sourceName": "Hawaii News Now",
+      "sourceUrl": "https://www.hawaiinewsnow.com/2026/08/14/hawaii-county-open-shelters-adjust-bus-service-ahead-tropical-storm-lala/",
+      "confidence": "official-republished",
+      "locations": [
+        {
+          "name": "Ikuo Hisaoka Gymnasium",
+          "address": "54-382 Kamehameha Park Rd, Kapaʻau"
+        },
+        {
+          "name": "Waikoloa Elementary School cafeteria",
+          "address": "68-1730 Hoʻoko St, Waikoloa"
+        },
+        {
+          "name": "Kahilu Town Hall",
+          "address": "67-1182 Lindsey Rd, Waimea"
+        },
+        {
+          "name": "Honokaʻa Gym",
+          "address": "45-541 Lehua St, Honokaʻa"
+        },
+        {
+          "name": "Laupāhoehoe Public Charter School band room",
+          "address": "35-2605 Mamalahoa Hwy, Laupāhoehoe"
+        },
+        {
+          "name": "Waiākea High School Gym",
+          "address": "155 W. Kawili St, Hilo"
+        },
+        {
+          "name": "Keaʻau Armory",
+          "address": "16-512 Volcano Rd, Keaʻau"
+        },
+        {
+          "name": "Pāhoa Neighborhood Facility",
+          "address": "15-2910 Kauhale St, Pāhoa"
+        },
+        {
+          "name": "Robert N. Herkes Gym",
+          "address": "96-1219 Kamani St, Pāhala"
+        },
+        {
+          "name": "Nāʻālehu Elementary School gym",
+          "address": "95-5545 Mamalahoa Hwy, Nāʻālehu"
+        },
+        {
+          "name": "Kealakehe High School Gym",
+          "address": "74-5000 Puohulihuli St, Kailua-Kona"
+        },
+        {
+          "name": "Yano Hall",
+          "address": "Captain Cook",
+          "note": "Listed by Maui Now only; address unconfirmed"
+        }
+      ],
+      "discrepancies": [
+        "Two outlets name the Honokaʻa site differently (Honokaʻa Gym vs Honokaʻa Armory) and the Pāhoa site differently (Neighborhood Facility vs Community Center). Confirm with Civil Defense."
+      ]
+    },
+    {
+      "eventId": "lala-2026",
+      "countyId": "HIC003",
+      "kind": "shelter",
+      "headline": "Oʻahu hurricane refuge areas open 8:00 AM Saturday, Aug 15",
+      "guidance": "Bring your own food, water, medications. Pet-friendly, but pets must be leashed or in a carrier and you supply their food and water.",
+      "reportedAt": "2026-08-14T14:00:00-10:00",
+      "sourceName": "Honolulu Star-Advertiser",
+      "sourceUrl": "https://www.staradvertiser.com/2026/08/14/breaking-news/honolulu-to-open-7-hurricane-refuge-areas-saturday/",
+      "confidence": "official-republished",
+      "locations": [
+        {
+          "name": "Blanche Pope Elementary School",
+          "address": "Waimānalo"
+        },
+        {
+          "name": "Castle High School",
+          "address": "45-386 Kaneohe Bay Dr, Kāneʻohe"
+        },
+        {
+          "name": "Kahuku Elementary School",
+          "address": "56-170 Pualalea St, Kahuku"
+        },
+        {
+          "name": "Kapolei High School",
+          "address": "91-5007 Kapolei Parkway, Kapolei"
+        },
+        {
+          "name": "Mililani High School",
+          "address": "Mililani"
+        },
+        {
+          "name": "Moanalua High School",
+          "address": "Moanalua"
+        },
+        {
+          "name": "Nānākuli Elementary School",
+          "address": "Nānākuli"
+        }
+      ],
+      "discrepancies": [
+        "Eight refuge areas were announced but only seven are named across available reporting. Check p.veoci.com/hnlshelter for the full current list."
+      ]
+    },
+    {
+      "eventId": "lala-2026",
+      "countyId": "HIC009",
+      "kind": "temporary-evacuation-point",
+      "headline": "Maui County temporary evacuation points",
+      "guidance": "TEPs are a safe gathering area only and do not stock supplies. Bring food, water and medications. Pets allowed only in crates or cages. TEPs can convert to full shelters with cots, food and water if conditions warrant.",
+      "reportedAt": "2026-08-14T11:00:00-10:00",
+      "sourceName": "Hawaiʻi Public Radio",
+      "sourceUrl": "https://www.hawaiipublicradio.org/local-news/2026-08-14/where-to-find-shelters-as-tropical-storm-lala-approaches",
+      "confidence": "official-republished",
+      "locations": [
+        {
+          "name": "Baldwin High School",
+          "address": "1650 Kaahumanu Ave, Wailuku",
+          "note": "Opened 7:00 PM Friday"
+        },
+        {
+          "name": "Hāna High & Elementary School cafeteria",
+          "address": "4111 Hāna Hwy, Hāna",
+          "note": "Opened 7:00 PM Friday"
+        },
+        {
+          "name": "Lahaina Civic Center gym",
+          "address": "1840 Honoapiʻilani Hwy, Lahaina",
+          "note": "Opened 7:00 PM Friday"
+        },
+        {
+          "name": "Mayor Hannibal Tavares Community Center",
+          "address": "91 Pukalani St, Pukalani",
+          "note": "Opens 6:00 AM Saturday"
+        },
+        {
+          "name": "South Maui Community Park and Gym",
+          "address": "1501 Liloa Dr, Kīhei",
+          "note": "Opens 6:00 AM Saturday"
+        }
+      ],
+      "discrepancies": [
+        "Molokaʻi and Lānaʻi TEPs are on-call only. Call MEMA or check the county alert center for status."
+      ]
+    },
+    {
+      "eventId": "lala-2026",
+      "countyId": "HIC003",
+      "kind": "power-restoration",
+      "headline": "91% restored statewide as of 11:00 AM, and 95% expected by Friday",
+      "guidance": "Hawaiian Electric expects 95% of impacted customers statewide restored by Friday.",
+      "reportedAt": "2026-08-18T13:00:00-10:00",
+      "sourceName": "Hawaiian Electric",
+      "sourceUrl": "https://www.hawaiianelectric.com/1-pm-update-hawaiian-electric-crews-making-progress-in-power-restorations",
+      "confidence": "official-primary",
+      "caveat": "Hawaiian Electric cautions that outage numbers are a snapshot in time and change often, as customers are restored and new outages occur in the same area."
+    }
+  ],
+  "islands": [
+    {
+      "label": "Oʻahu",
+      "county": "HIC003",
+      "forecastZone": "HIZ033",
+      "lat": 21.3099,
+      "lon": -157.8581
+    },
+    {
+      "label": "Hawaiʻi Island",
+      "county": "HIC001",
+      "forecastZone": "HIZ053",
+      "lat": 19.7297,
+      "lon": -155.09
+    },
+    {
+      "label": "Maui",
+      "county": "HIC009",
+      "forecastZone": "HIZ018",
+      "lat": 20.8783,
+      "lon": -156.6825
+    },
+    {
+      "label": "Molokaʻi",
+      "county": "HIC009",
+      "forecastZone": "HIZ041",
+      "lat": 21.1444,
+      "lon": -157.0226
+    },
+    {
+      "label": "Lānaʻi",
+      "county": "HIC009",
+      "forecastZone": "HIZ015",
+      "lat": 20.8283,
+      "lon": -156.9197
+    },
+    {
+      "label": "Kauaʻi",
+      "county": "HIC007",
+      "forecastZone": "HIZ030",
+      "lat": 21.9811,
+      "lon": -159.3711
+    }
+  ],
+  "alertQuery": {
+    "requirement": "Query both endpoints and merge, de-duplicating on alert id.",
+    "point": "https://api.weather.gov/alerts/active?point={lat},{lon}",
+    "zone": "https://api.weather.gov/alerts/active?zone={forecastZone}",
+    "why": "A point query matches an alert polygon when one exists, so a zone-wide warning can miss a point inside that zone. Verified 2026-08-15: the Hurricane Warning for HIZ053 excluded Hilo and the Tropical Storm Warning for HIZ018 excluded Lahaina."
+  }
+}
