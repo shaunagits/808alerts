@@ -8,7 +8,19 @@
  */
 import { __test } from "./src/index.js";
 
-const { countyBreakdown, outageCount, percentRestored, newestRelease, alertBanner, coordBlocks, decimate } = __test;
+const {
+  countyBreakdown,
+  outageCount,
+  percentRestored,
+  newestRelease,
+  alertBanner,
+  coordBlocks,
+  decimate,
+  parseAtcfLatLon,
+  parseAtcfLine,
+  atcfModelTracks,
+  MODEL_TRACK_ALLOW,
+} = __test;
 
 let pass = 0,
   fail = 0;
@@ -162,6 +174,59 @@ const thinned = decimate(bigRing, 150);
 eq("decimate: shrinks a 400 point ring to at most 150", thinned.length <= 150, true);
 eq("decimate: keeps the ring's true last point so it still closes",
   thinned[thinned.length - 1], bigRing[bigRing.length - 1]);
+
+/* ---- ATCF model-track ("spaghetti") parsing ---- */
+console.log("\natcf model tracks");
+
+eq("parseAtcfLatLon: tenths of a degree, hemisphere sign",
+  parseAtcfLatLon("132N", "1453W"), [-145.3, 13.2]);
+eq("parseAtcfLatLon: southern/eastern hemispheres too",
+  parseAtcfLatLon("54S", "1720E"), [172.0, -5.4]);
+
+eq("parseAtcfLine: reads cycle/tech/tau/lat/lon from a real a-deck row",
+  parseAtcfLine("CP, 02, 2026081906, 03, AC00,   0,  92N, 1357W,  21, 1010, XX,  34, NEQ,    0,    0,    0,    0, "),
+  { cycle: "2026081906", tech: "AC00", tau: 0, lon: -135.7, lat: 9.2 });
+eq("parseAtcfLine: too few fields is null, not a crash", parseAtcfLine("CP, 02"), null);
+eq("parseAtcfLine: blank line is null", parseAtcfLine(""), null);
+
+/* A trimmed but real-shaped a-deck fixture: two cycles (so the older one
+   must be dropped), two allowed models plus one non-allowed ensemble member
+   (AP01, which must not appear), a duplicate tau on AVNI from a second wind
+   radii row (must be deduped to the first value, not doubled), and TVCN
+   consensus. Field values are lifted from the shape of real NHC rows, not
+   invented numbers. */
+const ATCF_FIXTURE = [
+  "EP, 12, 2026090312, 03, AVNI,   0, 136N, 1581W,  55,  985, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, AVNI,  12, 141N, 1605W,  58,  980, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, AVNI,  12, 141N, 1605W,  58,  980, XX,  50, NEQ,   0,", // dup tau, same tech
+  "EP, 12, 2026090312, 03, AVNI,  24, 148N, 1630W,  60,  975, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, UKXI,   0, 136N, 1581W,  50,  990, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, UKXI,  12, 139N, 1598W,  52,  988, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, TVCN,   0, 136N, 1581W,  54,  986, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, TVCN,  12, 140N, 1602W,  56,  982, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, AP01,   0, 136N, 1581W,  51,  989, XX,  34, NEQ,   0,", // not in MODEL_TRACK_ALLOW
+  "EP, 12, 2026090312, 03, AP01,  12, 142N, 1610W,  53,  984, XX,  34, NEQ,   0,",
+  "EP, 12, 2026090312, 03, CMCI,   0, 136N, 1581W,  49,  991, XX,  34, NEQ,   0,", // only 1 point: dropped
+  "EP, 12, 2026090306, 03, AVNI,   0, 130N, 1560W,  40,  995, XX,  34, NEQ,   0,", // older cycle: dropped
+  "EP, 12, 2026090306, 03, AVNI,  12, 133N, 1570W,  42,  993, XX,  34, NEQ,   0,",
+].join("\n");
+
+const modelResult = atcfModelTracks(ATCF_FIXTURE);
+const byTech = Object.fromEntries((modelResult ? modelResult.features : []).map((f) => [f.properties.tech, f]));
+
+eq("atcfModelTracks: keeps AVNI and UKXI and TVCN, drops the 1-point CMCI",
+  Object.keys(byTech).sort(), ["AVNI", "TVCN", "UKXI"]);
+eq("atcfModelTracks: AP01 (not in MODEL_TRACK_ALLOW) never appears",
+  modelResult.features.some((f) => f.properties.tech === "AP01"), false);
+eq("atcfModelTracks: duplicate tau on AVNI deduped to 3 points, not 4",
+  byTech.AVNI.geometry.coordinates.length, 3);
+eq("atcfModelTracks: AVNI line follows tau order, older cycle's [130N,1560W] excluded",
+  byTech.AVNI.geometry.coordinates, [[-158.1, 13.6], [-160.5, 14.1], [-163.0, 14.8]]);
+eq("atcfModelTracks: friendly name is carried on the feature",
+  byTech.AVNI.properties.name, "GFS");
+eq("atcfModelTracks: no rows at all returns null", atcfModelTracks(""), null);
+eq("atcfModelTracks: rows present but none pass the allow-list or point-count filter returns null",
+  atcfModelTracks("EP, 12, 2026090312, 03, AP01,   0, 136N, 1581W,  51,  989, XX,  34, NEQ,   0,"), null);
 
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

@@ -9,7 +9,7 @@
  * in, the same as the direct api.weather.gov / USGS / PacIOOS calls.
  */
 
-import { unzipSync, strFromU8 } from "fflate";
+import { unzipSync, gunzipSync, strFromU8 } from "fflate";
 
 const ALLOW = new Set([
   "https://808alerts.com",
@@ -166,6 +166,122 @@ async function stormExtras(bestTrackUrl, windExtentUrl, arrivalUrl) {
   };
 }
 
+/* Individual model forecast tracks ("spaghetti"), added 2026-09-03. This is a
+ * different feed than the cone/track above: those are NHC's single blended
+ * official forecast, this is where each individual model (GFS, ECMWF, UKMET,
+ * the hurricane-specific dynamical models...) thinks the storm is headed, so
+ * you can see whether the models agree or are pulling apart. NHC do not
+ * publish this as JSON or KML; it comes as a plain-text ATCF "a-deck" file
+ * (aid_public), one per storm, gzipped, at ftp.nhc.noaa.gov. Verified live
+ * 2026-09-03: no Access-Control-Allow-Origin header at all (checked with a
+ * plain curl -I, and separately confirmed a browser-context fetch to it
+ * throws), same as CurrentStorms.json and the KMZ files, so this goes
+ * through the worker like everything else here.
+ *
+ * The file name is `a` + the storm's own id (e.g. `aep122026.dat.gz`), and
+ * NHC's `id` field in CurrentStorms.json is already in that exact form, so
+ * no id translation is needed. The file accumulates every advisory cycle for
+ * the storm's whole life (tens of thousands of lines for a long-lived
+ * storm), so only the newest cycle (max YYYYMMDDHH) is kept.
+ *
+ * NHC carries dozens of "tech" codes per cycle: the ~30 GEFS ensemble
+ * members, statistical intensity-only tools (DSHP, SHIP, LGEM, which have no
+ * track), NHC's own working aids (OFCL is the official forecast, already
+ * drawn as the cone/track; CARQ is the best track, already drawn separately)
+ * and the individual dynamical models. Showing all of them would be an
+ * unreadable tangle and would restate what OFCL/CARQ already draw, so this
+ * keeps only a curated set of the well-known dynamical models plus the
+ * multi-model consensus, using NHC's synoptic-time-*interpolated* variant of
+ * each (the "I" suffix codes) since that is what every other public
+ * spaghetti-plot site draws from and is what lines up to common tau values.
+ * A storm with no model guidance in NHC's most recent cycle (checked against
+ * a storm near the end of its life, 2026-08-25) legitimately returns fewer
+ * lines, sometimes just the consensus; that is not a bug, the feed just
+ * empties out the same honest way every other feed on this page does. */
+const MODEL_TRACK_NAMES = {
+  AVNI: "GFS",
+  UKXI: "UKMET",
+  CMCI: "CMC",
+  NVGI: "NAVGEM",
+  HWFI: "HWRF",
+  HMNI: "HMON",
+  CTCI: "COAMPS-TC",
+  EMXI: "ECMWF",
+  TVCN: "Consensus",
+};
+const MODEL_TRACK_ALLOW = Object.keys(MODEL_TRACK_NAMES);
+
+/* ATCF a-deck lat/lon are tenths of a degree with a trailing hemisphere
+ * letter, e.g. "132N" -> 13.2, "1453W" -> -145.3. */
+function parseAtcfLatLon(latS, lonS) {
+  const lat = ((latS.endsWith("S") ? -1 : 1) * parseFloat(latS)) / 10;
+  const lon = ((lonS.endsWith("W") ? -1 : 1) * parseFloat(lonS)) / 10;
+  return [lon, lat];
+}
+/* One comma-separated a-deck line -> {cycle, tech, tau, lon, lat}, or null
+ * for a line too short/malformed to trust (there are stray blank trailing
+ * lines in some files). Only the first 8 fields (basin, cyclone number,
+ * cycle, tech number, tech, tau, lat, lon) are used; radii and every field
+ * after are irrelevant to a track line and vary in count between tech types. */
+function parseAtcfLine(line) {
+  const f = line.split(",").map((x) => x.trim());
+  if (f.length < 8) return null;
+  const cycle = f[2],
+    tech = f[4],
+    tau = parseInt(f[5], 10),
+    latS = f[6],
+    lonS = f[7];
+  if (!cycle || !tech || !latS || !lonS || !Number.isFinite(tau)) return null;
+  const [lon, lat] = parseAtcfLatLon(latS, lonS);
+  if (!isFinite(lon) || !isFinite(lat)) return null;
+  return { cycle, tech, tau, lon, lat };
+}
+/* The full a-deck file text -> one GeoJSON LineString per allowed model,
+ * latest cycle only, deduped to one point per forecast hour (a tech can
+ * repeat a tau across different wind-radii threshold rows; the first one
+ * wins, radii are not used here). A model with fewer than 2 points forms no
+ * line and is dropped, same "just don't draw it" rule as every other
+ * optional storm layer. */
+function atcfModelTracks(text) {
+  const rows = text.trim().split("\n").map(parseAtcfLine).filter(Boolean);
+  if (!rows.length) return null;
+  let maxCycle = "";
+  for (const r of rows) if (r.cycle > maxCycle) maxCycle = r.cycle;
+  const byTech = {};
+  for (const r of rows) {
+    if (r.cycle !== maxCycle || !MODEL_TRACK_ALLOW.includes(r.tech)) continue;
+    if (!byTech[r.tech]) byTech[r.tech] = new Map();
+    if (!byTech[r.tech].has(r.tau)) byTech[r.tech].set(r.tau, [r.lon, r.lat]);
+  }
+  const features = [];
+  for (const tech of MODEL_TRACK_ALLOW) {
+    const pts = byTech[tech];
+    if (!pts || pts.size < 2) continue;
+    const coords = [...pts.entries()].sort((a, b) => a[0] - b[0]).map(([, ll]) => ll);
+    features.push({
+      type: "Feature",
+      properties: { tech, name: MODEL_TRACK_NAMES[tech] },
+      geometry: { type: "LineString", coordinates: coords },
+    });
+  }
+  return features.length ? { type: "FeatureCollection", features } : null;
+}
+async function modelTracks(id) {
+  if (!id) return null;
+  try {
+    const r = await fetch(`https://ftp.nhc.noaa.gov/atcf/aid_public/a${id}.dat.gz`, {
+      cf: { cacheTtl: 1800 }, // one advisory cycle is ~6h; this is deliberately shorter
+      headers: { "User-Agent": "808alerts.com storm information (contact: shauna.coy@gmail.com)" },
+    });
+    if (!r.ok) return null;
+    const buf = await r.arrayBuffer();
+    const text = strFromU8(gunzipSync(new Uint8Array(buf)));
+    return atcfModelTracks(text);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function hurricane(origin) {
   let all;
   try {
@@ -204,6 +320,7 @@ async function hurricane(origin) {
         s.initialWindExtent && s.initialWindExtent.kmzFile,
         s.mostLikelyTimeTSWindsGIS && s.mostLikelyTimeTSWindsGIS.kmzFile
       );
+      const models = await modelTracks(s.id);
       return {
         id: s.id,
         name: s.name,
@@ -225,6 +342,7 @@ async function hurricane(origin) {
         bestTrackPoints: extra.bestTrackPoints, // GeoJSON MultiPoint, each observed fix
         windExtent: extra.windExtent, // GeoJSON MultiPolygon, current wind radii (unverified shape, see stormExtras)
         arrival: extra.arrival, // GeoJSON MultiPolygon, most-likely TS-force-wind arrival time bands (unverified shape)
+        modelTracks: models, // GeoJSON FeatureCollection, one LineString per model ("spaghetti")
       };
     })
   );
@@ -617,6 +735,11 @@ export const __test = {
   releaseBody,
   coordBlocks,
   decimate,
+  parseAtcfLatLon,
+  parseAtcfLine,
+  atcfModelTracks,
+  MODEL_TRACK_ALLOW,
+  MODEL_TRACK_NAMES,
 };
 
 export default {

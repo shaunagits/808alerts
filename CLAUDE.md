@@ -376,6 +376,41 @@ degrade to the old behaviour if the worker is unreachable.
   default anyway because a bad line still just looks like a line; a wrong wind-extent
   shape could read as a claim about how far damaging wind actually reaches, which is
   exactly the kind of thing invariant 1 exists for.
+- **Added 2026-09-03: individual model tracks ("spaghetti"), off by default, a MODELS
+  chip.** Everything above is NHC's own single blended forecast (cone/track) plus where
+  the storm has actually been (best track). This is different: it shows what each
+  individual model (GFS, ECMWF, UKMET, HWRF, HMON, COAMPS-TC, NAVGEM, plus the
+  multi-model consensus) independently thinks the storm will do, so agreement or
+  disagreement between them is visible, the way tropicaltidbits.com and similar sites
+  show it. NHC does not publish this as JSON or KML like the rest of `/api/hurricane`;
+  it is a plain-text ATCF "a-deck" file, gzipped, one per storm, at
+  `ftp.nhc.noaa.gov/atcf/aid_public/a{storm id}.dat.gz`, where `{storm id}` is exactly
+  `CurrentStorms.json`'s own `id` field (e.g. `ep122026`), no translation needed.
+  **Verified live 2026-09-03**, not assumed: fetched a real current storm's `.dat.gz`,
+  confirmed `curl -I` sends no `Access-Control-Allow-Origin` header at all (same gate as
+  `CurrentStorms.json` and the KMZ files, so this goes through the worker) and a
+  browser-context `fetch()` to it throws, then decompressed and parsed the real file and
+  got 8 legible model lines back (GFS, UKMET, CMC, NAVGEM, HWRF, HMON, COAMPS-TC,
+  Consensus) with real point counts.
+  `modelTracks()` in `worker/src/index.js` fetches and gunzips the file (`fflate`'s
+  `gunzipSync`, a different function than the `unzipSync` already used for KMZ, since
+  this is plain gzip, not a zip archive), keeps only the newest advisory cycle (the file
+  accumulates the storm's whole life, tens of thousands of lines), and keeps only a
+  curated allow-list of the well-known dynamical models plus consensus
+  (`MODEL_TRACK_ALLOW`), using NHC's synoptic-time-interpolated "I" variant of each
+  (`AVNI`, `UKXI`, `CMCI`, `NVGI`, `HWFI`, `HMNI`, `CTCI`, `EMXI`, `TVCN`), not the ~30
+  raw GEFS ensemble members or the statistical intensity-only tools (`DSHP`/`SHIP`/
+  `LGEM`, which carry no track) or `OFCL`/`CARQ` (already drawn separately). A duplicate
+  forecast hour on one model (a second row for a different wind-radii threshold) is
+  deduped to its first value; a model with fewer than two points that cycle is dropped,
+  same "just don't draw it" rule as every other optional layer here. A storm near the
+  end of its life can legitimately return only the consensus line or nothing, checked
+  against a real storm on 2026-08-25; that is not a bug.
+  On the map, each model line is thin, low-opacity, fine-dotted (`dashArray:"1 3"`), and
+  in the same `#c22e22` as every other storm element: **no sixth colour was added**, the
+  palette rule holds, models are told apart by their popup label (tap the line) rather
+  than by colour. `worker/test-parse.mjs` pins the parser (cycle filtering, allow-list,
+  tau dedupe, lat/lon sign parsing) against a fixture built from the real file's shape.
 - **`/api/power?county=`** parses the newest Hawaiian Electric release **tagged to that
   county's island** for its outage count, and is now the only source the POWER band has:
   the hand-entered fallback was deleted 2026-08-28. When the newest release for an island
