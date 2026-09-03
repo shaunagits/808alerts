@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerates the Archivo subset inlined in index-v6.html.
+# Regenerates the Archivo subset inlined in index.html.
 #
 # The design calls for Archivo and Archivo Narrow from Google Fonts. Invariant 5
 # forbids a runtime network request, so the font is subset and base64 inlined.
@@ -56,4 +56,4 @@ PY
 
 cp "$work/archivo.b64" ./archivo.b64
 echo "Wrote tools/archivo.b64. Paste it in place of the base64 payload in the"
-echo "@font-face src of index-v6.html."
+echo "@font-face src of index.html."

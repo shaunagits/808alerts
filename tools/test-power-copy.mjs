@@ -1,6 +1,6 @@
 /* What the POWER band and card actually say, in every state.
  *
- * Lifts the real helpers out of index-v6.html rather than restating them, so
+ * Lifts the real helpers out of index.html rather than restating them, so
  * this tests the shipped copy and not a paraphrase of it. Run after touching
  * anything in the POWER path.
  *
@@ -8,7 +8,7 @@
  */
 import { readFileSync } from "node:fs";
 
-const src = readFileSync(new URL("../index-v6.html", import.meta.url), "utf8");
+const src = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 /* Pull named declarations out of the page source by name. */
 function grab(names) {
@@ -33,7 +33,7 @@ const factory = new Function(
    return {powerLive,powerQuiet,powerCount,powerCountLower,powerOthers,powerSince};`
 );
 
-/* The band copy, copied structurally from renderBands() in index-v6.html. */
+/* The band copy, copied structurally from renderBands() in index.html. */
 function band(state) {
   const H = factory(state);
   const { POWER, S } = state;

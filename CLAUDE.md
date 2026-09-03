@@ -158,18 +158,24 @@ immediately, before anyone picks a location (see "The home map" under The map).
 
 ## Architecture
 
-The web app is a single static `index-v6.html`. A companion **Cloudflare Worker** is now
-planned to pull data that cannot be fetched from the browser (National Hurricane Center
-track and cone, which sends no CORS header, and any licensed outage feed) and re-serve it
-as CORS-open JSON the page fetches. See `docs/worker-plan.md`. The page still renders and
+The web app is a single static `index.html`, deployed straight from the repo root by
+Cloudflare Pages' Git integration (see Deployment below): pushing to `main` is the whole
+deploy, no staging copy, no build command. A companion **Cloudflare Worker** pulls data
+that cannot be fetched from the browser (National Hurricane Center track and cone, which
+sends no CORS header, and the Hawaiian Electric newsroom parse) and re-serves it as
+CORS-open JSON the page fetches. See `docs/worker-plan.md`. The page still renders and
 works with no network; the worker only fills in live data, exactly as the direct
 `api.weather.gov` / USGS / PacIOOS calls already do.
 
-- **`index-v6.html` is the live app** and the only file that is deployed. About 319KB,
-  roughly 123KB gzipped over the wire. It contains markup, CSS, JS, the registry, a
-  base64 Archivo subset and the whole of Leaflet 1.9.4. `index-v5.html` is the previous
-  revision, kept for rollback, and is a completely different design.
-- **There is no build step.** Edit `index-v6.html` directly. An earlier session kept
+- **`index.html` is the live app** and the only file Cloudflare Pages deploys. About
+  319KB, roughly 123KB gzipped over the wire. It contains markup, CSS, JS, the registry,
+  a base64 Archivo subset and the whole of Leaflet 1.9.4. `index-v5.html` is the previous
+  revision, kept for rollback, and is a completely different design. **Renamed from
+  `index-v6.html` on 2026-09-03** when deploys moved from a manual two-directory
+  `wrangler`/`vercel` copy-and-push to Cloudflare Pages deploying the repo root directly;
+  the version-numbered name only made sense when a staging copy step already existed to
+  rename it. Git history is the version record now, not the filename.
+- **There is no build step.** Edit `index.html` directly. An earlier session kept
   split `part1/part2/registry` sources in a scratchpad; `/private/tmp` was cleared and
   they are gone. Do not recreate that split, it only adds a failure mode.
 - The font is a subset of Archivo built by `tools/build-font.sh`. One variable file
@@ -430,7 +436,7 @@ its extent covers Hawaiʻi. Verified 2026-08-18.
 
     https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity/MapServer/export
 
-Implementation in `index-v6.html`: `makeRadarLayer()` is a `L.TileLayer` subclass whose
+Implementation in `index.html`: `makeRadarLayer()` is a `L.TileLayer` subclass whose
 `getTileUrl` builds one `export` request per tile, using the tile's own EPSG:3857 bbox so
 the radar aligns with the basemap grid. `setRadar()` toggles it and runs a six-minute
 refresh while it is visible. Notes for anyone touching it:
@@ -525,7 +531,7 @@ a clone of it. This matters and is the whole reason it is built this way:
   not blocked. KIUC's `kiuc.outagemap.coop` also renders blank framed, which is the
   other reason Kauaʻi has no toggle.
 
-Implementation lives in `index-v6.html`: `HECOMAP` (county to URL), `syncMapSrc()`
+Implementation lives in `index.html`: `HECOMAP` (county to URL), `syncMapSrc()`
 (shows or hides the toggle per island, and resets to our map on every island change so
 one island's map never shows under another) and `setMapSrc()` (swaps the pane and, on
 the way out, **removes the iframe `src`** so their page stops polling in the background).
@@ -812,54 +818,51 @@ mid-event.
 
 ## Deployment
 
-Primary host is **Cloudflare Pages**, project `808alerts`, account
-`<cloudflare-account-email>`. Chosen over Vercel because the free tier has no bandwidth cap,
-and the failure mode to avoid is an emergency page going down because it got popular
-during the emergency. **Vercel** is kept as a live mirror, project `808alerts` (renamed
-from `hawaii-storm-info`) under the team `shaunagits-projects`.
+**Single host, Git-connected, one command: `git push`.** Changed 2026-09-03 at the
+owner's direction ("it's just me, this needs to be simple"). Host is **Cloudflare
+Pages**, project `808alerts`, connected directly to the `shaunagits/808alerts` GitHub
+repo. A push to `main` deploys automatically; there is no manual `wrangler`/`vercel`
+step, no staging directory, and no file to rename before deploying, because `index.html`
+already sits at the repo root and Cloudflare Pages serves the repo root as-is with no
+build command.
 
-Deploy from a directory whose entry file is named `index.html`. The working copy is
-`index-v6.html`, so copy it to a staging directory as `index.html` and deploy that.
-Keep **two separate staging directories**. The Vercel CLI writes a `.vercel/` folder and
-a `vercel.json` into whatever directory it deploys from, and Cloudflare will happily
-publish those, so Cloudflare gets a directory containing nothing but `index.html`.
+**Vercel is retired.** It was kept as a live mirror behind a second manual deploy step;
+that was exactly the complexity being removed here. `808alerts.vercel.app`,
+`808alerts-shaunagits-projects.vercel.app` and `hawaii-storm-info.vercel.app` may still
+resolve to whatever was last deployed there, but nothing updates them any more. Treat
+them as dead links, not a live mirror, until someone either deletes the Vercel project
+or explicitly decides to wire it back up.
 
-**If the Vercel staging dir is recreated from scratch, link it before the first deploy.**
-A fresh directory has no `.vercel/project.json`, so `vercel deploy` silently creates a
-NEW project named after the directory (a `stage` project appeared this way on 2026-08-18)
-instead of updating the `808alerts` mirror. Run first, then deploy:
+**One-time cutover, not yet done as of this writing.** The existing `808alerts` Cloudflare
+Pages project was created with `wrangler pages deploy` (a Direct Upload project), and
+Cloudflare does not support converting a Direct Upload project to Git-integrated in
+place. The path that avoids downtime:
 
-    cd stage && npx vercel link --yes --project 808alerts --scope shaunagits-projects
+1. In the Cloudflare dashboard, Workers & Pages -> Create application -> Pages ->
+   Connect to Git. Pick the `shaunagits/808alerts` repo, branch `main`.
+2. Build settings: framework preset **None**, build command **empty**, build output
+   directory **`/`** (repo root). No environment variables needed.
+3. This creates a **new** project (it cannot reuse the name `808alerts` while the old
+   one still exists, so name it something like `808alerts-live` for now). Confirm it
+   deploys correctly at its own `*.pages.dev` URL before touching anything live.
+4. Once confirmed, move the custom domains: add `808alerts.com` and `www.808alerts.com`
+   as Custom Domains on the new project. Cloudflare will prompt for any DNS change
+   needed; since the zone is already Cloudflare-proxied this is usually automatic.
+5. Remove the custom domains from the old Direct Upload project, then delete it (or
+   leave it paused as a fallback for a few days before deleting).
 
-    cp index-v6.html cf/index.html
-    npx wrangler pages deploy cf --project-name 808alerts --branch main
+`*.pages.dev` subdomains are assigned once at project creation and cannot be renamed or
+reused, which is why this goes through a second project rather than converting in place.
 
-    cp index-v6.html stage/index.html
-    cd stage && npx vercel deploy --prod --yes --scope shaunagits-projects
+Confirm the deployed bytes with a sha256 against the source rather than trusting a green
+deploy:
 
-Confirm the deployed bytes with a sha256 against the source rather than trusting the CLI.
-Wrangler reporting `Uploaded 0 files (1 already uploaded)` is content addressed dedupe,
-not a skipped deploy; the sha is the thing to check.
+    curl -s https://808alerts.com | sha256sum
+    sha256sum index.html
 
-Domains, all serving the same content:
-
-- `808alerts.com` (apex, primary)
-- `www.808alerts.com`
-- `808alerts.pages.dev`
-- `808alerts.vercel.app` and `808alerts-shaunagits-projects.vercel.app`. The first was
-  originally set with `vercel alias set`, which **pins to one deployment and does not
-  follow later production deploys**. It is now attached with `vercel domains add`
-  instead, so it tracks production. If a `.vercel.app` name ever goes stale while the
-  others update, that is the cause.
-- `hawaii-storm-info.vercel.app` still resolves, kept so old links do not break
-
-DNS is two proxied CNAMEs to `808alerts.pages.dev`. Note that `wrangler login` grants
-**no DNS scope at all**, so DNS and redirect rules cannot be managed from the CLI. Those
-need the dashboard or an API token scoped to Zone / DNS / Edit.
-
-After a deploy, the custom domain can briefly serve the previous build while
-`808alerts.pages.dev` already has the new one. Poll until the sha matches rather than
-judging by the first reload.
+After a deploy, the custom domain can briefly serve the previous build while the
+project's own `pages.dev` already has the new one. Poll until the sha matches rather
+than judging by the first reload.
 
 ## Conventions
 
@@ -987,8 +990,13 @@ Ordered by how much they matter. Verified 2026-08-18.
   `cchnl.maps.arcgis.com/apps/webappviewer/index.html?id=14fad086020b4bc8acfcf2e3f79d4329`.
   Switch the scheme. Vet the ArcGIS item first if you link the viewer directly.
 - Shelter coordinates in `REPORTS` are approximate. Yano Hall in Captain Cook is a guess.
-- **Two index files exist and only one is deployed.** `index-v6.html` is live,
-  `index-v5.html` is the rollback. `archive/` holds the two abandoned ones.
+- **Two index files exist and only one is deployed.** `index.html` (renamed from
+  `index-v6.html` 2026-09-03) is live, `index-v5.html` is the rollback. `archive/` holds
+  the two abandoned ones.
+- **Vercel mirror retired 2026-09-03, dashboard cleanup not yet done.** The
+  `*.vercel.app` domains listed under the old Deployment section may still serve a stale
+  build until someone deletes or pauses the Vercel project. They are dead links now, not
+  a live mirror; do not rely on them.
 - `www.808alerts.com` serves rather than redirecting to the apex. A redirect rule needs
   Zone / Rulesets / Edit, which the wrangler token does not carry.
 - **HSTS is inconsistent.** Vercel sends `strict-transport-security`, Cloudflare Pages
