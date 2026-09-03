@@ -1,6 +1,6 @@
 {
   "schemaVersion": "0.2",
-  "updatedAt": "2026-08-18T15:00:00-10:00",
+  "updatedAt": "2026-08-28",
   "notes": "Registry of official emergency information sources for Hawaii, plus timestamped reports observed during a specific event. Reports are NEVER status assertions. Every report must carry sourceName, sourceUrl and reportedAt, and the UI must render 'confirm before you travel' alongside them.",
   "counties": [
     {
@@ -315,7 +315,7 @@
       ],
       "machineReadable": false,
       "linkOnly": true,
-      "note": "Dated restoration updates, published for redistribution. This is the only HECO channel the app carries as content, hand entered into POWERREPORTS. No RSS; their Medium feed is feature writing, not storm updates."
+      "note": "Dated restoration updates, published for redistribution. The only HECO channel the app carries as content. Parsed automatically by the worker (/api/power) from the newest release HECO tag to each island (newsroom filter cat=34 Oahu, 35 Maui County, 36 Hawaii Island); no longer hand entered. No RSS; their Medium feed is feature writing, not storm updates. Releases exist only during an event, so a quiet day has no figure and the page says so rather than showing zero."
     },
     {
       "id": "kiuc-outage-center",
@@ -490,18 +490,6 @@
       "discrepancies": [
         "Molokaʻi and Lānaʻi TEPs are on-call only. Call MEMA or check the county alert center for status."
       ]
-    },
-    {
-      "eventId": "lala-2026",
-      "countyId": "HIC003",
-      "kind": "power-restoration",
-      "headline": "91% restored statewide as of 11:00 AM, and 95% expected by Friday",
-      "guidance": "Hawaiian Electric expects 95% of impacted customers statewide restored by Friday.",
-      "reportedAt": "2026-08-18T13:00:00-10:00",
-      "sourceName": "Hawaiian Electric",
-      "sourceUrl": "https://www.hawaiianelectric.com/1-pm-update-hawaiian-electric-crews-making-progress-in-power-restorations",
-      "confidence": "official-primary",
-      "caveat": "Hawaiian Electric cautions that outage numbers are a snapshot in time and change often, as customers are restored and new outages occur in the same area."
     }
   ],
   "islands": [

@@ -63,9 +63,16 @@ function category(classification, kt) {
   return classification || "Tropical system";
 }
 
-/* NHC serves the forecast cone and track only as KMZ (zipped KML). Unzip,
- * pull the <coordinates> out, and return GeoJSON. The cone is one dense ring
- * (~1500 points); decimate it so the payload stays small. */
+/* NHC serves the forecast cone, track, best track and wind extent shapes only
+ * as KMZ (zipped KML). Unzip, pull the <coordinates> out, and return GeoJSON.
+ * The cone is one dense ring (~1500 points); decimate it so the payload stays
+ * small. This is a generic block extractor, not a full KML parser: it reads
+ * every <coordinates> tag regardless of which Placemark or Folder it sits in,
+ * so it cannot tell a 34kt quadrant from a 64kt one, or a best-track line from
+ * a best-track point beyond point count. That is enough for the cone and
+ * track, already shipped and working. It is NOT yet visually verified for
+ * best track or wind radii KMZ, see fetchStormExtras below before trusting
+ * those two on screen. */
 function kmlFromKmz(buf) {
   const files = unzipSync(new Uint8Array(buf));
   const name = Object.keys(files).find((n) => n.toLowerCase().endsWith(".kml"));
@@ -97,6 +104,38 @@ function decimate(ring, max) {
   if (out[out.length - 1][0] !== last[0] || out[out.length - 1][1] !== last[1]) out.push(last);
   return out;
 }
+/* Fetch one KMZ and split its coordinate blocks into lines (>2 points) and
+ * standalone points (a single coordinate pair), same rule already used for
+ * the forecast track. Used for both the forecast track and the best track. */
+async function kmzLinesPoints(url) {
+  const out = { lines: [], points: [] };
+  if (!url) return out;
+  try {
+    const buf = await fetch(url, { cf: { cacheTtl: 300 } }).then((r) => r.arrayBuffer());
+    const blocks = coordBlocks(kmlFromKmz(buf));
+    out.lines = blocks.filter((b) => b.length > 1).sort((a, b) => b.length - a.length);
+    out.points = blocks.filter((b) => b.length === 1).map((b) => b[0]);
+  } catch (e) {
+    /* leave empty */
+  }
+  return out;
+}
+/* Fetch one KMZ and return every closed ring (>2 points) as a GeoJSON
+ * Polygon, decimated. Wind radii and arrival-time KMZ carry several rings
+ * (one per quadrant, or one per threshold); this returns all of them as a
+ * MultiPolygon rather than picking one, unlike the cone (which is genuinely
+ * a single ring and always takes the largest). */
+async function kmzPolygons(url) {
+  if (!url) return null;
+  try {
+    const buf = await fetch(url, { cf: { cacheTtl: 300 } }).then((r) => r.arrayBuffer());
+    const rings = coordBlocks(kmlFromKmz(buf)).filter((r) => r.length > 2);
+    if (!rings.length) return null;
+    return { type: "MultiPolygon", coordinates: rings.map((r) => [decimate(r, 150)]) };
+  } catch (e) {
+    return null;
+  }
+}
 async function stormGeometry(coneUrl, trackUrl) {
   const g = { cone: null, track: null, points: null };
   try {
@@ -108,19 +147,23 @@ async function stormGeometry(coneUrl, trackUrl) {
   } catch (e) {
     /* leave cone null */
   }
-  try {
-    if (trackUrl) {
-      const buf = await fetch(trackUrl, { cf: { cacheTtl: 300 } }).then((r) => r.arrayBuffer());
-      const blocks = coordBlocks(kmlFromKmz(buf));
-      const lines = blocks.filter((b) => b.length > 1).sort((a, b) => b.length - a.length);
-      const pts = blocks.filter((b) => b.length === 1).map((b) => b[0]); // forecast positions
-      if (lines.length) g.track = { type: "MultiLineString", coordinates: lines };
-      if (pts.length) g.points = { type: "MultiPoint", coordinates: pts };
-    }
-  } catch (e) {
-    /* leave track/points null */
-  }
+  const t = await kmzLinesPoints(trackUrl);
+  if (t.lines.length) g.track = { type: "MultiLineString", coordinates: t.lines };
+  if (t.points.length) g.points = { type: "MultiPoint", coordinates: t.points }; // forecast positions
   return g;
+}
+/* Best track (where the storm has actually been, as opposed to the forecast
+ * cone/track ahead of it) and current wind extent, both new NHC fields this
+ * page was not using. Best effort: any of these can come back null and the
+ * map just does not draw that layer, same failure mode as the cone. */
+async function stormExtras(bestTrackUrl, windExtentUrl, arrivalUrl) {
+  const bt = await kmzLinesPoints(bestTrackUrl);
+  return {
+    bestTrack: bt.lines.length ? { type: "MultiLineString", coordinates: bt.lines } : null,
+    bestTrackPoints: bt.points.length ? { type: "MultiPoint", coordinates: bt.points } : null,
+    windExtent: await kmzPolygons(windExtentUrl),
+    arrival: await kmzPolygons(arrivalUrl),
+  };
 }
 
 async function hurricane(origin) {
@@ -156,6 +199,11 @@ async function hurricane(origin) {
         s.trackCone && s.trackCone.kmzFile,
         s.forecastTrack && s.forecastTrack.kmzFile
       );
+      const extra = await stormExtras(
+        s.bestTrackGIS && s.bestTrackGIS.kmzFile,
+        s.initialWindExtent && s.initialWindExtent.kmzFile,
+        s.mostLikelyTimeTSWindsGIS && s.mostLikelyTimeTSWindsGIS.kmzFile
+      );
       return {
         id: s.id,
         name: s.name,
@@ -173,6 +221,10 @@ async function hurricane(origin) {
         cone: geo.cone, // GeoJSON Polygon (forecast cone of uncertainty)
         track: geo.track, // GeoJSON MultiLineString (forecast center path)
         points: geo.points, // GeoJSON MultiPoint (forecast positions along the track)
+        bestTrack: extra.bestTrack, // GeoJSON MultiLineString, where the storm has actually been
+        bestTrackPoints: extra.bestTrackPoints, // GeoJSON MultiPoint, each observed fix
+        windExtent: extra.windExtent, // GeoJSON MultiPolygon, current wind radii (unverified shape, see stormExtras)
+        arrival: extra.arrival, // GeoJSON MultiPolygon, most-likely TS-force-wind arrival time bands (unverified shape)
       };
     })
   );
@@ -185,11 +237,32 @@ async function hurricane(origin) {
 }
 
 /* ---- /api/power: county outage counts parsed from HECO's newsroom ---------
- * HECO's press releases publish per-county customer outage counts, and press
- * releases are issued for redistribution (unlike the token-gated map API). This
- * parses the newest release. Peak-phase releases give a per-county breakdown;
- * recovery-phase releases give a statewide total and a percent restored. We
- * return whatever the latest release carries, with the source and timestamp.
+ * HECO's press releases publish customer outage counts, and press releases are
+ * issued for redistribution (unlike the token-gated map API, which is bearer
+ * gated AND barred by their terms; see CLAUDE.md before revisiting that).
+ *
+ * Nothing here is hand-maintained. HECO tags every release to the islands it
+ * concerns, and exposes that as a newsroom filter, so each county is answered
+ * from its OWN newest release rather than from whatever went out last.
+ *
+ *   cat=34 Oahu   cat=35 Maui County   cat=36 Hawaii Island
+ *
+ * Two things this must never do, both learned from real releases:
+ *
+ * 1. Never claim a number is statewide because no island was named in the
+ *    sentence. The 2026-08-20 4 p.m. release reads "...restored on Hawaii
+ *    Island. Currently, about 13,000 are without power." Read alone that is a
+ *    statewide claim; read with the sentence before it, it is Hawaiʻi Island.
+ *    Scope is resolved from the sentence, then its neighbours, then the
+ *    release's island tags, and is left null rather than guessed.
+ * 2. Never loosen the per-county breakdown regex past "about|approximately".
+ *    HECO print their outage phone numbers as "Hawaii Island: 1-855-304-9191",
+ *    which a looser pattern reads as an outage count of 1.
+ *
+ * When the newest release for an island carries no figure, that is reported as
+ * exactly that (counts null, with the release date), never as zero outages.
+ * HECO issues releases for events, not for quiet days, so silence is absence of
+ * evidence and the page must say so. Invariants 1 and 6.
  */
 const COUNTY_NAME = {
   HIC001: "Hawaiʻi County",
@@ -197,6 +270,31 @@ const COUNTY_NAME = {
   HIC007: "Kauaʻi County",
   HIC009: "Maui County",
 };
+/* What the band calls the place. The county name is too long for a headline. */
+const COUNTY_SHORT = {
+  HIC001: "Hawaiʻi Island",
+  HIC003: "Oʻahu",
+  HIC007: "Kauaʻi",
+  HIC009: "Maui County",
+};
+/* HECO's own island filter on the newsroom listing. */
+const COUNTY_CAT = { HIC003: 34, HIC009: 35, HIC001: 36 };
+
+/* Island words to county zones, for resolving what a number refers to. */
+const ISLAND_ZONE = [
+  [/\bhawai.?i island\b/i, "HIC001"],
+  [/\bbig island\b/i, "HIC001"],
+  [/\bo.?ahu\b/i, "HIC003"],
+  [/\bmaui county\b/i, "HIC009"],
+  [/\bmaui\b/i, "HIC009"],
+  [/\bmoloka.?i\b/i, "HIC009"],
+  [/\blana.?i\b/i, "HIC009"],
+];
+function zonesIn(text) {
+  const s = new Set();
+  for (const [re, z] of ISLAND_ZONE) if (re.test(text)) s.add(z);
+  return s;
+}
 
 function strip(h) {
   return h
@@ -217,76 +315,309 @@ function intNum(re, t) {
   const m = t.match(re);
   return m ? parseInt(m[1].replace(/,/g, ""), 10) : null;
 }
-function floatNum(re, t) {
-  const m = t.match(re);
-  return m ? parseFloat(m[1]) : null;
+/* Peak-phase releases carry a per-county breakdown under island headings, but
+ * the number does not reliably follow the heading. From 2026-08-18:
+ *
+ *   "Hawaii Island : Approximately 26,900 customers remain without power."
+ *   "Maui County : With a majority of impacted customers brought back online,
+ *    crews are focusing today on ... East Maui. About 2,100 remain without
+ *    power."
+ *
+ * So match the heading, then look for a count inside that island's SECTION,
+ * bounded by the next heading. An earlier version required the number to sit
+ * directly after the colon and silently lost Maui County every time.
+ *
+ * The section is capped because the last heading otherwise runs to the end of
+ * the release and would swallow an unrelated figure. And the count still has to
+ * be followed by "without power", which is what keeps HECO's outage phone
+ * numbers ("Hawaii Island: 1-855-304-9191") from parsing as a count of 1. */
+const COUNTY_HEADING = /(hawai.?i island|o.?ahu|maui county)\s*:/gi;
+function countyBreakdown(body) {
+  const out = { HIC001: null, HIC003: null, HIC009: null };
+  const heads = [];
+  let m;
+  COUNTY_HEADING.lastIndex = 0;
+  while ((m = COUNTY_HEADING.exec(body))) {
+    const z = [...zonesIn(m[1])];
+    if (z.length === 1) heads.push({ zone: z[0], at: m.index, end: m.index + m[0].length });
+  }
+  for (let i = 0; i < heads.length; i++) {
+    const stop = Math.min(heads[i + 1] ? heads[i + 1].at : body.length, heads[i].end + 600);
+    const section = body.slice(heads[i].end, stop);
+    const c = section.match(OUTAGE_RE);
+    if (!c) continue;
+    const n = parseInt(c[2].replace(/,/g, ""), 10);
+    // First heading wins: HECO list each island once, and a later mention is
+    // more likely to be a cross reference than a fresh figure.
+    if (Number.isFinite(n) && out[heads[i].zone] == null) out[heads[i].zone] = n;
+  }
+  return out;
 }
-/* The breakdown lines always read "County: About N" or "County: Approximately N",
- * so requiring that word avoids matching a stray number after a county name. */
-function countyCount(namePattern, t) {
-  return intNum(new RegExp(namePattern + ":\\s*(?:about|approximately)\\s*([\\d,]+)", "i"), t);
+
+/* Every phrasing seen across the ten Lala releases, 2026-08-20 to 08-28:
+ *   "Fewer than 400 customers remain without power."
+ *   "Approximately 1,430 Hawaii Island customers remain without power."
+ *   "As of this afternoon, about 6,460 customers remain without power."
+ *   "Currently, about 11,290 without power."      (no "customers")
+ *   "About 13,380 are still without power."
+ * The qualifier is captured so the page can say "Fewer than 400", which is what
+ * HECO said, rather than rounding it to "About 400". */
+/* The island or "statewide" can sit either side of the word "customers":
+ *   "1,430 Hawaii Island customers remain without power"   (before)
+ *   "9,000 customers statewide are without power"          (after)
+ * so "customers" is optional on both sides of the scope group. */
+const OUTAGE_RE =
+  /(about|approximately|roughly|nearly|fewer than|more than|over|at least)?\s*([\d][\d,]*)\s*(?:customers?\s+)?(hawai.?i island|o.?ahu|maui county|maui|statewide)?\s*(?:customers?\s*)?(?:are|is|remain|remains|remaining)?\s*(?:still\s*)?without power/i;
+
+/* Split into sentences and return the one containing `index`, with the sentence
+ * either side. Scope lives in that window more often than in the sentence. */
+function sentenceWindow(text, index) {
+  const parts = text.split(/(?<=\.)\s+/);
+  let run = 0,
+    at = 0;
+  for (let i = 0; i < parts.length; i++) {
+    if (index >= run && index < run + parts[i].length + 1) {
+      at = i;
+      break;
+    }
+    run += parts[i].length + 1;
+  }
+  return {
+    sentence: parts[at] || "",
+    window: parts.slice(Math.max(0, at - 1), at + 2).join(" "),
+  };
 }
-function newestRelease(listHtml) {
-  const m = listHtml.match(
-    /href="(\/(?:\d{1,2}-[ap]m|noon|\d{1,2}-a\.?m|midnight)[^"]*update[^"]*)"[^>]*>([^<]{10,160})</i
+
+/* The outage count, plus what it refers to. `scope` is a county zone, the
+ * string "STATE", or null when the release does not make it clear. Null is a
+ * real answer and the caller must not treat it as statewide. */
+function outageCount(body, taggedZones) {
+  const m = body.match(OUTAGE_RE);
+  if (!m) return null;
+  const count = parseInt(m[2].replace(/,/g, ""), 10);
+  if (!Number.isFinite(count)) return null;
+  const qualifier = (m[1] || "").toLowerCase() || null;
+
+  // Stated outright in the sentence: believe it.
+  if (m[3]) {
+    const w = m[3].toLowerCase();
+    if (/statewide/.test(w)) return { count, qualifier, scope: "STATE" };
+    const z = zonesIn(m[3]);
+    if (z.size === 1) return { count, qualifier, scope: [...z][0] };
+  }
+  const { sentence, window } = sentenceWindow(body, m.index);
+  if (/\bstatewide\b/i.test(sentence)) return { count, qualifier, scope: "STATE" };
+  const near = zonesIn(window);
+  if (near.size === 1) return { count, qualifier, scope: [...near][0] };
+  // The release itself is tagged to exactly one island.
+  if (taggedZones && taggedZones.size === 1) return { count, qualifier, scope: [...taggedZones][0] };
+  return { count, qualifier, scope: null };
+}
+
+/* "80% of impacted customers have been restored on Hawaii Island" puts the
+ * island AFTER the verb, so look either side of "restored". */
+function percentRestored(body) {
+  const m = body.match(
+    /([\d.]+)\s*%\s*of\s*(?:all\s*)?(?:impacted\s*)?customers\s*([^.]{0,60}?)restored([^.]{0,60})/i
   );
-  return m ? { path: m[1], title: m[2].replace(/\s+/g, " ").trim() } : null;
+  if (!m) return null;
+  const pct = parseFloat(m[1]);
+  if (!Number.isFinite(pct)) return null;
+  const ctx = (m[2] || "") + " " + (m[3] || "");
+  if (/\bstatewide\b/i.test(ctx)) return { pct, scope: "STATE" };
+  const z = zonesIn(ctx);
+  return { pct, scope: z.size === 1 ? [...z][0] : null };
 }
+
+/* Newest release in a newsroom listing, by DATE rather than document order:
+ * the promoted "featured" item sits above the list and is usually older. */
+function newestRelease(listHtml) {
+  const items = [];
+  const re =
+    /([A-Z][a-z]{2,8}\s+\d{1,2},\s+(\d{4}))\s*<\/[^>]+>[\s\S]{0,600}?href="(\/[a-z0-9][a-z0-9\-]{14,})"[^>]*>\s*([^<]{10,180})</g;
+  let m;
+  while ((m = re.exec(listHtml))) {
+    const when = Date.parse(m[1]);
+    if (!Number.isFinite(when)) continue;
+    items.push({ when, date: m[1], path: m[3], title: m[4].replace(/\s+/g, " ").trim() });
+  }
+  if (!items.length) return null;
+  items.sort((a, b) => b.when - a.when);
+  return items[0];
+}
+
+/* HECO raise a site-wide alert banner during an event and drop it afterwards.
+ * It is their own "something is happening" flag, so it answers the statewide
+ * question without us inferring anything from silence. */
+function alertBanner(listHtml) {
+  const m = listHtml.match(/alert_icon\.png[\s\S]{0,400}?href="([^"]+)"[^>]*>\s*([^<]{10,200})</i);
+  if (!m) return null;
+  return { url: m[1].startsWith("http") ? m[1] : "https://www.hawaiianelectric.com" + m[1],
+           headline: m[2].replace(/\s+/g, " ").trim() };
+}
+
+const HECO_UA = {
+  "User-Agent": "808alerts.com storm information (contact: shauna.coy@gmail.com)",
+};
+const newsroom = (cat) =>
+  "https://www.hawaiianelectric.com/about-us/newsroom" + (cat ? "?year=" + new Date().getUTCFullYear() + "&cat=" + cat : "");
 
 async function power(origin, county) {
   if (!county || !COUNTY_NAME[county]) return json({ available: false, error: "bad county" }, 60, origin);
   if (county === "HIC007")
-    return json({ available: false, note: "Kauaʻi is served by KIUC, not Hawaiian Electric." }, 300, origin);
+    return json(
+      {
+        available: false,
+        county,
+        countyName: COUNTY_NAME[county],
+        countyShort: COUNTY_SHORT[county],
+        utility: "KIUC",
+        note: "Kauaʻi is served by Kauaʻi Island Utility Cooperative, not Hawaiian Electric.",
+        sourceUrl: "https://kiuc.outagemap.coop/",
+      },
+      300,
+      origin
+    );
 
-  const ua = { "User-Agent": "808alerts.com storm information (contact: shauna.coy@gmail.com)" };
-  let rel, relHtml;
+  const cat = COUNTY_CAT[county];
+  let rel, relHtml, banner = null, taggedZones = null;
   try {
-    const listHtml = await fetch("https://www.hawaiianelectric.com/about-us/newsroom", {
-      cf: { cacheTtl: 300 },
-      headers: ua,
-    }).then((r) => r.text());
-    rel = newestRelease(listHtml);
+    // This county's own listing, plus the unfiltered one for the event banner.
+    const [islandHtml, allHtml] = await Promise.all([
+      fetch(newsroom(cat), { cf: { cacheTtl: 300 }, headers: HECO_UA }).then((r) => r.text()),
+      fetch(newsroom(null), { cf: { cacheTtl: 300 }, headers: HECO_UA }).then((r) => r.text()),
+    ]);
+    banner = alertBanner(allHtml);
+    rel = newestRelease(islandHtml);
     if (!rel) return json({ available: false, error: "no release found" }, 120, origin);
+
+    // Which islands is this release tagged to? Used only to resolve the scope
+    // of a number when the prose does not say. One extra pair of fetches, both
+    // edge cached, and it stops a Hawaiʻi Island count being called statewide.
+    const others = await Promise.all(
+      Object.entries(COUNTY_CAT)
+        .filter(([z]) => z !== county)
+        .map(([z, c]) =>
+          fetch(newsroom(c), { cf: { cacheTtl: 300 }, headers: HECO_UA })
+            .then((r) => r.text())
+            .then((h) => [z, h.includes('href="' + rel.path + '"')])
+            .catch(() => [z, false])
+        )
+    );
+    taggedZones = new Set([county, ...others.filter(([, hit]) => hit).map(([z]) => z)]);
+
     relHtml = await fetch("https://www.hawaiianelectric.com" + rel.path, {
       cf: { cacheTtl: 300 },
-      headers: ua,
+      headers: HECO_UA,
     }).then((r) => r.text());
   } catch (e) {
     return json({ available: false, error: "fetch failed" }, 60, origin);
   }
 
   const body = releaseBody(strip(relHtml));
-  const counts = {
-    HIC001: countyCount("Hawai.?i Island", body),
-    HIC003: countyCount("Oahu", body),
-    HIC009: countyCount("Maui County", body),
-  };
-  const totalStatewide = intNum(/about\s*([\d,]+)\s*customers?\s*(?:are|remain)\s*without power/i, body);
-  const percentRestored = floatNum(/([\d.]+)\s*%\s*of\s*(?:all\s*)?(?:impacted\s*)?customers/i, body);
-  const asOf = (body.match(/as of ([\d: ]+[ap]\.?m\.?)/i) || [])[1] || null;
-  const releaseDate = (strip(relHtml).match(/Release Date:\s*([\d/]+)/i) || [])[1] || null;
-  const out = counts[county];
+
+  // Peak-phase releases carry an explicit per-county breakdown. Prefer it: it
+  // is HECO's own attribution of a number to an island, so nothing is inferred.
+  const breakdown = countyBreakdown(body);
+  const hasBreakdown = Object.values(breakdown).some((v) => v != null);
+
+  const single = outageCount(body, taggedZones);
+  const pct = percentRestored(body);
+
+  // `out` is only ever this county's number. A count scoped to another island,
+  // or to nothing we can pin down, is not shown as if it were local.
+  let out = breakdown[county];
+  let outQualifier = out != null ? "about" : null;
+  let totalStatewide = null;
+  if (single) {
+    if (single.scope === "STATE") totalStatewide = single.count;
+    else if (single.scope === county && out == null) {
+      out = single.count;
+      outQualifier = single.qualifier;
+    }
+  }
+  if (hasBreakdown && single && single.scope === "STATE") totalStatewide = single.count;
+
+  // Deliberately NOT returned: a count scoped to another island. This county's
+  // newest tagged release can be days behind that island's own newest one, so
+  // the number would be stale the moment it was shown somewhere it is not
+  // local. On 2026-08-28 the Oʻahu-tagged release still said 6,390 for Hawaiʻi
+  // Island while the live figure there was under 400. The event banner below
+  // carries the same "something is happening elsewhere" signal, and it is
+  // current because HECO maintain it.
+
+  // A time with no number attached is noise, and implies a precision we do not
+  // have, so it is only kept when a count came out of the same release.
+  const hasCount = out != null || totalStatewide != null;
+  const asOf = hasCount
+    ? (body.match(/as of ([\d]{1,2}(?::[\d]{2})?\s*[ap]\.?\s?m\.?)/i) || [])[1] || null
+    : null;
+  const releaseDate = (strip(relHtml).match(/Release Date:\s*([\d/]+)/i) || [])[1] || rel.date || null;
+  const published = Number.isFinite(rel.when) ? new Date(rel.when).toISOString().slice(0, 10) : null;
+  // Floor, not round: a release from this morning must never read "1 day ago".
+  const daysSince = Number.isFinite(rel.when)
+    ? Math.max(0, Math.floor((Date.now() - rel.when) / 86400000))
+    : null;
 
   return json(
     {
+      // A number for THIS county, or a statewide total, is what "available"
+      // means. Everything else is the honest no-count state, which still
+      // carries the release date so the page can say when HECO last spoke.
       available: out != null || totalStatewide != null,
       county,
       countyName: COUNTY_NAME[county],
-      out,                        // customers out in this county (null in recovery-phase releases)
-      totalStatewide,             // statewide customers out
-      percentRestored,            // statewide, when the release states it
+      countyShort: COUNTY_SHORT[county],
+      out,
+      outQualifier,
+      totalStatewide,
+      statewideQualifier: totalStatewide != null && single ? single.qualifier : null,
+      // Every county figure this release actually stated, so the detail card
+      // can show the wider picture without us summing anything. HECO do not
+      // publish a statewide outage total, and adding their county numbers up
+      // ourselves would be our arithmetic presented as their figure, and an
+      // undercount whenever they list only some islands. Do not add one.
+      breakdown: Object.entries(breakdown)
+        .filter(([, n]) => n != null)
+        .map(([z, n]) => ({ zone: z, name: COUNTY_SHORT[z], count: n })),
+      percentRestored: pct ? pct.pct : null,
+      percentRestoredScope: pct ? pct.scope : null,
+      percentRestoredScopeName: pct && pct.scope && pct.scope !== "STATE" ? COUNTY_SHORT[pct.scope] : null,
+      // HECO's own event flag. Absent is NOT proof that nothing is happening.
+      eventActive: !!banner,
+      eventHeadline: banner ? banner.headline : null,
+      eventUrl: banner ? banner.url : null,
       asOf,
       releaseDate,
+      published,
+      daysSince,
       title: rel.title,
       source: "Hawaiian Electric",
       sourceUrl: "https://www.hawaiianelectric.com" + rel.path,
       caveat:
         "Outage numbers are a snapshot in time and change often as customers are restored and new outages occur.",
+      // Said plainly so the page never has to imply it.
+      coverage:
+        "Hawaiian Electric issue news releases for storms and major events, not for everyday outages. No release does not mean no outages.",
     },
     300,
     origin
   );
 }
+
+/* Exposed for test-parse.mjs only. The parsing rules here were each derived
+ * from a real release, so they get a regression test rather than a comment. */
+export const __test = {
+  countyBreakdown,
+  outageCount,
+  percentRestored,
+  newestRelease,
+  alertBanner,
+  strip,
+  releaseBody,
+  coordBlocks,
+  decimate,
+};
 
 export default {
   async fetch(request) {

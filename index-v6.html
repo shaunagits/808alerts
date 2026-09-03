@@ -97,6 +97,10 @@ button,input{font:inherit;border-radius:0}
   }
 
 /* -------------------------------------------------------------------- hero */
+/* Once a location is known the compact strip below replaces this whole
+   section (its own relocate controls, moved from here, see moveLocateControls()
+   in the script), matching docs/Home - Located.dc.html. */
+body.located .hero{display:none}
 .hero{background:var(--ink);padding:28px var(--pad) 24px}
 .hero h1{
   margin:0;
@@ -150,6 +154,17 @@ button,input{font:inherit;border-radius:0}
   font-weight:600;font-stretch:77%;font-size:10.5px;line-height:1;letter-spacing:.12em;
   color:var(--muted2);white-space:nowrap;
 }
+/* Once a location is known, the hero's relocate form (#where), its error
+   text (#note) and the disambiguation list (#isles) move here (see
+   moveLocateControls()) rather than staying in the now-hidden hero, so
+   changing location stays possible without scrolling back to the top. */
+.loc-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;min-width:200px}
+.loc-ctl .controls{margin-top:0;gap:8px;flex:none;width:auto}
+.loc-ctl .controls>*{flex:none}
+.loc-ctl .go{padding:10px 14px;min-height:0}
+.loc-ctl .zip{padding:8px 12px;min-height:0;width:150px}
+.loc-ctl .note{margin:0;flex-basis:100%}
+.loc-ctl .isles{margin-top:0;flex-basis:100%}
 @media (min-width:1024px){
   .loc{padding:18px var(--pad);align-items:baseline}
   .loc-l{gap:18px}
@@ -208,10 +223,21 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
    grid from 2b is replaced by this at desktop; the map now carries the weight
    the feature tile used to. */
 @media (min-width:1024px){
-  .board{display:grid;grid-template-columns:1.15fr 1fr;gap:2px;background:var(--surface);align-items:stretch}
-  .mapwrap{height:auto;min-height:640px}
-  .mapwrap.tall{grid-column:1/-1;height:calc(100vh - 76px)}
+  /* Single column: the map sits full width across the top always, home page
+     or located, exactly the way the home map already looked before a
+     location was picked. Changed 2026-09-03 at the owner's request; the map
+     used to sit left at 1.15fr with the five bands beside it at 1fr only
+     once a location was known. That two column split is gone. */
+  .board{display:grid;grid-template-columns:1fr;gap:2px;background:var(--surface)}
+  /* Capped, not min-height, per docs/Home - Located.dc.html: the map is a
+     card, not the whole fold. The bands right below it are the primary
+     above-the-fold content now. */
+  .mapwrap{height:360px}
+  .mapwrap.tall{height:calc(100vh - 76px)}
   .board:has(.mapwrap.tall) #bands{display:none}
+  /* Before a location is chosen #bands is empty (nothing to show yet); hide
+     it so an empty grid item does not leave a stray gap line under the map. */
+  .board:has(.mapwrap.home) #bands{display:none}
   #bands{display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;gap:2px}
   .band,.band.feature{
     display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:22px;
@@ -1369,6 +1395,7 @@ body.detail .board,body.detail .mapnote{display:none}
     <span class="loc-nm" id="locName"></span>
     <span class="loc-is" id="locIsle"></span>
   </span>
+  <span class="loc-ctl" id="stripCtl"></span>
   <span class="loc-up" id="locUp"></span>
 </section>
 
@@ -1656,42 +1683,14 @@ const REPORTS=[
   ]}
 ];
 
-/* Hawaiian Electric publishes no feed this page may use: the outage map API is
-   bearer-token gated and their terms forbid republishing the map content. What
-   they do publish for redistribution is a dated press update, which is the same
-   shape as a news report and gets the same treatment. Invariant 1: this is a
-   report with a source and a time, never a live reading. Invariant 3: no entry
-   renders without srcName, srcUrl and at. Re-enter these by hand from
-   hawaiianelectric.com/about-us/newsroom as the event moves. Kauaʻi is KIUC,
-   not Hawaiian Electric, so it has no entry and keeps the no feed state. */
-const POWERREPORTS=[
- {c:"HIC003",kind:"Restoration update",
-  band:"More than 91% of customers statewide had power",
-  headline:"91% restored statewide as of 11:00 AM, and 95% expected by Friday",
-  guide:"Hawaiian Electric expects 95% of impacted customers statewide restored by Friday.",
-  note:"37 teams of engineers were dispatched Tuesday on Oʻahu and Hawaiʻi Island to assess damage, with helicopters and drones covering remote terrain.",
-  disc:"Hawaiian Electric cautions that outage numbers are a snapshot in time and change often, as customers are restored and new outages occur in the same area.",
-  at:"Reported Aug 18, 1:00 PM HST",srcName:"Hawaiian Electric",
-  srcUrl:"https://www.hawaiianelectric.com/1-pm-update-hawaiian-electric-crews-making-progress-in-power-restorations"},
-
- {c:"HIC001",kind:"Restoration update",
-  band:"Parts of Hawaiʻi Island face at least two more weeks",
-  headline:"Puna, Kohala and Kaʻū were told to expect at least two more weeks",
-  guide:"Hawaiian Electric named Puna, North and South Kohala, southern Kaʻū, Nāʻālehu, Punaluʻu and Kīlauea as remote or severely damaged areas outside the Friday target. Plan for an extended outage in those areas.",
-  note:"Statewide, more than 91% of customers had power as of 11:00 AM, and 95% are expected restored by Friday except these areas.",
-  disc:"Hawaiian Electric cautions that outage numbers are a snapshot in time and change often, as customers are restored and new outages occur in the same area.",
-  at:"Reported Aug 18, 1:00 PM HST",srcName:"Hawaiian Electric",
-  srcUrl:"https://www.hawaiianelectric.com/1-pm-update-hawaiian-electric-crews-making-progress-in-power-restorations"},
-
- {c:"HIC009",kind:"Restoration update",
-  band:"More than 91% of customers statewide had power",
-  headline:"91% restored statewide as of 11:00 AM, Maui assessment still under way",
-  guide:"Hawaiian Electric expects 95% of impacted customers statewide restored by Friday. Damage assessment in Maui County was still under way.",
-  note:"Helicopters and drones were being used on Maui to assess damage in remote areas with rugged terrain.",
-  disc:"Hawaiian Electric cautions that outage numbers are a snapshot in time and change often, as customers are restored and new outages occur in the same area.",
-  at:"Reported Aug 18, 1:00 PM HST",srcName:"Hawaiian Electric",
-  srcUrl:"https://www.hawaiianelectric.com/1-pm-update-hawaiian-electric-crews-making-progress-in-power-restorations"}
-];
+/* Hawaiian Electric outage counts are NOT hand-entered. They come from the
+   worker, which reads the newest release Hawaiian Electric have tagged to this
+   island in their own newsroom. An earlier revision kept a POWERREPORTS array
+   here, retyped from a press release during Hurricane Lala; it was deleted
+   2026-08-28 because stale restoration figures are worse than none and it had
+   sat at "more than 91% of customers had power" for ten days. If a number is
+   needed on this panel, fix the parser in worker/src/index.js. Do not
+   reintroduce a hand-maintained array. */
 
 /* ============================ helpers ============================ */
 
@@ -1709,9 +1708,8 @@ const up=s=>String(s).toUpperCase();
    a source URL or a reported-at time is not rendered at all. */
 const reportOK=r=>!!(r&&r.srcName&&r.srcUrl&&r.at&&Array.isArray(r.locs)&&r.locs.length);
 
-/* Same rule for a power update, which carries a headline instead of locations. */
-const powerReportOK=r=>!!(r&&r.srcName&&r.srcUrl&&r.at&&r.headline);
-const powerReport=()=>POWERREPORTS.find(r=>r.c===S.c&&powerReportOK(r))||null;
+/* The same rule for a power update is enforced in the worker, which will not
+   report a count without the release it came from, its date and its URL. */
 
 /* Hawaiian Electric's own outage map, per island, shown on demand behind a
    toggle. It is THEIR page loaded in an iframe, not our data and not a clone:
@@ -1856,15 +1854,18 @@ function bearingTo(lat,lon){
 }
 
 /* Active tropical systems near Hawaiʻi, from NOAA NHC via the worker. Each gets
-   its distance and compass bearing from the user added. */
+   its distance and compass bearing from the user added, when there is a user
+   location to measure from; the home map (no location yet) shows them with
+   neither. */
 async function loadHurricane(){
   try{
     const r=await fetch(API_BASE+"/api/hurricane"); if(!r.ok) throw 0;
     const j=await r.json();
+    const haveLoc=typeof S.lat==="number";
     HURRICANES=(j.storms||[]).map(h=>({...h,
-        dist:miles(S.lat,S.lon,h.position[0],h.position[1]),
-        dir:compass(bearingTo(h.position[0],h.position[1]))}))
-      .sort((a,b)=>a.dist-b.dist);
+        dist:haveLoc?miles(S.lat,S.lon,h.position[0],h.position[1]):null,
+        dir:haveLoc?compass(bearingTo(h.position[0],h.position[1])):null}))
+      .sort((a,b)=>(a.dist??0)-(b.dist??0));
   }catch(_){ HURRICANES=[]; }
 }
 
@@ -1876,6 +1877,39 @@ async function loadPower(){
   }catch(_){ POWER=false; }
 }
 const powerLive=()=>!!(POWER&&POWER.available&&(POWER.out!=null||POWER.totalStatewide!=null));
+/* The worker answered, but Hawaiian Electric's newest release for this island
+   carries no figure. That is a real state with real content (when they last
+   spoke, and about what), not a failure, and it is NOT evidence of zero
+   outages. Invariant 6. */
+const powerQuiet=()=>!!(POWER&&!POWER.available&&!POWER.error&&POWER.published);
+
+/* "Fewer than 400" is what Hawaiian Electric said; rounding it to "About 400"
+   would be us restating their figure more confidently than they did. */
+const powerCount=(n,q)=>{
+  const t=n.toLocaleString();
+  if(!q) return t;
+  const w=q.toLowerCase();
+  return (w==="fewer than"||w==="more than"||w==="at least"||w==="over")
+    ? w.charAt(0).toUpperCase()+w.slice(1)+" "+t
+    : "About "+t;
+};
+/* Sentence-case for a sub-line, where the count is not the first word. */
+const powerCountLower=(n,q)=>{
+  const s=powerCount(n,q);
+  return s.charAt(0).toLowerCase()+s.slice(1);
+};
+/* Every other county figure the same release stated. Hawaiian Electric do not
+   publish a statewide outage total, and summing their county numbers here
+   would present our arithmetic as their figure, so the wider picture is shown
+   as their own per-island numbers instead. */
+const powerOthers=()=>(POWER&&Array.isArray(POWER.breakdown)?POWER.breakdown:[])
+  .filter(b=>b.zone!==S.c);
+/* How long since Hawaiian Electric last published anything for this island. */
+const powerSince=()=>{
+  if(!POWER||!POWER.published) return "";
+  const d=new Date(POWER.published+"T00:00:00");
+  return isNaN(d)?"":d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+};
 
 /* One line describing a storm relative to the user. */
 function stormLine(h){
@@ -2006,22 +2040,40 @@ function buildBands(){
   }
 
   /* Invariant 6: no feed is not the same as nothing happening, and the copy
-     has to carry that since the colour no longer can. */
+     has to carry that since the colour no longer can.
+
+     Four states, and the difference between the last two is the point:
+       live   Hawaiian Electric published a number for this island.
+       quiet  They published, but not a figure for this island. Says so, and
+              says when they last spoke. Never "no outages".
+       kiuc   Kauaʻi is not their territory at all.
+       down   The worker did not answer. No claim either way. */
   if(powerLive()){
     const t=POWER.asOf?", as of "+POWER.asOf.replace(/\.$/,""):"";
+    const where=POWER.countyShort||POWER.countyName;
+    const others=powerOthers();
+    /* The wider picture as Hawaiian Electric's own per-island figures. There is
+       no statewide total to show: they do not publish one. */
+    const rest=others.length
+      ? others.map(b=>b.name+" "+b.count.toLocaleString()).join(", ")+". "
+      : "";
     c.POWER=POWER.out!=null
-      ? {head:"About "+POWER.out.toLocaleString()+" without power in "+POWER.countyName,
-         sub:"Hawaiian Electric"+t+". A snapshot, not a live reading."}
-      : {head:"About "+POWER.totalStatewide.toLocaleString()+" without power statewide"+
+      ? {head:powerCount(POWER.out,POWER.outQualifier)+" without power on "+where,
+         sub:rest+"Hawaiian Electric"+t+". A snapshot, not a live reading."}
+      : {head:powerCount(POWER.totalStatewide,POWER.statewideQualifier)+" without power statewide"+
               (POWER.percentRestored?", "+POWER.percentRestored+"% restored":""),
          sub:"Hawaiian Electric"+t+". A snapshot, not a live reading."};
+  }else if(powerQuiet()){
+    const since=powerSince();
+    c.POWER={head:"No storm outages reported for "+(POWER.countyShort||POWER.countyName),
+      sub:"Hawaiian Electric has not reported one since "+since+
+          ". This does not cover everyday outages. Check their map for your block."};
+  }else if(POWER&&POWER.utility==="KIUC"){
+    c.POWER={head:"Outages here are not tracked yet",
+      sub:"Kauaʻi is served by KIUC, not Hawaiian Electric, and KIUC publish no feed we can read. Check KIUC.",feed:false};
   }else{
-    const pr=powerReport();
-    c.POWER=pr
-      ? {head:pr.band||pr.headline,
-         sub:"Reported by "+pr.srcName+". Not a live reading. Check "+UTILITY(S.c)+" for your block."}
-      : {head:"Outages are not tracked here yet",
-         sub:"No outage feed. Check "+UTILITY(S.c)+".",feed:false};
+    c.POWER={head:"Outage reports are not loading",
+      sub:"We could not reach Hawaiian Electric's updates. That is not a reading either way. Check "+UTILITY(S.c)+".",feed:false};
   }
   if(CLOSURES){
     c.ROADS=CLOSURES.length
@@ -2073,7 +2125,10 @@ function metaWord(cat){
   if(top) return level(top.properties.event);
   if(cat==="ROADS"&&CLOSURES) return CLOSURES.length?"ACTIVE":"NONE ACTIVE";
   if(cat==="EMERGENCY"&&SHELTERS) return SHELTERS.open.length?"SHELTERS LISTED OPEN":"NONE LISTED OPEN";
-  if(cat==="POWER"&&(powerLive()||powerReport())) return "REPORTED";
+  /* "REPORTED" only when Hawaiian Electric actually gave a figure. The quiet
+     state is not a report of anything, so it must not claim to be one. */
+  if(cat==="POWER"&&powerLive()) return "REPORTED";
+  if(cat==="POWER"&&powerQuiet()) return "NO FIGURE PUBLISHED";
   if(cat==="EMERGENCY"&&REPORTS.some(r=>r.c===S.c&&reportOK(r))) return "REPORTED";
   return "NOTHING ACTIVE";
 }
@@ -2114,25 +2169,54 @@ function noFeedPanel(cat){
     footBlock({...d,foot:"Nothing on this panel is a live reading."},null);
 }
 
-/* A Hawaiian Electric press update is a report, not a feed, so it renders in
-   the same card as a shelter report and carries the same source line. With no
-   valid report the panel falls all the way back to the honest empty state. */
-/* The live county outage count from Hawaiian Electric's newsroom, as a report:
-   its number, the county, the release time, and the snapshot caveat. */
+/* The outage count from Hawaiian Electric's newest release for this island,
+   rendered as a report: their number, what it covers, when they said it, and
+   the snapshot caveat. Invariant 1, a press release is a report and not a live
+   reading, and it says so on the card. */
 function powerLiveBlock(){
   if(!powerLive()) return "";
   const t=POWER.asOf?"AS OF "+up(POWER.asOf):(POWER.releaseDate?"RELEASED "+esc(POWER.releaseDate):"");
+  const where=POWER.countyShort||POWER.countyName;
   const head=POWER.out!=null
-    ? "About "+POWER.out.toLocaleString()+" customers without power in "+POWER.countyName
-    : "About "+POWER.totalStatewide.toLocaleString()+" customers without power statewide"+
-      (POWER.percentRestored?" ("+POWER.percentRestored+"% restored)":"");
+    ? powerCount(POWER.out,POWER.outQualifier)+" customers without power on "+where
+    : powerCount(POWER.totalStatewide,POWER.statewideQualifier)+" customers without power statewide";
+  const others=powerOthers();
+  const pct=POWER.percentRestored!=null
+    ? POWER.percentRestored+"% of impacted customers"+
+      (POWER.percentRestoredScopeName?" on "+POWER.percentRestoredScopeName:
+       POWER.percentRestoredScope==="STATE"?" statewide":"")+" restored."
+    : "";
   return `<article class="sh">
       <div class="sh-top"><span class="u">HAWAIIAN ELECTRIC${t?" &middot; "+t:""}</span>
         <h3>${esc(head)}</h3></div>
       <p class="confirm">A snapshot from Hawaiian Electric's latest update, not a live per-block reading. It changes often.</p>
-      ${(POWER.out!=null&&POWER.totalStatewide)?`<p class="guide">Statewide, about ${POWER.totalStatewide.toLocaleString()} customers are without power${POWER.percentRestored?", "+POWER.percentRestored+"% restored":""}.</p>`:""}
+      ${pct?`<p class="guide">${esc(pct)}</p>`:""}
+      ${others.length?`<p class="guide">Also reported in the same update: ${
+        esc(others.map(b=>b.name+", "+powerCountLower(b.count,"about")).join("; "))
+      }. Hawaiian Electric do not publish a statewide total.</p>`:""}
       <p class="disc">Note: ${esc(POWER.caveat||"Outage numbers are a snapshot in time and change often.")}</p>
       <p class="attrib">${esc(up(POWER.title||"Hawaiian Electric update"))} &middot; SOURCE
+        <a href="${esc(POWER.sourceUrl||"https://www.hawaiianelectric.com/about-us/newsroom")}" target="_blank" rel="noopener">Hawaiian Electric</a></p>
+    </article>`;
+}
+
+/* Hawaiian Electric published, but said nothing about this island. That is the
+   common case between events, and it is the state most easily rendered
+   dishonestly. It must never read as "no outages": they issue releases for
+   storms and major events, not for quiet days, so this is absence of evidence.
+   What it CAN say truthfully is when they last spoke about this island, and
+   whether they currently have an event running anywhere. */
+function powerQuietBlock(){
+  if(!powerQuiet()) return "";
+  const where=POWER.countyShort||POWER.countyName;
+  const since=powerSince();
+  return `<article class="sh">
+      <div class="sh-top"><span class="u">HAWAIIAN ELECTRIC${since?" &middot; LAST UPDATE "+up(since):""}</span>
+        <h3>${esc("No storm outages reported for "+where)}</h3></div>
+      <p class="confirm">This is not a reading that your power is on. Hawaiian Electric have not published an outage figure for ${esc(where)} since ${esc(since)}.</p>
+      <p class="guide">${esc(POWER.coverage||"Hawaiian Electric issue news releases for storms and major events, not for everyday outages. No release does not mean no outages.")}</p>
+      ${POWER.eventActive&&POWER.eventHeadline?`<p class="disc">Hawaiian Electric are currently reporting: ${esc(POWER.eventHeadline)}</p>`:""}
+      <p class="attrib">${esc(up(POWER.title||"Hawaiian Electric newsroom"))} &middot; SOURCE
         <a href="${esc(POWER.sourceUrl||"https://www.hawaiianelectric.com/about-us/newsroom")}" target="_blank" rel="noopener">Hawaiian Electric</a></p>
     </article>`;
 }
@@ -2155,11 +2239,17 @@ function tropicalBlock(){
 }
 
 function hurrPop(h){
+  /* With no user location yet (the home map), there is nothing to measure
+     distance and bearing from, so state the storm's own position instead. */
+  const where=h.dist!=null
+    ? `${Math.round(h.dist).toLocaleString()} mi ${esc(h.dir)} of ${esc(up(S.label||""))}`
+    : `near ${Math.abs(h.position[0]).toFixed(1)}&#176;${h.position[0]>=0?"N":"S"}, `+
+      `${Math.abs(h.position[1]).toFixed(1)}&#176;${h.position[1]>=0?"E":"W"}`;
   return `<div class="pop-head" style="background:var(--warn);color:#fff">`+
       `<span class="k" style="color:rgba(255,255,255,.75)">TROPICAL SYSTEM</span>`+
       `<span class="t">${esc(h.category)} ${esc(h.name)}</span></div>`+
     `<div class="pop-body"><span class="s">${esc(h.windsMph)} mph winds${h.pressureMb?", "+esc(h.pressureMb)+" mb":""}. `+
-      `${Math.round(h.dist).toLocaleString()} mi ${esc(h.dir)} of ${esc(up(S.label||""))}`+
+      `${where}`+
       `${h.movement?", moving "+esc(compass(h.movement.dirDeg))+" at "+esc(h.movement.speedMph)+" mph":""}.</span></div>`+
     (h.advisoryUrl
       ? `<a class="pop-link" href="${esc(h.advisoryUrl)}" target="_blank" rel="noopener">NHC ADVISORY &#8594;</a>`
@@ -2167,23 +2257,14 @@ function hurrPop(h){
 }
 
 function panelPower(){
-  const live=powerLive(), r=powerReport();
-  if(!r && !live) return noFeedPanel("POWER");
+  /* Kauaʻi is KIUC territory and the worker never has a figure for it, and a
+     worker that did not answer is not a reading either. Both fall through to
+     the honest empty panel rather than borrowing another island's number. */
+  if(!powerLive() && !powerQuiet()) return noFeedPanel("POWER");
   const d=DETAIL.POWER, res=resFor(d.grp), tel=d.tel&&d.tel(S.c);
   return mapBlock(d,true)+
     powerLiveBlock()+
-    (r?`<article class="sh">
-      <div class="sh-top">
-        <span class="u">${esc(up(r.kind))} &middot; ${esc(up(r.srcName))}</span>
-        <h3>${esc(r.headline)}</h3>
-      </div>
-      <p class="confirm">This is a report, not live status. It cannot tell you whether your own block is out.</p>
-      <p class="guide">${esc(r.guide)}</p>
-      ${r.note?`<p class="guide">${esc(r.note)}</p>`:""}
-      ${r.disc?`<p class="disc">Note: ${esc(r.disc)}</p>`:""}
-      <p class="attrib">${esc(up(r.at))} &middot; SOURCE
-        <a href="${esc(r.srcUrl)}" target="_blank" rel="noopener">${esc(r.srcName)}</a></p>
-    </article>`:"")+
+    powerQuietBlock()+
     `<div class="d-sec"><span class="d-h">GO STRAIGHT TO THE SOURCE</span>
        <div class="d-text">${esc(d.foot)}</div></div>`+
     (res?`<a class="act" href="${esc(res.url)}" target="_blank" rel="noopener">${esc(res.nm)}</a>`:"")+
@@ -2380,6 +2461,23 @@ const TILE_ATTR="Basemap Esri &middot; Data USGS, NWS, Hawaiʻi County Civil Def
 
 const CATCOLOR={POWER:"var(--warn)",WEATHER:"#c22e22",ROADS:"#e8a317",OCEAN:"#1c6f7d",EMERGENCY:"#101010"};
 let MAP=null, MAPLAYERS={}, MAPON={}, MAPFEATS=[], MAPAT=null, HURRLAYER=null;
+/* Tracks whether the located map has already been fit to include a nearby
+   storm for the CURRENT location + the storm data known so far. Reset to
+   false whenever the map is (re)built or the location changes, so the fit
+   runs again once (see drawMap/fitLocalView), but not on every routine
+   drawMap() call a band refresh triggers, which would fight a hand pan. */
+let mapFitStorms=false;
+/* Wind field (current radii) and arrival time bands are extra NHC layers, off
+   by default: they are drawn from a generic KMZ-ring extractor that has not
+   been checked against a real live shape yet (see stormExtras in the worker),
+   so they sit behind an explicit toggle rather than drawing automatically. */
+let STORMLAYER_ON={wind:false,arrival:false};
+
+/* Statewide floor for the map before a location is chosen: Niʻihau to
+   Hawaiʻi Island with ocean padding, so the islands never sit flush against
+   the edge. A storm fit (see fitStormView) only ever extends this, never
+   shrinks below it. */
+const HI_BOUNDS=L.latLngBounds([18.85,-160.6],[22.45,-154.5]);
 
 /* Live NWS base-reflectivity radar, drawn as a semi-transparent overlay only
    when the user toggles it on. NOAA's symbolized MapServer is keyless, sends
@@ -2461,6 +2559,47 @@ function setRadar(on){
   const rn=$("radarnote");
   if(rn){ rn.hidden=!on;
     if(on) rn.textContent="Live National Weather Service radar is on. If the map looks unchanged, there is no rain over this area right now, not a layer that failed to load."; }
+}
+
+/* Live GOES-West satellite imagery (true-color by day, infrared blended in at
+   night), NASA's GIBS service. Verified 2026-09-03: keyless, genuine CORS
+   (checked with a real cross-origin fetch, not just assumed), refreshes
+   about every 10 minutes. GOES-West, not GOES-East, because Hawaiʻi and the
+   Central Pacific are its coverage area; GOES-East looks at the Americas and
+   Atlantic. Off by default, own pane so it is not caught by the basemap's
+   grayscale(1) filter, no fetch until toggled on: invariant 5 still holds. */
+const SAT_SRC="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-West_ABI_GeoColor/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png";
+/* On by default (owner's request, 2026-09-03): unlike radar/hazard/wind
+   field, this starts ON so a first-time visitor sees real cloud cover, not
+   a flat grayscale ocean, without having to find the chip. Toggling off
+   still works and resets to on next load, same as every other map chip;
+   nothing here is persisted. */
+let SAT_ON=true, SATLAYER=null, satTimer=null, satStamp=0;
+
+function setSatellite(on){
+  if(!MAP) return;
+  SAT_ON=on;
+  if(on){
+    if(!MAP.getPane("satellite")){
+      /* Just above the basemap tile pane (200), below the wave/radar/hazard
+         panes and well below markers, so it sits as a base layer replacement
+         with everything else still drawn on top of it. */
+      MAP.createPane("satellite");
+      MAP.getPane("satellite").style.zIndex=205;
+    }
+    if(!SATLAYER) SATLAYER=L.tileLayer(SAT_SRC+"?t="+satStamp,{tileSize:256,maxNativeZoom:7,minZoom:0,
+      pane:"satellite",
+      attribution:'Satellite <a href="https://www.star.nesdis.noaa.gov/GOES/" target="_blank" rel="noopener">NOAA/NASA GOES-West</a>'});
+    SATLAYER.addTo(MAP);
+    if(!satTimer) satTimer=setInterval(()=>{
+      if(SAT_ON&&SATLAYER){ satStamp++; SATLAYER.setUrl(SAT_SRC+"?t="+satStamp); }
+    },600000);
+  }else{
+    if(SATLAYER) MAP.removeLayer(SATLAYER);
+    if(satTimer){ clearInterval(satTimer); satTimer=null; }
+  }
+  const chip=document.querySelector('#filters [data-sat]');
+  if(chip) chip.setAttribute("aria-pressed",on?"true":"false");
 }
 
 /* Static hazard reference zones from the Hawaiʻi Statewide GIS Hazards service,
@@ -2567,25 +2706,141 @@ function mapFeatures(){
   return out;
 }
 
+/* Statewide + storm view shown before a location is picked: Hawaiʻi, always,
+   widened to include every active tropical system from the worker so a
+   storm well offshore is not just present on the map but actually on
+   screen. With no storms active it simply rests on HI_BOUNDS. */
+/* The worker's own filter (see hurricane() in worker/src/index.js) is
+   deliberately broad, any storm west of 125W that COULD concern Hawaiʻi, so
+   the WEATHER band and TROPICAL SYSTEMS list do not miss one. That is too
+   broad for the default zoom: a storm curving north into the open Pacific
+   1,500 miles out would otherwise force the home map out to a nearly empty
+   ocean view every single day it's active. "On track to affect Hawaiʻi" is
+   read from the storm's own forecast, not guessed from its raw position:
+   does its cone (the 5-day uncertainty area NHC itself publishes) or, with
+   no cone, its current position, come within about 300 miles of the state.
+   A storm recurving away, like a system out near 135-150W with a cone that
+   stays there, correctly does not pull the zoom out for it. */
+function stormNearHawaii(h){
+  try{
+    const geomBounds=h.cone?L.geoJSON(h.cone).getBounds():L.latLngBounds(h.position,h.position);
+    const pad=4.3; // roughly 300 statute miles at this latitude
+    const near=L.latLngBounds(
+      [HI_BOUNDS.getSouth()-pad,HI_BOUNDS.getWest()-pad],
+      [HI_BOUNDS.getNorth()+pad,HI_BOUNDS.getEast()+pad]);
+    return near.intersects(geomBounds);
+  }catch(_){ return false; }
+}
+
+function fitStormView(){
+  const b=L.latLngBounds(HI_BOUNDS.getSouthWest(),HI_BOUNDS.getNorthEast());
+  (HURRICANES||[]).filter(stormNearHawaii).forEach(h=>{
+    try{
+      if(h.cone) b.extend(L.geoJSON(h.cone).getBounds());
+      else if(h.position) b.extend(h.position);
+    }catch(_){ /* a malformed cone should not block the fit */ }
+  });
+  MAP.fitBounds(b,{padding:[24,24]});
+}
+
+/* The located-state counterpart to fitStormView(): same "is a storm really
+   on track to affect Hawaiʻi" test (stormNearHawaii), but anchored on the
+   user's own location instead of the whole state, so a quiet day still
+   shows the familiar zoom-11 local view. A rough neighbourhood box
+   (roughly what zoom 11 already frames) stands in for that local view as
+   the base bounds, then gets extended for any storm that passes the same
+   ~300 mile test used on the home map, so the located board zooms out to
+   keep it in frame instead of staying pinned to a local view that no
+   longer shows the thing that matters. */
+function fitLocalView(){
+  const near=(HURRICANES||[]).filter(stormNearHawaii);
+  if(!near.length){ MAP.setView([S.lat,S.lon],11); return; }
+  const pad=.12; // roughly the neighbourhood a zoom-11 view already covers
+  const b=L.latLngBounds([S.lat-pad,S.lon-pad],[S.lat+pad,S.lon+pad]);
+  near.forEach(h=>{
+    try{
+      if(h.cone) b.extend(L.geoJSON(h.cone).getBounds());
+      else if(h.position) b.extend(h.position);
+    }catch(_){ /* a malformed cone should not block the fit */ }
+  });
+  MAP.fitBounds(b,{padding:[24,24],maxZoom:11});
+}
+
+/* Tropical systems, drawn on top; they sit far offshore, so the home map
+   (see fitStormView) zooms out to include them, and the per-location board
+   map shows them once it is zoomed out too. Split out of drawMap so both the
+   home state and the located state can call it without duplicating it. */
+function drawStorms(){
+  if(HURRLAYER){ MAP.removeLayer(HURRLAYER); HURRLAYER=null; }
+  if(HURRICANES&&HURRICANES.length){
+    HURRLAYER=L.layerGroup();
+    HURRICANES.forEach(h=>{
+      /* Where the storm has actually been, drawn first so everything else
+         sits on top of it: a lighter, thinner line than the forecast track,
+         and filled (not hollow) points, so past reads as settled fact and
+         the forecast ahead reads as the part that is still uncertain. */
+      if(h.bestTrack) HURRLAYER.addLayer(L.geoJSON(h.bestTrack,{style:{color:"#c22e22",weight:1.5,opacity:.5}}));
+      if(h.bestTrackPoints) HURRLAYER.addLayer(L.geoJSON(h.bestTrackPoints,{pointToLayer:(f,ll)=>
+        L.circleMarker(ll,{radius:2.5,color:"#c22e22",weight:1,fillColor:"#c22e22",fillOpacity:.7})}));
+      /* Current wind extent and most-likely arrival time, both off by default
+         (see STORMLAYER_ON above): outline only, no dash, so they read as
+         "right now" against the cone's dashed "the forecast could go here". */
+      if(STORMLAYER_ON.wind&&h.windExtent) HURRLAYER.addLayer(L.geoJSON(h.windExtent,{style:{color:"#c22e22",
+          weight:1,opacity:.45,fillColor:"#c22e22",fillOpacity:.16}})
+        .bindPopup("Current wind extent (34kt or greater), from NOAA NHC.",{maxWidth:240}));
+      if(STORMLAYER_ON.arrival&&h.arrival) HURRLAYER.addLayer(L.geoJSON(h.arrival,{style:{color:"#c22e22",
+          weight:1,opacity:.35,fillColor:"#c22e22",fillOpacity:.08,dashArray:"2 3"}})
+        .bindPopup("Most likely time tropical-storm-force winds arrive, from NOAA NHC.",{maxWidth:240}));
+      /* Forecast cone of uncertainty, then the forecast centre track, then the
+         storm marker on top. */
+      if(h.cone) HURRLAYER.addLayer(L.geoJSON(h.cone,{style:{color:"#c22e22",weight:1.5,
+        opacity:.5,fillColor:"#c22e22",fillOpacity:.12,dashArray:"4 3"}}));
+      if(h.track) HURRLAYER.addLayer(L.geoJSON(h.track,{style:{color:"#c22e22",weight:2.5,opacity:.85}}));
+      if(h.points) HURRLAYER.addLayer(L.geoJSON(h.points,{pointToLayer:(f,ll)=>
+        L.circleMarker(ll,{radius:3.5,color:"#c22e22",weight:2,fillColor:"#fff",fillOpacity:1})}));
+      const m=L.marker(h.position,{zIndexOffset:1000,icon:L.divIcon({className:"",
+        iconSize:[34,34],iconAnchor:[17,17],
+        html:'<div class="hurr"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="16" cy="16" r="2.4" fill="#fff" stroke="none"/><path d="M16 6 C25 7 25 15 17 15"/><path d="M16 26 C7 25 7 17 15 17"/></svg></div>'})});
+      m.bindPopup(hurrPop(h),{closeButton:true,maxWidth:280,autoPanPadding:[24,24]});
+      HURRLAYER.addLayer(m);
+    });
+    HURRLAYER.addTo(MAP);
+  }
+}
+
 function drawMap(){
   const wrap=$("mapwrap");
-  MAPFEATS=mapFeatures();
-  /* The map shows wherever you are, incidents or not. Hiding it when a county
-     publishes nothing reads as broken, and hides the fact that nothing is
-     being published. */
-  if(!S.c){ wrap.hidden=true; $("mapnote").hidden=true; return; }
+  /* Before a location is picked this is the home map: Hawaiʻi and any nearby
+     tropical systems, no county-specific layers. Once a location is picked
+     the map shows wherever you are, incidents or not; hiding it when a
+     county publishes nothing reads as broken, and hides the fact that
+     nothing is being published. Either way the map itself always renders. */
+  MAPFEATS=S.c?mapFeatures():[];
   wrap.hidden=false;
+  wrap.classList.toggle("home",!S.c);
+  wrap.setAttribute("aria-label",S.c
+    ?"Map of active alerts near your location"
+    :"Map of Hawaiʻi and active tropical systems in the Central Pacific");
 
   if(!MAP){
-    MAP=L.map("map",{center:[S.lat,S.lon],zoom:11,zoomControl:false,scrollWheelZoom:false});
+    const center=S.c?[S.lat,S.lon]:HI_BOUNDS.getCenter(), zoom=S.c?11:6;
+    MAP=L.map("map",{center,zoom,zoomControl:false,scrollWheelZoom:false});
     /* bottom right, so it never collides with the category chips */
     L.control.zoom({position:"bottomright"}).addTo(MAP);
     L.tileLayer(TILES,{maxZoom:17,attribution:TILE_ATTR}).addTo(MAP);
     MAPAT=S.label;
-  }else if(MAPAT!==S.label){
-    /* the map is reused across locations, so it has to follow the strip */
+    mapFitStorms=false;
+    /* SAT_ON defaults to true, so this actually turns the layer on for a
+       first-time visitor rather than just recording that it should be on. */
+    if(SAT_ON) setSatellite(true);
+  }else if(S.c&&MAPAT!==S.label){
+    /* the map is reused across locations, so it has to follow the strip.
+       This is an immediate placeholder view: HURRICANES may not have
+       loaded yet for a fresh pick, so fitLocalView() below corrects it
+       to a wider view once storm data is actually known. */
     MAP.setView([S.lat,S.lon],11);
     MAPAT=S.label;
+    mapFitStorms=false;
   }
   Object.values(MAPLAYERS).forEach(l=>MAP.removeLayer(l));
   MAPLAYERS={};
@@ -2627,35 +2882,30 @@ function drawMap(){
     if(MAPON[cat]) g.addTo(MAP);
   });
 
-  /* Tropical systems, drawn on top; they sit far offshore, so they show when
-     the map is zoomed out to the basin. */
-  if(HURRLAYER){ MAP.removeLayer(HURRLAYER); HURRLAYER=null; }
-  if(HURRICANES&&HURRICANES.length){
-    HURRLAYER=L.layerGroup();
-    HURRICANES.forEach(h=>{
-      /* Forecast cone of uncertainty, then the forecast centre track, then the
-         storm marker on top. */
-      if(h.cone) HURRLAYER.addLayer(L.geoJSON(h.cone,{style:{color:"#c22e22",weight:1.5,
-        opacity:.5,fillColor:"#c22e22",fillOpacity:.12,dashArray:"4 3"}}));
-      if(h.track) HURRLAYER.addLayer(L.geoJSON(h.track,{style:{color:"#c22e22",weight:2.5,opacity:.85}}));
-      if(h.points) HURRLAYER.addLayer(L.geoJSON(h.points,{pointToLayer:(f,ll)=>
-        L.circleMarker(ll,{radius:3.5,color:"#c22e22",weight:2,fillColor:"#fff",fillOpacity:1})}));
-      const m=L.marker(h.position,{zIndexOffset:1000,icon:L.divIcon({className:"",
-        iconSize:[34,34],iconAnchor:[17,17],
-        html:'<div class="hurr"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="16" cy="16" r="2.4" fill="#fff" stroke="none"/><path d="M16 6 C25 7 25 15 17 15"/><path d="M16 26 C7 25 7 17 15 17"/></svg></div>'})});
-      m.bindPopup(hurrPop(h),{closeButton:true,maxWidth:280,autoPanPadding:[24,24]});
-      HURRLAYER.addLayer(m);
-    });
-    HURRLAYER.addTo(MAP);
+  drawStorms();
+  if(!S.c) fitStormView();
+  else if(!mapFitStorms&&HURRICANES!==null){
+    /* Runs once per location, once storm data is actually in (not on the
+       synchronous first call from setLoc(), where HURRICANES is still
+       null; loadHurricane()'s own drawMap() call is what fires this). A
+       later band refresh calling drawMap() again leaves mapFitStorms
+       true, so it never re-fights a hand pan or zoom. */
+    fitLocalView();
+    mapFitStorms=true;
   }
 
   $("filters").innerHTML=cats.map(c=>
     `<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${!!MAPON[c]}">
        <i style="background:${CATCOLOR[c]}"></i>${esc(c)} ${MAPFEATS.filter(f=>f.cat===c).length}</button>`).join("")
     +`<button class="chip" type="button" data-radar aria-pressed="${RADAR_ON}" title="Live NWS rain radar">RADAR</button>`
-    +`<button class="chip" type="button" data-haz="tsunami" aria-pressed="${HAZON.tsunami}" title="Tsunami evacuation zones">TSUNAMI ZONE</button>`;
+    +`<button class="chip" type="button" data-sat aria-pressed="${SAT_ON}" title="Live GOES-West satellite imagery">SATELLITE</button>`
+    +`<button class="chip" type="button" data-haz="tsunami" aria-pressed="${HAZON.tsunami}" title="Tsunami evacuation zones">TSUNAMI ZONE</button>`
+    +(HURRICANES&&HURRICANES.some(h=>h.windExtent)
+      ?`<button class="chip" type="button" data-storm="wind" aria-pressed="${STORMLAYER_ON.wind}" title="Current tropical-storm-force wind extent">WIND FIELD</button>`:"")
+    +(HURRICANES&&HURRICANES.some(h=>h.arrival)
+      ?`<button class="chip" type="button" data-storm="arrival" aria-pressed="${STORMLAYER_ON.arrival}" title="Most likely arrival of tropical-storm-force winds">ARRIVAL TIME</button>`:"");
 
-  $("scalenote").textContent=up(S.label||"")+" AND NEARBY";
+  $("scalenote").textContent=S.c?up(S.label||"")+" AND NEARBY":"HAWAIʻI & THE CENTRAL PACIFIC";
   $("maplistHead").textContent=MAPFEATS.length+" ON THIS MAP";
   $("maplistItems").innerHTML=MAPFEATS.map((f,i)=>
     `<button type="button" data-i="${i}" data-cat="${esc(f.cat)}"><span class="k">${esc(f.cat)}</span>
@@ -2663,12 +2913,18 @@ function drawMap(){
 
   const note=$("mapnote");
   note.hidden=false;
-  note.innerHTML=cats.length
-    ? "The map shows what this page can verify: "+cats.map(c=>c.toLowerCase()).join(", ")+
-      ". Power outages are not on it, because no public feed carries them."
-    : "Nothing is plotted here yet. Road closures and shelter status come from Hawaiʻi County "+
-      "Civil Defense, the only county publishing them, and no National Weather Service product "+
-      "is in effect for this location. Power outages are not mapped anywhere public.";
+  note.innerHTML=S.c
+    ? (cats.length
+        ? "The map shows what this page can verify: "+cats.map(c=>c.toLowerCase()).join(", ")+
+          ". Power outages are not on it, because no public feed carries them."
+        : "Nothing is plotted here yet. Road closures and shelter status come from Hawaiʻi County "+
+          "Civil Defense, the only county publishing them, and no National Weather Service product "+
+          "is in effect for this location. Power outages are not mapped anywhere public.")
+    : (HURRICANES&&HURRICANES.length
+        ? "Active tropical systems from the National Hurricane Center. Enter your location above "+
+          "for county-level roads, shelters and weather alerts."
+        : "No active tropical systems near Hawaiʻi right now, per the National Hurricane Center. "+
+          "Enter your location above for county-level roads, shelters and weather alerts.");
 
   try{ MAP.invalidateSize(); }catch(_){}
 }
@@ -2679,8 +2935,24 @@ $("filters").addEventListener("click",e=>{
 });
 
 $("filters").addEventListener("click",e=>{
+  const s=e.target.closest("button[data-sat]"); if(!s) return;
+  setSatellite(!SAT_ON);
+});
+
+$("filters").addEventListener("click",e=>{
   const h=e.target.closest("button[data-haz]"); if(!h) return;
   setHazard(h.dataset.haz,!HAZON[h.dataset.haz]);
+});
+
+/* No new fetch: wind extent and arrival bands ride along with the storm data
+   already loaded, so toggling just rebuilds HURRLAYER with that piece in or
+   out. */
+$("filters").addEventListener("click",e=>{
+  const s=e.target.closest("button[data-storm]"); if(!s) return;
+  const k=s.dataset.storm;
+  STORMLAYER_ON[k]=!STORMLAYER_ON[k];
+  s.setAttribute("aria-pressed",STORMLAYER_ON[k]);
+  drawStorms();
 });
 
 $("filters").addEventListener("click",e=>{
@@ -2697,12 +2969,30 @@ $("expandBtn").addEventListener("click",()=>{
   const w=$("mapwrap"), open=!w.classList.contains("tall");
   w.classList.toggle("tall",open);
   $("expandBtn").setAttribute("aria-expanded",open);
-  $("expandLabel").textContent=open?"COLLAPSE MAP":"EXPAND MAP";
+  $("expandLabel").textContent=open?"CLOSE MAP":"EXPAND MAP";
   try{ MAP.scrollWheelZoom[open?"enable":"disable"](); }catch(_){}
   setTimeout(()=>{
     try{ MAP.invalidateSize(); }catch(_){}
     if(open) window.scrollTo({top:w.offsetTop-8,behavior:"smooth"});
   },300);
+});
+
+/* Touch drag and pinch-to-zoom need no gate: Leaflet enables both by default
+   and nothing here turns them off, so a finger already pans and pinch-zooms
+   the map with no "expand" step. Mouse scroll-wheel zoom is different: it
+   starts disabled (see MAP init) because a visitor scrolling PAST the map,
+   cursor incidentally passing over it, would otherwise get their whole page
+   scroll hijacked into a map zoom, a well-known embedded-map problem. A
+   click on the map first activates wheel-zoom for it (same trade-off Google
+   Maps makes); a click anywhere outside the map turns it back off so normal
+   page scroll resumes elsewhere. Expanded ("tall") map is unaffected by
+   this, it already forces wheel-zoom on above regardless of clicks. */
+$("map").addEventListener("mousedown",()=>{
+  try{ if(MAP&&!MAP.scrollWheelZoom.enabled()) MAP.scrollWheelZoom.enable(); }catch(_){}
+});
+document.addEventListener("click",e=>{
+  if(!MAP||$("mapwrap").classList.contains("tall")) return;
+  if(!e.target.closest("#mapwrap")){ try{ MAP.scrollWheelZoom.disable(); }catch(_){} }
 });
 
 $("mapsrc").addEventListener("click",e=>{
@@ -2881,9 +3171,26 @@ function choose(p){
   setLoc(i.c,p[0],i.label,p[2],p[3],false,i.z);
 }
 
+/* Once a location is known, docs/Home - Located.dc.html replaces the
+   full-height hero with a compact strip that still carries a way to change
+   location. Rather than duplicate #where/#geo/#zip/#note/#isles with new
+   ids (and duplicate every listener already bound to them), this actually
+   relocates those same DOM nodes into the strip: appendChild moves a node,
+   it does not clone it, so every existing event listener keeps working
+   with no re-wiring. One-way and idempotent, this app never "un-locates". */
+function moveLocateControls(){
+  if(document.body.classList.contains("located")) return;
+  document.body.classList.add("located");
+  const ctl=$("stripCtl");
+  ctl.appendChild($("where"));
+  ctl.appendChild($("note"));
+  ctl.appendChild($("isles"));
+}
+
 function setLoc(c,label,isle,lat,lon,precise,z){
   S={c,label,isle,lat,lon,precise,z:z||null};
   store.set("loc",S);
+  moveLocateControls();
   $("strip").hidden=false;
   $("more").hidden=false;
   $("locName").textContent=up(label)+" ALERTS";
@@ -2893,6 +3200,15 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   if(al) $("navAlerts").href=al.url;
   NWS=[]; CLOSURES=null; GAUGES=null; SHELTERS=null; WAVES=null; HURRICANES=null; POWER=null;
   buildBands(); renderBands(); route();
+  /* The map only used to need this from the async loads below: before the
+     home map (see The home map), it sat hidden until then anyway, so a beat
+     of delay was invisible. Now it can already be showing the wide home
+     view (S.c was null a moment ago), and that view does not clear itself
+     just because S changed, drawMap() has to actually run to notice. Call
+     it synchronously so the map recenters to this location immediately
+     instead of sitting on the home view until the first fetch below
+     resolves. */
+  drawMap();
   Promise.all([loadClosures(),loadShelters()]).then(()=>{
     buildBands(); renderBands();
     if(openCat==="ROADS"||openCat==="EMERGENCY") renderPage(openCat);
@@ -3060,10 +3376,21 @@ function renderSources(){
 
 /* ============================ restore ============================ */
 
+/* The board's map, wherever you are, is location-only and only shows once
+   setLoc runs. Before that this is the home page, and the home page gets a
+   map too: Hawaiʻi and any nearby tropical systems, prominent, so someone
+   who has not picked a location yet can still see a storm coming. */
+drawMap();
+
 (function restore(){
   const last=store.get("loc",null);
-  if(last&&last.c&&COUNTIES[last.c]&&typeof last.lat==="number")
+  if(last&&last.c&&COUNTIES[last.c]&&typeof last.lat==="number"){
     setLoc(last.c,last.label,last.isle,last.lat,last.lon,false,last.z);
+  }else{
+    /* No stored location: setLoc (and the loadHurricane it triggers) never
+       runs, so fetch storms here for the home map. */
+    loadHurricane().then(drawMap);
+  }
 })();
 </script>
 </body>

@@ -45,9 +45,23 @@ would violate one, stop and ask.
    and nothing else should quietly ride on it. A sixth host,
    `mapservices.weather.noaa.gov`, loads the same way: only when the user turns on the
    radar layer (see The map), never at render. A seventh, `geodata.hawaii.gov`, loads the
-   same way for the tsunami and flood hazard zones. Three on-demand hosts now, each behind
-   a user action and off by default; none loads at render, so a saved copy still opens
-   with no network.
+   same way for the tsunami and flood hazard zones. An eighth, `gibs.earthdata.nasa.gov`
+   (NASA's satellite imagery, see The satellite layer), was added the same way, only on a
+   user toggle, then **changed same-day (2026-09-03) to load automatically instead**: see
+   below. Three genuinely on-demand hosts now (radar, hazard zones, and the Hawaiian
+   Electric iframe), each behind a user action and off by default; none of those three
+   loads at render, so a saved copy still opens with no network.
+   **As of 2026-09-03, three of the hosts above fire at render, not on demand.** The
+   home map (see The home map) shows `services.arcgisonline.com` tiles and fetches the
+   worker's `/api/hurricane` (itself proxying NOAA NHC) on page load, before any location
+   is picked. The owner then asked for satellite imagery **on by default** too, so
+   `gibs.earthdata.nasa.gov` now joins them: `SAT_ON` starts `true`, and `drawMap()` calls
+   `setSatellite(true)` the first time it creates the map, whether or not a location is
+   known yet. All three still degrade the same way if unreachable (flat tile pane, no
+   storms, no satellite tile), and the static HTML/CSS/JS shell still needs no network to
+   parse and paint, so a saved copy still opens. But the honest framing now is: three
+   hosts call automatically on every landing, three more stay behind an explicit toggle.
+   Not "nothing loads until you act" any more, not since the home map first shipped.
 6. **Empty states are honest.** If no reports exist for a county, say so, point at that
    county's agency, and push the user to plan. Never imply absence of data means absence
    of shelters.
@@ -96,7 +110,7 @@ logos, no illustrations, no icon sets, no gradients. Describe and ask instead.
 
 ### The design lineage
 
-Three handoffs, all in `docs/`, each superseding part of the last:
+Four handoffs, all in `docs/`, each superseding part of the last:
 
 - `808alerts.dc.html`, the original board. `1c` is the mobile hazard band stack,
   `2b` the desktop tile grid. `README.md` is its written spec and still the best
@@ -105,8 +119,20 @@ Three handoffs, all in `docs/`, each superseding part of the last:
   desktop, `3b` POWER mobile sheet, `3c` WEATHER mobile. `1c` and `2b` are
   byte identical to v1.
 - `808alerts-map.html`, the map dashboard. **This supersedes 2b's tile grid on
-  desktop**: the board is now a two column grid, map left at `1.15fr`, the five
-  bands as full width rows right.
+  desktop**: the board became a two column grid, map left at `1.15fr`, the five
+  bands as full width rows right. **Superseded again 2026-09-03** (see The map):
+  the owner asked for the map to stay full width across the top the way the home
+  map already did, located or not, so the two column split is gone. `.board` is a
+  single column at every width now; bands stack in full width rows below the map,
+  desktop and mobile alike.
+- `Home - Located.dc.html`, added 2026-09-03. **Supersedes the hero and the map
+  height** for the located state. Two changes: (1) the full-height hero (headline,
+  USE MY LOCATION, CITY/ZIP, island list) is replaced by the compact location strip
+  once a location is known, the strip carries its own compact relocate controls
+  rather than losing that ability; (2) the map card is capped at `360px`, not the
+  `640px` min-height that immediately preceded this handoff, because the bands
+  right below it are meant to be the primary above-the-fold content, not the map.
+  See The located strip's relocate controls and The map for the implementation.
 
 Where they conflict, the newest wins.
 
@@ -114,9 +140,11 @@ Where they conflict, the newest wins.
 
 ```
 sticky brand bar        wordmark, island label
-hero                    headline, use my location, city / ZIP
-location strip          {PLACE} ALERTS, island, UPDATED time
-board                   map left, five bands right (one column below 1024)
+hero                    headline, use my location, city / ZIP (hidden once located)
+location strip          {PLACE} ALERTS, island, relocate controls, UPDATED time
+                        (hidden pre-location; carries the hero's controls once shown)
+board                   map full width across the top, always, located or not
+                        five bands stack in full width rows below the map
 map note                what the map can and cannot show
 folds                   Plan, Kit, Sources, all collapsed on load
 footer                  the not an official alert system disclaimer
@@ -125,7 +153,8 @@ footer                  the not an official alert system disclaimer
 Tapping a band routes to `#power`, `#roads`, `#weather`, `#ocean`, `#emergency`.
 Hash routing, no router and no build step. The board hides, the detail view takes
 the viewport, the browser back button works and board scroll position is restored.
-Landing on the site shows the board with nothing expanded.
+Landing on the site shows the board with nothing expanded: the map itself renders
+immediately, before anyone picks a location (see "The home map" under The map).
 
 ## Architecture
 
@@ -185,6 +214,123 @@ what shipped: HCCDA publishes real polyline geometry, so the actual closed stret
 better than a dot on it, and **Archivo has no U+2715**, so the glyph would fall back
 to a system font mid design. Same trap as the okina.
 
+**Touch drag and pinch-zoom need no gate**: Leaflet enables both by default and
+nothing in this file turns them off, so a finger already pans and pinch-zooms the
+map with no "expand" step. **Mouse scroll-wheel zoom is deliberately gated**
+(added 2026-09-03): it starts disabled on the `L.map()` constructor so a visitor
+scrolling PAST the map, cursor incidentally passing over it, does not get their
+whole page scroll hijacked into a map zoom, a well known embedded-map problem. A
+`mousedown` inside `#map` calls `MAP.scrollWheelZoom.enable()`; a `document` click
+outside `#mapwrap` calls `.disable()` again, so normal page scroll resumes once you
+click elsewhere. The `.tall` (expand) state is unaffected, it already forces
+wheel-zoom on unconditionally the way it always has.
+
+### The home map (added 2026-09-03)
+
+Before this, `#mapwrap` was hidden until `setLoc()` ran, so a first-time visitor who
+had not yet picked a location saw no map at all, just the hero form. The owner asked
+for a prominent home page map, zoomed out enough to see an approaching storm, so the
+same `MAP`/`#mapwrap` the board already uses now renders immediately at boot, before
+any location is known.
+
+- `drawMap()` no longer hard-requires `S.c`. Without a location it skips
+  `mapFeatures()` (county roads, shelters, gauges, NWS polygons all need a location
+  and correctly render nothing), draws only the basemap and any active tropical
+  systems, and adds a `home` class to `#mapwrap`, which `.board:has(.mapwrap.home)
+  #bands{display:none}` uses to hide the empty `#bands` div so it doesn't leave a
+  stray gap line under the map. (The map spanning the full board width used to be
+  what this class was for; since 2026-09-03 the board is a single column always,
+  so the map is full width in every state and this rule's only job now is hiding
+  the empty bands div pre-location.)
+- `fitStormView()` fits the map to `HI_BOUNDS`, a fixed statewide box (Niʻihau to
+  Hawaiʻi Island, padded), extended with `bounds.extend()` for every active storm's
+  forecast cone (or just its point, if a storm has no cone) that passes
+  `stormNearHawaii()`. A quiet day, or a day where every active storm is filtered
+  out, rests on `HI_BOUNDS` alone; a day with at least one storm on track zooms out
+  however far it takes to keep that storm on screen. The owner chose this over a
+  fixed wide Pacific view specifically so the zoom reflects what's actually out
+  there rather than a constant, sometimes-empty ocean view.
+- **`stormNearHawaii()`, added 2026-09-03.** The worker's own filter for which
+  storms count as "could concern Hawaiʻi" is deliberately broad (anything west of
+  125W, see `hurricane()` in `worker/src/index.js`), so the WEATHER band and
+  TROPICAL SYSTEMS list don't miss a real threat. That same broad filter is wrong
+  for the default zoom: a storm recurving north 1,500 miles out would otherwise
+  drag the home map's zoom out to a nearly empty ocean every day it's active, which
+  is exactly the "constant, sometimes-empty ocean view" the owner rejected above,
+  just reached a different way. So `fitStormView()` only zooms out for a storm
+  whose own forecast cone (or, with no cone, its current position) comes within
+  about 300 miles of Hawaiʻi's bounding box, tested with Leaflet's
+  `LatLngBounds.intersects()`. Checked against live data the day this shipped: an
+  Eastern Pacific storm whose cone stayed out past 149W correctly did not pull the
+  zoom out for it, while a Central Pacific storm whose cone reached into Hawaiʻi's
+  own longitude band correctly did. A storm can still be listed and drawn on the
+  map without passing this test, it just does not drive the default zoom.
+- `drawStorms()` is the old inline HURRLAYER block, pulled out so both the home map
+  and the per-location board map draw storms the same way instead of duplicating it.
+- `loadHurricane()` and `hurrPop()` both now tolerate no location: `dist`/`dir` are
+  `null` when there is no `S.lat` to measure from, and the popup falls back to the
+  storm's own lat/lon instead of "NaN mi undefined of ".
+- Once a location resolves (fresh pick, or the stored one `restore()` reloads on
+  return visits), `drawMap()` re-centers the same map to the existing zoom-11 local
+  view exactly as before. The home map is a state of the one map, not a second map.
+  **`setLoc()` calls `drawMap()` synchronously, not just from the async loads
+  below it.** Before the home map existed this did not matter: the map sat
+  `hidden` until the first fetch resolved either way, so a beat of delay was
+  invisible. Now the map can already be on screen showing the home view when
+  `setLoc()` runs, and that view does not clear itself just because `S`
+  changed; only `drawMap()` running notices. Without the synchronous call, a
+  freshly picked location would sit on the wide home view, seemingly stuck,
+  until `loadClosures`/`loadShelters`/`loadGauges`/`loadHurricane` happened to
+  resolve. Caught 2026-09-03 when the owner reported the located map "does
+  not load".
+- **The located map gets the same intelligent zoom as the home map, added
+  2026-09-03.** `fitStormView()` only ever ran for the home (no-location)
+  state; the located branch always did a flat `MAP.setView([S.lat,S.lon],11)`,
+  so a storm genuinely on track to affect the state stayed off screen the
+  moment someone picked a location. `fitLocalView()` is the located
+  counterpart: it runs the same `stormNearHawaii()` ~300 mile test, but the
+  base bounds is a small box around the user's own coordinates (roughly what
+  zoom 11 already frames) instead of statewide `HI_BOUNDS`, so a quiet day
+  still lands on the familiar local view and a storm on track extends that
+  box outward, `fitBounds`, rather than replacing it with a statewide one.
+  A new `mapFitStorms` flag (reset alongside `MAPAT` whenever the map is
+  built or the location changes) makes this run once per location, once
+  storm data is actually known, not on every routine `drawMap()` a band
+  refresh triggers: `setLoc()`'s synchronous `drawMap()` call runs before
+  `HURRICANES` has loaded (it's `null` at that point, deliberately guarded
+  against), so it still shows the immediate zoom-11 placeholder; the
+  `loadHurricane().then(...drawMap())` call right after is what actually
+  fires `fitLocalView()` once real data (or a confirmed-empty list) is in.
+  Without that guard, a five-minute band refresh calling `drawMap()` again
+  would silently undo anything the user panned or zoomed to by hand.
+- **Invariant 5, updated.** Tiles (`services.arcgisonline.com`) and the worker's
+  `/api/hurricane` (which itself proxies NOAA NHC) now fetch on page load for every
+  visitor, not only after someone picks a location. The initial HTML/CSS/JS still
+  needs no network to parse and paint, and both fetches degrade the same way they
+  always have (flat tile pane, `HURRICANES=[]`), so a saved copy still opens. But
+  the home page is no longer inert until interaction: every landing hits Esri and
+  the worker once. Worth knowing if traffic ever needs to be pared back.
+
+### The located strip's relocate controls (added 2026-09-03)
+
+`Home - Located.dc.html` replaces the full-height hero with the compact location
+strip once a location is known, but someone still needs a way to change it without
+scrolling back to the top. Rather than build a second set of location controls with
+new ids (and rewire geolocation, ZIP lookup, and the island-disambiguation list a
+second time), `moveLocateControls()` literally relocates the existing `#where`
+(the form holding `#geo` and `#zip`), `#note` and `#isles` nodes into a new
+`#stripCtl` span inside `#strip`. `appendChild` **moves** a DOM node, it does not
+clone it, so every event listener already bound to `#geo`, `#zip`, `#where` and
+`#isles` keeps working with zero re-wiring. It runs once (guarded by a `located`
+class on `<body>`) from the top of `setLoc()`, so it fires on a fresh pick and on
+`restore()` reloading a stored location alike, and `body.located .hero{display:none}`
+hides the now-empty hero. This app has no "forget my location" flow, so the move is
+one-way in practice; `moveLocateControls()` is written idempotent regardless.
+`#stripCtl`'s children reuse the hero's existing `.controls`/`.go`/`.zip`/`.note`/
+`.isles` classes (already styled for a dark background) with a compact-size override
+scoped under `.loc-ctl`, rather than inventing new styling, so no new colour joins
+the five-value palette.
+
 ### The companion Worker (hurricane + power)
 
 A Cloudflare Worker, `808alerts-api.shauna-coy.workers.dev` (source in `worker/`,
@@ -193,19 +339,44 @@ JSON. Both are fetched with the board in `setLoc`, like the gauge/wave calls, an
 degrade to the old behaviour if the worker is unreachable.
 
 - **`/api/hurricane`** proxies NOAA NHC `CurrentStorms.json` (no CORS at source). Active
-  Pacific storms near Hawaiʻi become: a red cyclone marker on the map (`HURRLAYER`, far
-  offshore so it shows when zoomed out), a line in the WEATHER band, and a TROPICAL
-  SYSTEMS block in the WEATHER detail with distance and bearing from the user. When there
+  Pacific storms near Hawaiʻi become: a red cyclone marker on the map (`HURRLAYER`, drawn
+  by `drawStorms()`; the home map (see The home map) fits its zoom to include it, the
+  per-location board map shows it once zoomed out to the basin), a line in the WEATHER
+  band, and a TROPICAL SYSTEMS block in the WEATHER detail with distance and bearing from
+  the user, when a location is known. When there
   is no NWS product, the storm is the WEATHER headline; when there is, it rides in the
   sub-line and the NWS product stays the headline. The **forecast cone and track** are
   drawn too: the worker unzips NHC's KMZ (via `fflate`), pulls the `<coordinates>`,
   decimates the ~1500-point cone ring to ~140, and returns GeoJSON; the map draws a
   translucent red cone plus the centre-track line, visible when zoomed out to the basin.
-- **`/api/power?county=`** parses Hawaiian Electric's newest newsroom release for the
-  per-county outage count (peak phase) or statewide total and percent restored (recovery
-  phase). It fills the POWER band and detail as a sourced, timestamped snapshot, ahead of
-  the hand-entered `POWERREPORTS` fallback. Press releases are redistributable; the
-  gated map API is not. Invariant 1 holds: it says "snapshot, not a live reading".
+  **Added 2026-09-03: best track, wind extent and arrival time.** NHC's
+  `CurrentStorms.json` carries several more GIS fields that were unused until now.
+  `bestTrackGIS` (where the storm has actually been, not just the forecast ahead of
+  it) is drawn automatically alongside the cone and track: a lighter, thinner line
+  with filled points, so the observed past reads differently from the uncertain
+  forecast ahead. `initialWindExtent` (current 34kt+ wind radii) and
+  `mostLikelyTimeTSWindsGIS` (most likely arrival of tropical-storm-force winds) are
+  drawn too, but behind two new off-by-default map chips, WIND FIELD and ARRIVAL
+  TIME (`STORMLAYER_ON`), shown only when a storm actually carries that data. No
+  extra fetch: both ride along with the same `/api/hurricane` response, so toggling
+  just rebuilds `HURRLAYER` locally. **These two are unverified.** `stormExtras()` in
+  `worker/src/index.js` parses them with the same generic "every `<coordinates>`
+  block is a ring" extractor already proven for the cone, but a wind radii or
+  arrival-time KMZ carries several rings (one per quadrant, or per threshold) where
+  the cone is genuinely one, and that has only been checked against a synthetic
+  fixture in `worker/test-parse.mjs`, not a real KMZ pulled from a live storm. Fetch
+  one from an active storm's `initialWindExtent.kmzFile` / `mostLikelyTimeTSWindsGIS.kmzFile`
+  and look at the shapes on the map before trusting them. Best track was left on by
+  default anyway because a bad line still just looks like a line; a wrong wind-extent
+  shape could read as a claim about how far damaging wind actually reaches, which is
+  exactly the kind of thing invariant 1 exists for.
+- **`/api/power?county=`** parses the newest Hawaiian Electric release **tagged to that
+  county's island** for its outage count, and is now the only source the POWER band has:
+  the hand-entered fallback was deleted 2026-08-28. When the newest release for an island
+  carries no figure, it says so and names the date, never zero. Press releases are
+  redistributable; the gated map API is not. Invariant 1 holds: it says "snapshot, not a
+  live reading". See "Hawaiian Electric press updates" below before touching the parser,
+  and run `node worker/test-parse.mjs` after.
 
 Worker responses are `Cache-Control: private` on purpose; see `docs/worker-plan.md` for
 why (the four-origin CORS trap).
@@ -286,6 +457,53 @@ refresh while it is visible. Notes for anyone touching it:
   sibling `radar_base_reflectivity_time` is an ImageServer (time-enabled, raw pixels); it
   would need a rendering rule to colour, so it was not used.
 
+### The satellite layer (added 2026-09-03, on by default same day)
+
+A **SATELLITE** chip, next to RADAR. The owner asked for the storms to look "more
+dynamic/realistic" after the wind-radii/best-track/arrival-time additions turned out
+too subtle to actually look different. Abstract shapes (cones, dots, rings) were never
+going to answer that; real cloud imagery is the only thing that does. It shipped off
+by default like every other map chip; the owner then asked for it on by default
+instead, specifically so a first-time visitor sees real cloud cover immediately
+without finding the chip. **`SAT_ON` starts `true`**, and `drawMap()` calls
+`setSatellite(true)` the moment it creates the map (see the `if(!MAP)` branch), whether
+or not a location is known yet. Toggling it off in the chip still works for that
+session; nothing here persists, so it is back on at the next load, same as every other
+map chip. See invariant 5 above: this is now one of the three hosts that load
+automatically, not one of the three still gated behind a toggle.
+
+- Source is NASA's GIBS (Global Imagery Browse Services), `GOES-West_ABI_GeoColor`.
+  GOES-**West**, not East: GOES-East looks at the Americas/Atlantic, GOES-West is the
+  satellite that actually covers Hawaiʻi and the Central Pacific. **Verified live,
+  2026-09-03**, not just assumed from the docs: fetched an actual tile from a real
+  cross-origin page and confirmed `response.type === "cors"` with a readable body (a
+  blocked or key-gated source would come back opaque or fail outright). Got a real
+  153KB/36KB PNG back both times, status 200, no API key, refreshes about every 10
+  minutes (`layer-time-actual` in the response advanced from `18:40Z` to `18:50Z`
+  between two test calls). GOES imagery is standard NASA/NOAA public-domain federal
+  data, the same tier as the NWS/USGS/PacIOOS sources already wired.
+- `SAT_SRC` is a plain WMTS REST tile template
+  (`.../GOES-West_ABI_GeoColor/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`),
+  so unlike radar (which needs a `getTileUrl` subclass to compute a bbox per tile) this
+  is a standard `L.tileLayer`. Row/col order in the URL is `{TileMatrix}/{TileRow}/{TileCol}`,
+  i.e. `z/y/x`, not Leaflet's usual `z/x/y`; the template spells that out explicitly.
+  The literal `default` time value resolves server-side to the latest available frame,
+  confirmed via the same live test.
+- **Own pane, z-index 205**, just above the basemap tile pane (200) and below the
+  wave/radar/hazard panes (240/250/350) and every marker. So it behaves like a base
+  layer replacement: it is not caught by the basemap's `grayscale(1)` filter (the whole
+  point is real colour), and the cone, track, wind extent, shelters and every other
+  overlay still draw on top of it untouched.
+  Opacity 1: GOES-West GeoColor is opaque source imagery (day true-colour, infrared
+  blended in at night), so anything less than full opacity would just look washed out
+  rather than like a real satellite view.
+- `setSatellite()` follows the radar pattern: builds the layer lazily on first toggle
+  (invariant 5), then refreshes every 10 minutes via `SATLAYER.setUrl()` with an
+  incrementing `satStamp` query param, since Leaflet caches tiles by URL client-side
+  regardless of the server's own `Cache-Control: no-store` header.
+- No radar-style "clear day reads as broken" problem: satellite imagery always shows
+  something (ocean, land, cloud), so there is no equivalent of `#radarnote` needed.
+
 ### The Hawaiian Electric map toggle
 
 The board's map area carries a two-button toggle, **This map / Hawaiian Electric**, on
@@ -320,9 +538,10 @@ what a fresh visit shows.
 **A fix that rode along with this:** the map used to leave a grey gap under it on desktop
 at some widths. The base `.mapwrap{...height:360px}` rule sat *after* the desktop
 `height:auto` rule in source order, so it won the cascade and pinned a definite height,
-which defeated the grid's `align-items:stretch`. That 360px applied nowhere else (mobile
-has its own 280px), so it was removed. The map now stretches to match the bands column.
-Do not reintroduce a fixed `height` on `.mapwrap` at desktop widths.
+which defeated the grid's `align-items:stretch` (the board was still a two column grid
+at the time; see the design lineage note above for when that changed). That 360px
+applied nowhere else (mobile has its own 280px), so it was removed. Do not reintroduce
+a fixed `height` on `.mapwrap` at desktop widths.
 
 ### Fetching alerts: query the point AND the zone
 
@@ -431,37 +650,72 @@ rendered as **"listed open"**, never "open", with the layer's own
 28 hours old during an active event on 2026-08-18, which is exactly why the flag
 exists. Invariant 1 applies to a county roster the same as to a news report.
 
-### Hawaiian Electric press updates
+### Hawaiian Electric press updates (fully automatic since 2026-08-28)
 
 The one Hawaiian Electric channel this page can legitimately carry. HECO publishes
 dated restoration updates to `hawaiianelectric.com/about-us/newsroom`, linked from a
 site-wide banner and mirrored as a PDF under `/documents/about_us/news/{year}/`. Press
 releases are published for redistribution, which the token-gated map API is not.
 
-They live in `POWERREPORTS` in `index-v6.html`, one entry per **county**, and they are
-**hand-entered** today. Nothing fetches them yet. When the worker (`docs/worker-plan.md`)
-lands, it can serve these from the newsroom instead of hand entry.
+**Nothing here is hand-entered.** The `POWERREPORTS` array was deleted on 2026-08-28,
+along with `powerReport()` and `powerReportOK()`. It had sat at "more than 91% of
+customers statewide had power" for ten days, which is exactly the failure the rest of
+this file warns about. Do not reintroduce a hand-maintained array; fix the parser in
+`worker/src/index.js` instead.
 
-    {c, kind, band, headline, guide, note, disc, at, srcName, srcUrl}
+**HECO tag every release to the islands it concerns** and expose that as a newsroom
+filter, so each county is answered from its OWN newest release rather than from
+whatever went out last. This is the key to the whole thing:
 
-- `band` is the short line the board shows, `headline` the fuller one in the detail
-  card. They differ on purpose, the same way an EMERGENCY band differs from its report
-  card. Setting them to the same string makes the routed page stutter.
-- `powerReportOK()` enforces invariant 3 exactly as `reportOK()` does for shelters. No
-  `srcName`, `srcUrl` or `at` means the entry does not render and the county falls all
-  the way back to the honest no-feed panel.
-- The band sub-line always says "Not a live reading" before anything else, and the card
-  carries a `confirm` line. Invariant 1 applies to a utility press release the same as
-  to a shelter roster.
-- **Kauaʻi has no entry and must not get one.** Kauaʻi is KIUC, not Hawaiian Electric.
-  It keeps the no-feed state.
-- Molokaʻi and Lānaʻi are Maui County, so they inherit the `HIC009` entry.
+    cat=34 Oahu    cat=35 Maui County    cat=36 Hawaii Island
 
-**To update during an event:** open the newsroom, take the newest update, and rewrite
-the three entries with its figures, its own caveat in `disc`, and the release time in
-`at`. Quote HECO's snapshot caution rather than paraphrasing it away. These entries age
-exactly as badly as `REPORTS` does, and stale restoration percentages are worse than
-none, so clear them when the event ends.
+Three traps, each found in a real release. The regression test in
+`worker/test-parse.mjs` pins all of them; run it after touching the parser.
+
+1. **Never infer statewide from silence.** The 2026-08-20 4 p.m. release reads
+   "...restored on Hawaii Island. Currently, about 13,000 are without power." Read
+   alone that is a statewide claim; with the previous sentence it is Hawaiʻi Island.
+   Scope resolves from the sentence, then its neighbours, then the release's island
+   tags, and is left **null** rather than guessed.
+2. **Never loosen the per-county breakdown match past `about|approximately`.** HECO
+   print outage phone numbers in the same shape, `Hawaii Island: 1-855-304-9191`,
+   which a looser pattern reads as a count of 1.
+3. **The number does not follow the county heading.** On 2026-08-18 Maui County's
+   heading was followed by two sentences of prose before "About 2,100 remain without
+   power". `countyBreakdown()` parses the island's whole section, capped at 600 chars.
+
+**HECO publish no statewide outage total.** Verified across all ten Lala releases.
+Peak-phase releases give a per-county breakdown; recovery-phase releases give one
+island's figure. So the board shows this county's number as the headline and the other
+counties HECO named in the sub-line. **Do not sum their county numbers into a statewide
+figure**: it would present our arithmetic as their number, and undercount whenever they
+list only some islands.
+
+**A count scoped to another island is deliberately not returned.** This county's newest
+tagged release can be days behind that island's own newest one. On 2026-08-28 the
+Oʻahu-tagged release still said 6,390 for Hawaiʻi Island while the live figure there was
+under 400. HECO's site-wide event banner carries the same "something is happening
+elsewhere" signal and is current, so `eventActive` / `eventHeadline` is used instead.
+
+The four states the page renders, and why the last two differ:
+
+| State | When | Band |
+|---|---|---|
+| `live` | HECO published a figure for this island | the number, sourced and timed |
+| `quiet` | HECO published, but nothing about this island | "No storm outages reported for X", plus when they last spoke |
+| KIUC | Kauaʻi, not HECO territory at all | no-feed panel |
+| unreachable | the worker did not answer | "not loading", explicitly not a reading |
+
+**The `quiet` state is the one most easily rendered dishonestly.** HECO issue releases
+for storms and major events, never for quiet days, so no release is absence of evidence
+and not evidence of absence. It must never read "no outages", and it always names the
+date HECO last published for that island. Invariants 1 and 6. This wording was proposed
+as a flat "no weather or incident related power outages" on 2026-08-28 and deliberately
+changed to attribute it to HECO instead.
+
+- **Kauaʻi is KIUC, not Hawaiian Electric.** The worker returns `utility: "KIUC"` and
+  the county keeps the no-feed state. It must never get a HECO figure.
+- Molokaʻi and Lānaʻi are Maui County, so they inherit `HIC009`.
 
 ### Sources that resist automation
 
@@ -482,8 +736,9 @@ Every county link in the plan panel was checked two ways before it shipped. Do t
        https://www.arcgis.com/sharing/rest/content/items/{id}?f=json
 
    Check `owner` is a `.gov` account, `access` is `public`, and `modified` is recent.
-   The Hawaiʻi County maps are owned by `GIS.HCCDA.Admin@hawaiicounty.gov`, the Kauaʻi
-   refuge viewer by `slouxz@kauai.gov`.
+   The Hawaiʻi County maps are owned by a `hawaiicounty.gov` GIS admin account, the
+   Kauaʻi refuge viewer by a `kauai.gov` account. (Owner addresses are visible in the
+   ArcGIS item JSON; check the domain rather than hard-coding the address here.)
 3. Watch for staging hosts in search results. `dev-dod.hawaii.gov` and `dod80.hawaii.gov`
    both surface for HI-EMA queries and neither is canonical. `dod.hawaii.gov` is.
    The frequently cited `dod.hawaii.gov/hiema/know-your-tsunami-zones/` is a 404.
@@ -492,10 +747,73 @@ Neither Maui nor Kauaʻi publishes a public address-lookup app, so both use NOAA
 `tsunami.coast.noaa.gov`, which takes an address or current location and covers all
 islands. MEMA points residents there themselves.
 
+## Direction change (decided 2026-08-21, plan of record)
+
+The owner adopted an action-first home layout plus hand-curated resource,
+pet/animal, and recovery directories, and **reversed the "only self-managing
+feeds" rule for evergreen directory entries** (per-event hand-entered status
+stays ruled out). The five action buttons sit above the existing board; nothing
+current is removed, and the architecture (single file, no build, no runtime
+backend) does not change. Full phases, schema, constraints and the list of
+brainstorm recommendations deliberately NOT implemented are in
+`docs/expansion-plan.md`. Read it before building. Where it conflicts with the
+section below, it wins.
+
+## Planned additions (decided 2026-08-19, not yet wired)
+
+The owner reviewed a full list of candidate data sources and set one rule: **only
+self-managing feeds get added**, sources that populate when an event starts and empty
+when it ends with no hand entry. Hand-entered categories that were considered and
+**rejected as ongoing upkeep**: BWS/DWS water status, statewide school closures, FCC
+DIRS cell-site counts, transit suspensions. Do not re-propose them as REPORTS-pattern
+entries; the decision was deliberate.
+
+The shortlist, each verified against the live endpoint on 2026-08-19. Full findings,
+endpoints, field names and copy caveats are in `docs/feed-verification.md`. Read that
+file before wiring any of these.
+
+- **FEMA/Red Cross open shelters** (`gis.fema.gov`, NSS OpenShelters layer). The first
+  live shelter source for Oʻahu, Maui and Kauaʻi. Returned a real Hawaiʻi record
+  during Lala recovery. Renders as the existing shelter cards ("listed open",
+  confirm band, stale flag) and 22px map pins. Open-shelters-only feed; a quiet day
+  is honestly empty, never all clear.
+- **NWS NWPS flood stages** (`api.water.noaa.gov`). Joins to the USGS gauge rows
+  already shown, adds action/minor/moderate/major thresholds and per-stage impact
+  statements. ~40 gauges on Oʻahu alone. Tag on gauge rows in the WEATHER detail,
+  one WEATHER band line when a nearby gauge is at or above a defined category.
+- **NOAA CO-OPS observed water level** (`api.tidesandcurrents.noaa.gov`). One tide
+  station per island, observed vs predicted. OCEAN band sub-line and a reading block
+  in the OCEAN detail, the observation counterpart to the PacIOOS model.
+- **Wind arrival timing** (`api.weather.gov` gridpoint hourly, host already wired).
+  First hour crossing 39/58/74 mph. One WEATHER band line, small threshold block in
+  the detail. Resolve grid ids once per `ISLANDS` entry and hardcode, like the zones.
+- **Unwired HCCDA layers** (org already trusted): evacuations, water spigots, school
+  closures. Big Island only.
+
+Static additions agreed in principle, no feed involved: per-island emergency radio
+frequencies (verify against HI-EMA before shipping; drafts in this session were
+placeholders), pet/ADA attributes on shelter cards (NSS carries the fields), the kit
+checklist regrouped under T-48/T-24/T-12 with the computed lead time highlighting the
+current group, and an "after the storm" fold for a hand-flipped recovery mode.
+
+**The gate before wiring: CORS is expected but not verified.** The verification
+tooling could not read response headers. `docs/feed-verification.md` has a console
+snippet to run once on 808alerts.com; record the results there first.
+
+**Parked: GoAkamai / HDOT closures.** No public terms found, no CORS at source. Would
+need the worker plus HDOT's explicit OK. The HECO lesson applies: the blocker may be
+terms, not transport. Contact HDOT before any work.
+
+Pending owner sign-off, do not build without it: whether a gauge dot may change
+colour above flood stage on the map (severity colour was rejected once at band level;
+a map marker is arguably different, but ask), and the visual hierarchy between HCCDA
+evacuation polygons and NWS alert polygons, which are both red areas and will overlap
+mid-event.
+
 ## Deployment
 
 Primary host is **Cloudflare Pages**, project `808alerts`, account
-`shauna.coy@gmail.com`. Chosen over Vercel because the free tier has no bandwidth cap,
+`<cloudflare-account-email>`. Chosen over Vercel because the free tier has no bandwidth cap,
 and the failure mode to avoid is an emergency page going down because it got popular
 during the emergency. **Vercel** is kept as a live mirror, project `808alerts` (renamed
 from `hawaii-storm-info`) under the team `shaunagits-projects`.
@@ -565,10 +883,16 @@ Ordered by how much they matter. Verified 2026-08-18.
   Honolulu, Maui and Kauaʻi publish static geodata only. So the map and the ROADS
   and EMERGENCY bands are rich on the Big Island and empty on the other three, where
   they correctly fall back to the no feed state. On Oʻahu the only live layer is
-  stream gauges. This is the single biggest coverage gap.
-- **Power outages have no machine feed, but the page is no longer empty.** Hawaiian
-  Electric's press updates are now carried as hand-entered reports. See
-  "Hawaiian Electric press updates" under Architecture for how to keep them current.
+  stream gauges. This is the single biggest coverage gap. The FEMA/Red Cross open
+  shelters feed (see Planned additions) is the first verified live source for the
+  other three counties.
+- **Power outages have no machine feed, but the page is no longer empty and no longer
+  hand-maintained.** Since 2026-08-28 the worker parses Hawaiian Electric's newest
+  island-tagged press release automatically. See "Hawaiian Electric press updates" under
+  Architecture. The ceiling is real and worth restating: **press releases only exist
+  during an event.** Between events HECO publish no public outage count anywhere, so the
+  band correctly shows no number on a quiet day. Everyday outages are invisible to this
+  page and always will be without HECO's permission.
   There is still no legitimate free *feed*. Researched
   2026-08-17, 2026-08-18 and re-verified 2026-08-18 against the live hosts.
   **A worker cannot get the outage counts from HECO's own API.** An earlier plan assumed
@@ -605,6 +929,15 @@ Ordered by how much they matter. Verified 2026-08-18.
     EAGLE-I is a federal DOE/ORNL programme and PowerOutage.us sells licences; both
     operate on a footing a small public site does not have. "Other sites pull from it"
     was the basis of the old plan and it does not survive contact with either gate.
+  - **"Collect it but do not republish it" does not unlock this, asked 2026-08-28.**
+    It answers the wrong gate. The terms are the softer of the two, and a bare outage
+    count is a fact rather than their creative expression, so the copyright half is
+    genuinely weak. But the API returns `401` with `WWW-Authenticate: Bearer` to every
+    request from anywhere, published or not, so collecting it at all means replicating
+    their private token service and forging an allowlisted `Origin`. That is defeating
+    an access control whatever is done with the result. And a number that is collected
+    but never displayed does nothing for this page; the moment it helps a user, it is
+    being published. Do not revisit this framing.
   - The **only remaining legitimate route is HECO's own permission**, an access key
     or a data-sharing agreement. The owner ruled that out on 2026-08-17, but that
     call was made when the blocker looked like a CORS allowlist. It is worth
@@ -635,15 +968,20 @@ Ordered by how much they matter. Verified 2026-08-18.
   **28 hours** old on 2026-08-18 during an active response. The page flags this past
   six hours and says to call the county. Do not remove that flag.
 - **`REPORTS` is hardcoded and ages badly.** Entered from reporting on 2026-08-14, the
-  Lala event. Still the only shelter data for Oʻahu, Maui and Kauaʻi.
+  Lala event. Still the only shelter data for Oʻahu, Maui and Kauaʻi. The NSS feed in
+  Planned additions is the verified candidate to retire most of it.
 - **Honolulu BWS has no feed at all.** It is CMS prose. During Lala it carried live and
   important content: low to no water pressure caused by the power outages, plus four
   emergency water fill stations with hydrant numbers. That belongs in the `REPORTS`
-  pattern, hand entered with a source and a time. Not yet done.
+  pattern, hand entered with a source and a time. Not yet done, and on 2026-08-19 the
+  owner ruled out adding new hand-entered categories; this stays a gap deliberately
+  unless that call changes.
 - **Traffic signal status does not exist anywhere public.** No county publishes it.
   GoAkamai's `alertservice` sends no CORS header and returned `[]`. Cameras show a human
   whether an intersection is dark; they are not a feed.
-- **The all clear state has never been designed.** Handoff open question 2.
+- **The all clear state has never been designed.** Handoff open question 2. A proposed
+  answer exists (2026-08-19): a hand-flipped recovery mode adding a collapsed "after
+  the storm" fold, quiet bands otherwise unchanged. See Planned additions.
 - `http://www.honolulu.gov/hurricaneevac` in Oʻahu's step 2 is the one insecure link.
   **Checked: https works**, 301ing to
   `cchnl.maps.arcgis.com/apps/webappviewer/index.html?id=14fad086020b4bc8acfcf2e3f79d4329`.

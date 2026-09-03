@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#faf8f5}
+  a{color:#ffd93b}
+  a:hover{color:#fff06b}
+  ::selection{background:#ffd93b;color:#101010}
+</style>
+<script src="./image-slot.js"></script>
+</helmet>
+
+<div style="font-family:Archivo,sans-serif;background:#faf8f5;min-height:100vh">
+
+  <!-- Nav bar -->
+  <header style="background:#101010;padding:18px 40px;display:flex;align-items:center;justify-content:space-between">
+    <span style="font-family:Archivo,sans-serif;font-weight:900;font-size:22px;line-height:1;letter-spacing:-0.02em">
+      <span style="color:#ffffff">808</span><span style="color:#ffd93b">ALERTS</span>
+    </span>
+    <span style="display:flex;align-items:center;gap:28px">
+      <a href="#about" style="font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.16em;color:#8c8c8c;text-decoration:none">ABOUT</a>
+      <a href="https://dod.hawaii.gov/hiema/" target="_blank" rel="noopener" style="font-family:Archivo,sans-serif;font-weight:800;font-size:11px;letter-spacing:0.1em;color:#101010;background:#ffd93b;padding:9px 14px;text-decoration:none">GET TEXT ALERTS</a>
+    </span>
+  </header>
+
+  <!-- Compact location bar: replaces the full-height hero once a location is known -->
+  <section style="background:#1c1c1c;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+    <span style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span style="font-family:Archivo,sans-serif;font-weight:800;font-size:20px;letter-spacing:0;color:#ffffff">MAKAHA ALERTS</span>
+      <span style="font-family:'Archivo Narrow',sans-serif;font-weight:600;font-size:11px;letter-spacing:0.14em;color:#9a9a9a">O&#x2BB;AHU</span>
+    </span>
+    <form style="display:flex;align-items:center;gap:8px;flex-wrap:wrap" novalidate="">
+      <button type="button" style="background:#ffd93b;color:#101010;border:none;font-family:Archivo,sans-serif;font-weight:800;font-size:11px;letter-spacing:0.06em;padding:10px 14px;cursor:pointer">USE MY LOCATION</button>
+      <input type="text" placeholder="CITY / ZIP" aria-label="Change your city or ZIP code" style="border:2px solid #3a3a3a;background:transparent;padding:8px 12px;font-family:Archivo,sans-serif;font-weight:600;font-size:12px;letter-spacing:0.04em;color:#7d7d7d;width:150px;box-sizing:border-box">
+    </form>
+    <span style="font-family:'Archivo Narrow',sans-serif;font-weight:600;font-size:11px;letter-spacing:0.14em;color:#9a9a9a;white-space:nowrap">UPDATED 10:25 AM</span>
+  </section>
+
+  <!-- Map card: capped height so it never owns the fold; expands on demand -->
+  <section style="{{ mapWrapStyle }}">
+    <image-slot id="mapImage" shape="rect" placeholder="Drop a satellite / weather map view here" style="width:100%;height:100%"></image-slot>
+
+    <span style="position:absolute;top:14px;left:14px;display:flex;gap:8px;pointer-events:none">
+      <span style="pointer-events:auto;display:flex;align-items:center;gap:6px;background:#101010;color:#ffffff;font-family:Archivo,sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;padding:8px 12px">
+        <span style="width:7px;height:7px;background:#c22e22;display:inline-block"></span>WEATHER 6
+      </span>
+      <span style="pointer-events:auto;background:#101010;color:#ffffff;font-family:Archivo,sans-serif;font-weight:700;font-size:11px;letter-spacing:0.06em;padding:8px 12px">SATELLITE</span>
+    </span>
+
+    <button type="button" onclick="{{ toggleMap }}" style="pointer-events:auto;position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:6px;background:#ffd93b;color:#101010;border:none;font-family:Archivo,sans-serif;font-weight:800;font-size:11px;letter-spacing:0.06em;padding:8px 12px;cursor:pointer">
+      {{ expandLabel }}
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#101010" stroke-width="3" aria-hidden="true"><path d="M4 10V4h6M20 14v6h-6"></path></svg>
+    </button>
+
+    <span style="position:absolute;bottom:14px;right:16px;pointer-events:none;font-family:Archivo,sans-serif;font-size:10px;color:rgba(250,248,245,.9);background:rgba(16,16,16,.55);padding:3px 8px">Leaflet | Basemap Esri &middot; Data USGS, NWS, Hawai&#x2BB;i County Civil Defense, Satellite NOAA/NASA GOES-West</span>
+
+    <span style="position:absolute;bottom:14px;left:14px;pointer-events:auto;display:flex">
+      <button type="button" style="background:#ffffff;color:#101010;border:none;font-family:Archivo,sans-serif;font-weight:700;font-size:11px;padding:8px 12px;cursor:pointer">This map</button>
+      <button type="button" style="background:#101010;color:#ffffff;border:none;font-family:Archivo,sans-serif;font-weight:700;font-size:11px;padding:8px 12px;cursor:pointer">Hawaiian Electric</button>
+    </span>
+
+    <span style="position:absolute;bottom:14px;right:16px;transform:translateY(-38px);pointer-events:auto;display:flex;flex-direction:column">
+      <button type="button" style="width:26px;height:26px;background:#ffffff;color:#101010;border:1px solid #d9d4cb;font-size:15px;line-height:1;cursor:pointer">+</button>
+      <button type="button" style="width:26px;height:26px;background:#ffffff;color:#101010;border:1px solid #d9d4cb;border-top:none;font-size:15px;line-height:1;cursor:pointer">&minus;</button>
+    </span>
+  </section>
+
+  <!-- Alert bands: the primary above-the-fold content now, right after the map card -->
+  <sc-for list="{{ bands }}" as="b" hint-placeholder-count="5">
+    <a href="{{ b.href }}" style="display:block;text-decoration:none;background:{{ b.bg }};padding:20px 40px;border-top:{{ b.borderTop }}">
+      <span style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.2em;color:{{ b.labelColor }}">{{ b.category }}</span>
+        <sc-if value="{{ b.showArrow }}" hint-placeholder-val="{{ true }}">
+          <span style="font-family:Archivo,sans-serif;font-weight:700;font-size:18px;color:{{ b.arrowColor }}">&#x2192;</span>
+        </sc-if>
+      </span>
+      <span style="display:block;font-family:Archivo,sans-serif;font-weight:800;font-size:28px;line-height:1.05;letter-spacing:-0.02em;color:{{ b.headlineColor }};margin-top:8px">{{ b.headline }}</span>
+      <sc-if value="{{ b.subline }}" hint-placeholder-val="{{ true }}">
+        <span style="display:block;font-family:Archivo,sans-serif;font-weight:500;font-size:14px;line-height:1.3;color:{{ b.sublineColor }};margin-top:4px">{{ b.subline }}</span>
+      </sc-if>
+    </a>
+  </sc-for>
+
+  <p style="margin:0;background:#f0ece4;padding:14px 40px;font-family:Archivo,sans-serif;font-weight:500;font-size:13px;color:#5c574d">The map shows what this page can verify: weather. Power outages are not on it, because no public feed carries them.</p>
+
+  <div style="border-top:1px solid #101010">
+    <details style="border-bottom:1px solid #e6e1d9">
+      <summary style="display:flex;align-items:center;justify-content:space-between;padding:18px 40px;cursor:pointer;list-style:none">
+        <span>
+          <span style="display:block;font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.2em;color:#8a8a8a">PLAN</span>
+          <span style="display:block;font-family:Archivo,sans-serif;font-weight:800;font-size:17px;color:#101010;margin-top:4px">Three things to do before it arrives</span>
+        </span>
+        <span style="width:22px;height:22px;border:1.5px solid #101010;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">+</span>
+      </summary>
+    </details>
+    <details style="border-bottom:1px solid #e6e1d9">
+      <summary style="display:flex;align-items:center;justify-content:space-between;padding:18px 40px;cursor:pointer;list-style:none">
+        <span>
+          <span style="display:block;font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.2em;color:#8a8a8a">KIT</span>
+          <span style="display:block;font-family:Archivo,sans-serif;font-weight:800;font-size:17px;color:#101010;margin-top:4px">Pack a bag</span>
+        </span>
+        <span style="width:22px;height:22px;border:1.5px solid #101010;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">+</span>
+      </summary>
+    </details>
+    <details style="border-bottom:1px solid #e6e1d9">
+      <summary style="display:flex;align-items:center;justify-content:space-between;padding:18px 40px;cursor:pointer;list-style:none">
+        <span>
+          <span style="display:block;font-family:'Archivo Narrow',sans-serif;font-weight:700;font-size:10px;letter-spacing:0.2em;color:#8a8a8a">SOURCES</span>
+          <span style="display:block;font-family:Archivo,sans-serif;font-weight:800;font-size:17px;color:#101010;margin-top:4px">Go straight to the agency</span>
+        </span>
+        <span style="width:22px;height:22px;border:1.5px solid #101010;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">+</span>
+      </summary>
+    </details>
+  </div>
+
+  <footer id="about" style="background:#101010;padding:36px 40px;text-align:center">
+    <p style="max-width:760px;margin:0 auto;font-family:Archivo,sans-serif;font-weight:500;font-size:13px;line-height:1.6;color:#c9c6c0"><b style="color:#ffffff">This is not an official alert system.</b> It gathers public information from the National Weather Service and Hawai&#x2BB;i county agencies into one place. It does not replace your county emergency management agency, and it never replaces 911.</p>
+    <p style="max-width:760px;margin:14px auto 0;font-family:Archivo,sans-serif;font-weight:500;font-size:13px;line-height:1.6;color:#c9c6c0">Live alerts from <a href="https://www.weather.gov/hfo" target="_blank" rel="noopener" style="color:#ffd93b">NWS Honolulu</a>. Shelter and refuge information is reported, with a source and a time on every line. Confirm any location is open before you travel.</p>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { mapExpanded: false };
+
+  toggleMap = () => this.setState(s => ({ mapExpanded: !s.mapExpanded }));
+
+  renderVals() {
+    const expanded = this.state.mapExpanded;
+    return {
+      toggleMap: this.toggleMap,
+      expandLabel: expanded ? 'CLOSE MAP' : 'EXPAND MAP',
+      mapWrapStyle: expanded
+        ? 'position:fixed;inset:0;height:100vh;z-index:999;background:#0d1522'
+        : 'position:relative;height:360px;background:#0d1522',
+      bands: [
+        { category: 'POWER', href: '#power', bg: '#c22e22', borderTop: 'none', labelColor: 'rgba(255,255,255,.75)', arrowColor: '#ffffff', headlineColor: '#ffffff', sublineColor: 'rgba(255,255,255,.82)', headline: 'Outage reports are not loading', subline: "We could not reach Hawaiian Electric's updates. That is not a reading either way. Check Hawaiian Electric.", showArrow: true },
+        { category: 'WEATHER', href: '#weather', bg: '#c22e22', borderTop: '2px solid rgba(255,255,255,.22)', labelColor: 'rgba(255,255,255,.75)', arrowColor: '#ffffff', headlineColor: '#ffffff', sublineColor: 'rgba(255,255,255,.82)', headline: 'WIND ADVISORY', subline: 'Lowell, 555 mi S, moving W at 12 mph (NHC). Waianae Coast', showArrow: true },
+        { category: 'ROADS', href: '#roads', bg: '#e8a317', borderTop: 'none', labelColor: 'rgba(0,0,0,.7)', arrowColor: '#101010', headlineColor: '#101010', sublineColor: 'rgba(0,0,0,.7)', headline: 'Closures are not tracked here yet', subline: 'No closure feed. Check GoAkamai.', showArrow: true },
+        { category: 'OCEAN', href: '#ocean', bg: '#1c6f7d', borderTop: 'none', labelColor: 'rgba(255,255,255,.7)', arrowColor: '#ffffff', headlineColor: '#ffffff', sublineColor: 'rgba(255,255,255,.82)', headline: 'HIGH SURF ADVISORY', subline: 'Niihau', showArrow: true },
+        { category: 'EMERGENCY', href: '#emergency', bg: '#faf8f5', borderTop: '2px solid #e6e1d9', labelColor: '#8a8a8a', arrowColor: '#101010', headlineColor: '#101010', sublineColor: '#5c574d', headline: 'Hurricane refuge areas reported', subline: '7 locations reported. Confirm before you travel.', showArrow: true }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
