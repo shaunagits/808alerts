@@ -99,6 +99,8 @@ button,input{font:inherit;border-radius:0}
   min-height:64px;
 }
 .bar-l{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mark-row{display:flex;align-items:center;gap:8px}
+.mark-logo{display:block;flex:none;width:22px;height:22px}
 .mark{font-weight:900;font-size:18px;line-height:1;letter-spacing:-.02em;color:#fff;white-space:nowrap}
 .mark i{font-style:normal;color:var(--accent)}
 .bar-r{display:flex;align-items:center;gap:14px}
@@ -122,6 +124,7 @@ button,input{font:inherit;border-radius:0}
 @media (min-width:1024px){
   .bar{padding:12px var(--pad);gap:28px}
   .mark{font-size:22px}
+  .mark-logo{width:28px;height:28px}
   .bar-r{gap:24px}
   .nav-a,.nav-b{display:inline-flex}
   .isle-lab{display:none}
@@ -1275,25 +1278,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .mapwrap{position:relative;background:var(--surface-line)}
 .mapwrap.tall{height:calc(100vh - 120px)}
 #map{position:absolute;inset:0}
-.mapsrc{bottom:14px;left:14px;display:flex;gap:2px;pointer-events:auto;background:var(--ink)}
-.mapwrap.tall .mapsrc,.mapwrap.tall .radarbadge{display:none}
+.mapwrap.tall .radarbadge{display:none}
 .radarbadge{top:58px;right:14px;pointer-events:none;
   background:var(--ink);color:#fff;padding:9px 13px;
   font-weight:800;font-size:10px;line-height:1;letter-spacing:.1em;white-space:nowrap;
   max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis}
-.mapsrc-b{background:var(--surface);color:var(--ink);border:0;cursor:pointer;
-  font-weight:800;font-size:10px;line-height:1;letter-spacing:.08em;
-  padding:10px 12px;min-height:36px}
-.mapsrc-b:hover{background:var(--surface2)}
-.mapsrc-b.on{background:var(--ink);color:#fff}
-.mapsrc-b.on:hover{background:var(--ink)}
-.hecoframe{position:absolute;inset:0;z-index:450;display:flex;flex-direction:column;background:var(--surface)}
-.hecoframe-bar{display:flex;gap:12px;justify-content:space-between;align-items:center;
-  background:var(--ink);color:#fff;padding:9px 13px;font-weight:600;font-size:11.5px;line-height:1.3}
-.hecoframe-bar a{color:var(--accent);font-weight:800;white-space:nowrap;text-decoration:none}
-.hecoframe-bar a:hover{text-decoration:underline}
-.hecoframe iframe{flex:1;width:100%;border:0;background:#fff}
-.mapwrap.heco .filters,.mapwrap.heco .scalenote,.mapwrap.heco .expand,.mapwrap.heco .maplist,.mapwrap.heco .radarbadge{display:none}
 .leaflet-container{background:#dedad2;font-family:Archivo,sans-serif}
 /* single tone basemap, per the 3a brief */
 .leaflet-tile-pane{filter:grayscale(1) contrast(.86) brightness(1.06)}
@@ -1376,7 +1365,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .hurr svg{width:22px;height:22px;display:block}
 @media (max-width:1023.98px){
   .mapwrap{height:280px}
-.mapwrap.heco{height:80vh}
   .mapwrap.tall{height:calc(100vh - 60px)}
   .maplist{left:14px;right:64px;width:auto;top:auto;bottom:14px;max-height:44%}
 }
@@ -1390,7 +1378,10 @@ body.detail .board,body.detail .mapnote{display:none}
 
 <header class="bar">
   <span class="bar-l">
-    <span class="mark">808<i>ALERTS</i></span>
+    <span class="mark-row">
+      <img class="mark-logo" alt="" width="28" height="28" src="data:image/png;base64,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">
+      <span class="mark">808<i>ALERTS</i></span>
+    </span>
     <span class="loc-up" id="locUp"></span>
   </span>
   <span class="bar-r">
@@ -1434,17 +1425,6 @@ body.detail .board,body.detail .mapnote{display:none}
   <div class="maplist" id="maplist">
     <h2 id="maplistHead">ON THIS MAP</h2>
     <div id="maplistItems"></div>
-  </div>
-  <div class="map-ui mapsrc" id="mapsrc" hidden role="group" aria-label="Choose map source">
-    <button type="button" class="mapsrc-b on" data-src="ours" aria-pressed="true">This map</button>
-    <button type="button" class="mapsrc-b" data-src="heco" aria-pressed="false">Hawaiian Electric</button>
-  </div>
-  <div class="hecoframe" id="hecoframe" hidden>
-    <div class="hecoframe-bar">
-      <span>Hawaiian Electric's official outage map, loaded live from their site.</span>
-      <a id="hecoOpen" href="https://www.hawaiianelectric.com/safety-and-outages/power-outages" target="_blank" rel="noopener">Open on hawaiianelectric.com &#8594;</a>
-    </div>
-    <iframe id="hecoIframe" title="Hawaiian Electric outage map" referrerpolicy="no-referrer-when-downgrade"></iframe>
   </div>
 </section>
 
@@ -1624,9 +1604,6 @@ const RES=[
  {c:"HIC007",g:"Food",nm:"Hawaiʻi Foodbank Kauaʻi",pub:"Pantries and mobile distribution",url:"https://kauai.hawaiifoodbank.org/get-help/"},
  {c:"HIC009",g:"Food",nm:"Maui Food Bank",pub:"Distribution sites and map",url:"https://mauifoodbank.org/food-distribution-sites/"},
  {c:"HIC001",g:"Food",nm:"The Food Basket",pub:"Hawaiʻi Island food bank",url:"https://www.hawaiifoodbasket.org/"},
- {c:"HIC003",g:"Power",nm:"Oʻahu outage map",pub:"Hawaiian Electric",url:"https://www.hawaiianelectric.com/safety-and-outages/power-outages/oahu-outage-map"},
- {c:"HIC001",g:"Power",nm:"Hawaiʻi Island outage map",pub:"Hawaiian Electric",url:"https://www.hawaiianelectric.com/safety-and-outages/power-outages/hawaii-island-outage-map"},
- {c:"HIC009",g:"Power",nm:"Maui County outage map",pub:"Hawaiian Electric",url:"https://www.hawaiianelectric.com/safety-and-outages/power-outages/maui-county-outage-map"},
  {c:"HIC007",g:"Power",nm:"Outage center",pub:"Kauaʻi Island Utility Cooperative",url:"https://kiuc.coop/outage-center"},
  {c:"HIC003",g:"Roads",nm:"GoAkamai live conditions",pub:"Cameras and traffic, Oʻahu",url:"https://goakamai.org/"},
  {c:"HIC009",g:"Roads",nm:"GoAkamai live conditions",pub:"Cameras and traffic, Maui",url:"https://goakamai.org/"},
@@ -1726,53 +1703,6 @@ const reportOK=r=>!!(r&&r.srcName&&r.srcUrl&&r.at&&Array.isArray(r.locs)&&r.locs
 
 /* The same rule for a power update is enforced in the worker, which will not
    report a count without the release it came from, its date and its URL. */
-
-/* Hawaiian Electric's own outage map, per island, shown on demand behind a
-   toggle. It is THEIR page loaded in an iframe, not our data and not a clone:
-   the live map only runs when framed by hawaiianelectric.com, so we frame the
-   whole official page rather than scraping anything. Invariant 5: the iframe
-   has no src until the user asks for it, so nothing external loads at render
-   and a saved copy still opens offline. Only the three Hawaiian Electric
-   counties have an entry; Kauaʻi is KIUC and keeps our map only. */
-const HECOMAP={
-  HIC003:"https://www.hawaiianelectric.com/safety-and-outages/power-outages/oahu-outage-map",
-  HIC001:"https://www.hawaiianelectric.com/safety-and-outages/power-outages/hawaii-island-outage-map",
-  HIC009:"https://www.hawaiianelectric.com/safety-and-outages/power-outages/maui-county-outage-map"
-};
-let mapSrc="ours";
-
-/* Show or hide the toggle for the current island, and keep the frame honest.
-   reset=true forces back to our map, used whenever the island changes so we
-   never leave one island's Hawaiian Electric map showing under another. */
-function syncMapSrc(reset){
-  const url=HECOMAP[S.c], tog=$("mapsrc");
-  if(!tog) return;
-  tog.hidden=!url;
-  if(reset||!url) setMapSrc("ours");
-}
-
-function setMapSrc(which){
-  const url=HECOMAP[S.c], mw=$("mapwrap"), fr=$("hecoframe"), ifr=$("hecoIframe");
-  if(which==="heco"&&!url) which="ours";
-  mapSrc=which;
-  const heco=which==="heco";
-  mw.classList.toggle("heco",heco);
-  fr.hidden=!heco;
-  if(heco){
-    $("hecoOpen").href=url;
-    /* Set src only now, and only if it is not already this island's map. */
-    if(ifr.getAttribute("src")!==url) ifr.setAttribute("src",url);
-  }else if(ifr.getAttribute("src")){
-    /* Stop their page polling in the background once we leave it. */
-    ifr.removeAttribute("src");
-  }
-  $("mapsrc").querySelectorAll(".mapsrc-b").forEach(b=>{
-    const on=b.dataset.src===which;
-    b.classList.toggle("on",on);
-    b.setAttribute("aria-pressed",on?"true":"false");
-  });
-  if(!heco){ setTimeout(()=>{ try{ MAP.invalidateSize(); }catch(_){} },0); }
-}
 
 function miles(a,b,c,d){
   const R=3958.8,r=x=>x*Math.PI/180, dp=r(c-a), dl=r(d-b);
@@ -3055,7 +2985,11 @@ function drawMap(){
     MAP=L.map("map",{center,zoom,zoomControl:false,scrollWheelZoom:false});
     /* bottom right, so it never collides with the category chips */
     L.control.zoom({position:"bottomright"}).addTo(MAP);
-    L.tileLayer(TILES,{maxZoom:17,attribution:TILE_ATTR}).addTo(MAP);
+    /* maxZoom raised from 17 to 19, 2026-09-03: Esri's World_Street_Map serves
+       real, distinct street-level tiles at 18 and 19 too (verified live against
+       Honolulu, see CLAUDE.md), so zooming in past 17 now keeps loading sharper
+       tiles instead of Leaflet just upscaling the last zoom-17 tile it has. */
+    L.tileLayer(TILES,{maxZoom:19,attribution:TILE_ATTR}).addTo(MAP);
     MAPAT=S.label;
     mapFitStorms=false;
     /* SAT_ON defaults to true, so this actually turns the layer on for a
@@ -3208,11 +3142,6 @@ $("map").addEventListener("mousedown",()=>{
 document.addEventListener("click",e=>{
   if(!MAP||$("mapwrap").classList.contains("tall")) return;
   if(!e.target.closest("#mapwrap")){ try{ MAP.scrollWheelZoom.disable(); }catch(_){} }
-});
-
-$("mapsrc").addEventListener("click",e=>{
-  const b=e.target.closest(".mapsrc-b"); if(!b) return;
-  setMapSrc(b.dataset.src);
 });
 
 $("maplistItems").addEventListener("click",e=>{
@@ -3443,7 +3372,6 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   loadWaves().then(()=>{ buildBands(); renderBands(); if(openCat==="OCEAN") renderPage("OCEAN"); });
   loadHurricane().then(()=>{ buildBands(); renderBands(); if(openCat==="WEATHER") renderPage("WEATHER"); drawMap(); });
   loadPower().then(()=>{ buildBands(); renderBands(); if(openCat==="POWER") renderPage("POWER"); });
-  syncMapSrc(true);
   loadAlerts();
   if(poll) clearInterval(poll);
   poll=setInterval(loadAlerts,300000);

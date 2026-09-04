@@ -213,6 +213,16 @@ KIUC's own outage map and HI-EMA's dashboards already use. It is one constant,
 `TILES`, so swapping it is a one line change. The tile pane is desaturated with
 `filter:grayscale(1)` to get the single tone basemap the 3a brief asks for.
 
+**`maxZoom` raised from 17 to 19, 2026-09-03.** The owner asked for more street detail
+when zoomed in. Rather than add a second tile source that swaps in past some zoom
+threshold (which would mean a second host, and specifically reintroduces the OSM
+question this file already answered above), the existing Esri layer was checked first:
+verified live against real Honolulu tile coordinates that zoom 18 and 19 return real,
+distinct street-level tiles (not a repeat of the zoom-17 tile), so the `L.tileLayer`
+call's `maxZoom:17` was just capping the same source below what it actually supports.
+Raising it to 19 was the whole fix, one line, same host, same CORS story, no new
+external request pattern to reason about.
+
 Markers follow the map handoff: closures are weight 9 lines, red for a full closure
 and amber for one lane open; National Weather Service alerts are dashed polygons at
 22% fill; shelters are 22px bordered pins; stream gauges are small white ringed dots.
@@ -601,44 +611,30 @@ automatically, not one of the three still gated behind a toggle.
 - No radar-style "clear day reads as broken" problem: satellite imagery always shows
   something (ocean, land, cloud), so there is no equivalent of `#radarnote` needed.
 
-### The Hawaiian Electric map toggle
+### The Hawaiian Electric map toggle (removed 2026-09-03)
 
-The board's map area carries a two-button toggle, **This map / Hawaiian Electric**, on
-the three Hawaiian Electric counties only (Oʻahu `HIC003`, Hawaiʻi Island `HIC001`, Maui
-County `HIC009`). Kauaʻi is KIUC and has no entry, so the toggle is hidden there and the
-county keeps our map alone.
+There used to be a two-button toggle, **This map / Hawaiian Electric**, on the three
+Hawaiian Electric counties, switching the map pane to HECO's own outage map page loaded
+in an iframe (their real live map, not a clone, framed rather than scraped because their
+outage data is bearer-token gated and their terms forbid republishing it, see Known
+gaps). The owner asked for it removed, along with every link this page carried straight
+to Hawaiian Electric's outage map: `HECOMAP`, `syncMapSrc()`, `setMapSrc()`, the
+`#mapsrc`/`#hecoframe`/`#hecoIframe` markup and CSS, and the three `RES` entries
+("Oʻahu outage map" etc.) that linked out to it from the Sources section are all gone.
+KIUC's own outage center link (Kauaʻi, not Hawaiian Electric) is untouched, it was never
+part of this.
 
-Switching to Hawaiian Electric shows their **official outage map page in an iframe**, not
-a clone of it. This matters and is the whole reason it is built this way:
+**This did not touch the POWER outage-count feature.** That is a different thing: the
+worker still parses Hawaiian Electric's newest press release per island and the "Hawaiian
+Electric newsroom" citation links in that feature stay, because those are a source
+citation for a number, not a link to their gated outage map. See "Hawaiian Electric press
+updates" below. POWER itself is already off the board and unroutable (see "POWER removed"
+above), so this cleanup only removed dead surface area, not live functionality.
 
-- HECO's live outage data is bearer-token gated and origin-allowlisted, and their terms
-  forbid republishing it (see Known gaps). We cannot and do not touch the data.
-- Their bare map app (`outagemap-heco.azurewebsites.net/heco`) renders **blank** when
-  framed from any other origin: verified 2026-08-18, it only runs when framed by
-  hawaiianelectric.com, so we frame the **whole official page** instead. It carries
-  their nav and breadcrumbs above the map; that is the cost of showing their real live
-  map without cloning it. A bar above the frame says what it is and links out.
-- Neither HECO page sends `X-Frame-Options` or a `frame-ancestors` CSP, so framing is
-  not blocked. KIUC's `kiuc.outagemap.coop` also renders blank framed, which is the
-  other reason Kauaʻi has no toggle.
-
-Implementation lives in `index.html`: `HECOMAP` (county to URL), `syncMapSrc()`
-(shows or hides the toggle per island, and resets to our map on every island change so
-one island's map never shows under another) and `setMapSrc()` (swaps the pane and, on
-the way out, **removes the iframe `src`** so their page stops polling in the background).
-The iframe starts with no `src`; that is invariant 5. On mobile the frame grows to 80vh
-so their page is usable; on desktop it stretches with the board.
-
-Do not persist the choice across loads. Our map is the offline-safe default and must be
-what a fresh visit shows.
-
-**A fix that rode along with this:** the map used to leave a grey gap under it on desktop
-at some widths. The base `.mapwrap{...height:360px}` rule sat *after* the desktop
-`height:auto` rule in source order, so it won the cascade and pinned a definite height,
-which defeated the grid's `align-items:stretch` (the board was still a two column grid
-at the time; see the design lineage note above for when that changed). That 360px
-applied nowhere else (mobile has its own 280px), so it was removed. Do not reintroduce
-a fixed `height` on `.mapwrap` at desktop widths.
+Note for whoever touches `.mapwrap` next: it used to leave a grey gap under it on desktop
+at some widths, because a base `.mapwrap{height:360px}` rule sat after the desktop
+`height:auto` rule in source order and won the cascade. Do not reintroduce a fixed
+`height` on `.mapwrap` at desktop widths.
 
 ### The weather forecast widget (added 2026-09-04)
 
@@ -1076,6 +1072,15 @@ same source image, both processed with ImageMagick in the sandbox (`convert
   that separate static files alongside `index.html` are normal for this repo.
   `twitter:card` stays `summary` (square-image card), which fits a square
   source image without cropping.
+
+**The mark also sits next to the wordmark in the sticky brand bar, 2026-09-03.** A third
+crop of the same source image (64×64, transparent background this time, not the white
+square the favicon uses, so it sits directly on the bar's `--ink` background with no
+white box around it) is inlined the same way as a `<img class="mark-logo">` next to
+`808<i>ALERTS</i></span>`, both wrapped in a new `.mark-row` so they sit on one line while
+`#locUp` continues to stack below in `.bar-l`. 22px on mobile, 28px at the 1024px
+breakpoint alongside `.mark`'s own size bump, so it scales with the wordmark rather than
+staying fixed.
 
 **First evergreen content page shipped 2026-09-04: `hurricane-kit-checklist.html`.**
 Its own real static HTML file at the repo root, its own `<title>`/description/canonical/
