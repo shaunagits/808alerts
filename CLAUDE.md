@@ -29,39 +29,39 @@ would violate one, stop and ask.
 5. **Nothing external is required to render.** No CDN scripts, no webfonts, no CSS
    frameworks, no analytics. The HTML, CSS, JS, registry, Archivo subset and the whole
    of Leaflet are inlined in one file, and the served page has **zero** `<script src>`
-   or `<link href>` tags. Grep for that before shipping. The Hawaiian Electric map
-   toggle (see The map) adds an `<iframe>`, but it ships with **no `src`**: nothing
-   loads from it until the user asks for it, so this invariant still holds. Grep that
-   the served `#hecoIframe` has no `src` attribute.
+   or `<link href>` tags. Grep for that before shipping.
    **This has drifted from the original wording and the drift is deliberate.** The page
    now calls five external hosts *after* it renders: `api.weather.gov`,
    `waterservices.usgs.gov`, `services1.arcgis.com`, `services.arcgisonline.com`
-   for map tiles, and `pae-paha.pacioos.hawaii.edu` for the ocean wave reading. A saved copy still opens and still shows the plan, the kit, the
-   and the sources with no network. What it loses offline is live data and
-   the basemap. A **fifth host, `www.hawaiianelectric.com`, now loads too**, but only
-   inside the map toggle's iframe and only when the user switches to Hawaiian Electric's
-   map. It never loads at render, so a saved copy still opens and still shows everything
-   above. This was the fifth-host decision; it was made deliberately for the outage map
-   and nothing else should quietly ride on it. A sixth host,
-   `mapservices.weather.noaa.gov`, loads the same way: only when the user turns on the
-   radar layer (see The map), never at render. A seventh, `geodata.hawaii.gov`, loads the
+   for map tiles, and `pae-paha.pacioos.hawaii.edu` for the ocean wave reading. A saved
+   copy still opens and still shows the plan, the kit and the sources with no network.
+   What it loses offline is live data and the basemap. A sixth host,
+   `mapservices.weather.noaa.gov`, loads only when the user turns on the radar layer
+   (see The radar layer), never at render. A seventh, `geodata.hawaii.gov`, loads the
    same way for the tsunami and flood hazard zones. An eighth, `gibs.earthdata.nasa.gov`
    (NASA's satellite imagery, see The satellite layer), was added the same way, only on a
    user toggle, then **changed same-day (2026-09-03) to load automatically instead**: see
-   below. Three genuinely on-demand hosts now (radar, hazard zones, and the Hawaiian
-   Electric iframe), each behind a user action and off by default; none of those three
-   loads at render, so a saved copy still opens with no network.
+   below.
    **As of 2026-09-03, three of the hosts above fire at render, not on demand.** The
    home map (see The home map) shows `services.arcgisonline.com` tiles and fetches the
    worker's `/api/hurricane` (itself proxying NOAA NHC) on page load, before any location
    is picked. The owner then asked for satellite imagery **on by default** too, so
    `gibs.earthdata.nasa.gov` now joins them: `SAT_ON` starts `true`, and `drawMap()` calls
-   `setSatellite(true)` the first time it creates the map, whether or not a location is
-   known yet. All three still degrade the same way if unreachable (flat tile pane, no
-   storms, no satellite tile), and the static HTML/CSS/JS shell still needs no network to
-   parse and paint, so a saved copy still opens. But the honest framing now is: three
-   hosts call automatically on every landing, three more stay behind an explicit toggle.
-   Not "nothing loads until you act" any more, not since the home map first shipped.
+   `satAutoZoom()` (see The satellite layer) the first time it creates the map, whether
+   or not a location is known yet. All three still degrade the same way if unreachable
+   (flat tile pane, no storms, no satellite tile), and the static HTML/CSS/JS shell
+   still needs no network to parse and paint, so a saved copy still opens.
+   **A ninth host, `hawaii311.org`, added 2026-09-04** (see Hawaiʻi 311 open service
+   requests below): loads only when the user turns on the 311 REPORTS chip, on Oʻahu
+   only, never at render. It is the owner's own site.
+   `www.hawaiianelectric.com` **is gone entirely, removed 2026-09-03** along with the
+   map toggle that loaded it (see The Hawaiian Electric map toggle) - it is no longer a
+   host this page calls under any circumstance.
+   The honest framing now: three hosts call automatically on every landing (Esri tiles,
+   NHC via the worker, GOES satellite), three more stay behind an explicit toggle
+   (radar, hazard zones, and now 311). Wind field/arrival/models add no new host at
+   all, they ride on the hurricane data the worker already fetched. Not "nothing loads
+   until you act" any more, not since the home map first shipped.
 6. **Empty states are honest.** If no reports exist for a county, say so, point at that
    county's agency, and push the user to plan. Never imply absence of data means absence
    of shelters.
@@ -626,6 +626,60 @@ threshold. Hooked once via `MAP.on("zoomend",satAutoZoom)` at map creation. The 
 call at map creation runs `satAutoZoom()` instead of a bare `setSatellite(true)`, so a
 located visitor who lands already at zoom 11 gets satellite correctly off from first
 paint instead of on-then-immediately-corrected.
+
+### Hawaiʻi 311 open service requests (added 2026-09-04)
+
+A **311 REPORTS** chip, Oʻahu only. Off by default, drawn as small points on the map:
+what's broken right now (potholes, streetlights, illegal dumping, and the rest of the
+city's 311 categories), not an emergency feed but genuinely useful street-level context.
+
+**Why this wasn't a straightforward wire-in.** The city's own 311 data lives at
+`data.honolulu.gov` as two Socrata datasets, checked live 2026-09-04. `jdy7-ftwe`
+("HNL 311 Reports") is genuinely current, rows from the same day, CORS open
+(`Access-Control-Allow-Origin: *`), but carries only street address text, no
+coordinates - nothing to put a pin on. `6hui-dvrh` ("Honolulu 311 Reports") has real
+`location.latitude`/`longitude`, but its `rowsUpdatedAt` is December 2025: despite its
+own description saying "updated daily", it stopped updating about nine months before
+this was checked. Plotting that would have meant showing months-old data as if it were
+current, exactly what invariant 1 exists to prevent. Geocoding the live feed ourselves
+was the other option, and would have meant a new dependency this app doesn't otherwise
+need (a geocoder, likely rate-limited or key-gated) just to turn street text into points.
+
+**The source that shipped instead: `hawaii311.org`, the owner's own site.** It already
+geocodes the city's live feed and keeps reports past the point the city's own 14-day
+feed drops them, publishing the result as a static `open.geojson` (verified live
+2026-09-04: `Access-Control-Allow-Origin: *`, `last-modified` the same day, ~2,400
+Oʻahu features, ~900KB). Using it sidesteps the geocoding problem entirely rather than
+rebuilding it. Scoped to Oʻahu only, because that is all `hawaii311.org` covers, the
+same "this county has it, that one doesn't" pattern the HCCDA layers already established.
+
+**Invariant 5: fetched only on toggle, never at render**, same as radar and the hazard
+zones - the ~900KB payload is too heavy to put on every visitor regardless. `load311()`
+fetches `open.geojson` on toggle-on and every 15 minutes while the layer stays on;
+`set311(false)` clears both the layer and the cached data rather than just hiding it,
+so toggling back on always re-fetches fresh rather than showing a stale in-memory copy.
+
+**Hollow vs filled markers mirror `hawaii311.org`'s own convention.** Each feature
+carries `current`: `true` means still on the city's own live feed, `false` means it
+survived only because `hawaii311.org` kept it after the city's 14-day window dropped
+it. Filled points are `current:true`, hollow (stroke only, no fill) are `current:false`,
+and the popup says so in words too, not just the marker style, matching invariant 7's
+spirit of surfacing rather than hiding a distinction like this. A `coarse` flag on some
+features (geocode precision, not exact) gets its own "Location is approximate" line for
+the same reason gauge/wave readings already caveat their own precision.
+
+**Rendered on a Leaflet canvas renderer, not the default SVG one**, the one new
+rendering technique in this file: 2,400 individual SVG-backed circle markers would be a
+real DOM weight at that count, one shared `L.canvas()` renderer keeps it to a single
+canvas element instead. Own pane, z-index 380, above the wave/radar/satellite/hazard
+panes (240/250/205/350) but below the default panes Leaflet gives live incident markers
+(closures, shelters, alerts), so 311 reads as secondary to actual emergency data, not
+layered on top of it.
+
+**Forced off automatically on leaving Oʻahu.** `drawMap()` checks `S.c!=="HIC003"` on
+every call and calls `set311(false)` if the layer is on and the location isn't Oʻahu
+any more, so a relocate can't leave a stale Oʻahu-only layer (or its now-irrelevant chip)
+showing under a different island.
 
 ### The Hawaiian Electric map toggle (removed 2026-09-03)
 

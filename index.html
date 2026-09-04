@@ -2825,6 +2825,79 @@ function hookHazMove(){
     if(HAZON.tsunami) loadHazard("tsunami");
   },450); });
 }
+
+/* Hawaiʻi 311 open service requests, added 2026-09-04. Oʻahu only, from the
+   owner's own hawaii311.org: it geocodes the city's 311 feed (which itself
+   carries only street text, no coordinates) and keeps reports the city's own
+   14-day feed has already dropped. CORS open, keyless, updated live.
+   Off by default and fetched only on toggle: invariant 5, and the payload is
+   ~900KB for ~2,400 points statewide-on-Oʻahu, too heavy for every visitor to
+   pay for at render. `current:false` on a feature means it survived past the
+   city's own 14-day window and is only known because hawaii311.org kept it;
+   drawn hollow, matching the hollow-marker convention hawaii311.org itself
+   uses, filled points are still on the city's own current feed. */
+const REP311_SRC="https://hawaii311.org/open.geojson";
+let REP311_ON=false, REP311_LAYER=null, REP311_DATA=null, rep311Timer=null, REP311_CANVAS=null;
+
+function rep311Pop(p){
+  const opened=p.created_date?up(new Date(p.created_date).toLocaleDateString("en-US",
+    {month:"short",day:"numeric",year:"numeric"})):"Unknown";
+  return `<div class="pop-head" style="background:#101010;color:#fff">`+
+      `<span class="k">${esc(up(p.category||"311"))}</span>`+
+      `<span class="t">${esc(p.type||"Service request")}</span></div>`+
+    `<div class="pop-body"><span class="s">${esc(p.street||"")}</span>`+
+      `<span class="pop-kv"><span class="k">STATUS</span><span class="v">${esc(up(p.status||"Unknown"))}</span></span>`+
+      `<span class="pop-kv"><span class="k">OPENED</span><span class="v">${opened}</span></span>`+
+      (p.current===false?`<span class="s">No longer on the city's own 14-day feed; kept here from a prior check.</span>`:"")+
+      (p.coarse?`<span class="s">Location is approximate.</span>`:"")+
+    `</div>`+
+    `<a class="pop-link" href="https://hawaii311.org" target="_blank" rel="noopener">HAWAIʻI 311 &#8594;</a>`;
+}
+
+function draw311(){
+  if(REP311_LAYER){ MAP.removeLayer(REP311_LAYER); REP311_LAYER=null; }
+  if(!REP311_DATA) return;
+  if(!REP311_CANVAS) REP311_CANVAS=L.canvas({pane:"rep311"});
+  REP311_LAYER=L.geoJSON(REP311_DATA,{
+    pointToLayer:(f,ll)=>L.circleMarker(ll,{
+      pane:"rep311",renderer:REP311_CANVAS,radius:5,
+      color:"#101010",weight:f.properties.current===false?1.5:0,
+      fillColor:"#101010",fillOpacity:f.properties.current===false?0:.85}),
+    onEachFeature:(f,lyr)=>lyr.bindPopup(rep311Pop(f.properties),
+      {maxWidth:260,autoPanPadding:[24,24]})
+  }).addTo(MAP);
+}
+
+async function load311(){
+  if(!MAP||!REP311_ON) return;
+  try{
+    const r=await fetch(REP311_SRC); if(!r.ok) throw 0;
+    REP311_DATA=await r.json();
+  }catch(_){ REP311_DATA=null; }
+  if(REP311_ON) draw311();
+}
+
+function set311(on){
+  if(!MAP) return;
+  REP311_ON=on;
+  if(!MAP.getPane("rep311")){
+    /* Above the wave/radar/satellite/hazard panes (240/250/205/350), below
+       the default panes live incident markers (closures, shelters, alerts)
+       use, so this reads as secondary to actual emergency data, not on top
+       of it. */
+    MAP.createPane("rep311"); MAP.getPane("rep311").style.zIndex=380;
+  }
+  if(rep311Timer){ clearInterval(rep311Timer); rep311Timer=null; }
+  if(on){
+    load311();
+    rep311Timer=setInterval(load311,900000);
+  }else{
+    if(REP311_LAYER){ MAP.removeLayer(REP311_LAYER); REP311_LAYER=null; }
+    REP311_DATA=null;
+  }
+  const chip=document.querySelector('#filters [data-311]');
+  if(chip) chip.setAttribute("aria-pressed",on?"true":"false");
+}
 /* PacIOOS WaveWatch III wave height as a coloured overlay. One transparentPng
    render per map view (not per tile) to stay light on PacIOOS, placed as an
    image overlay and refetched when the map settles. Same host as the ocean
@@ -3062,6 +3135,11 @@ function drawMap(){
     if(MAPON[cat]) g.addTo(MAP);
   });
 
+  /* 311 is Oʻahu only (that is all hawaii311.org covers), so leaving Oʻahu
+     forces it off - otherwise a stale layer or a chip for data that no
+     longer applies could linger after a relocate. */
+  if(S.c!=="HIC003"&&REP311_ON) set311(false);
+
   drawStorms();
   if(!S.c) fitStormView();
   else if(!mapFitStorms&&HURRICANES!==null){
@@ -3080,6 +3158,7 @@ function drawMap(){
     +`<button class="chip" type="button" data-radar aria-pressed="${RADAR_ON}" title="Live NWS rain radar">RADAR</button>`
     +`<button class="chip" type="button" data-sat aria-pressed="${SAT_ON}" title="Live GOES-West satellite imagery">SATELLITE</button>`
     +`<button class="chip" type="button" data-haz="tsunami" aria-pressed="${HAZON.tsunami}" title="Tsunami evacuation zones">TSUNAMI ZONE</button>`
+    +(S.c==="HIC003"?`<button class="chip" type="button" data-311 aria-pressed="${REP311_ON}" title="Open 311 service requests on Oʻahu, from hawaii311.org">311 REPORTS</button>`:"")
     +(HURRICANES&&HURRICANES.some(h=>h.windExtent)
       ?`<button class="chip" type="button" data-storm="wind" aria-pressed="${STORMLAYER_ON.wind}" title="Current tropical-storm-force wind extent">WIND FIELD</button>`:"")
     +(HURRICANES&&HURRICANES.some(h=>h.arrival)
@@ -3109,6 +3188,11 @@ $("filters").addEventListener("click",e=>{
 $("filters").addEventListener("click",e=>{
   const h=e.target.closest("button[data-haz]"); if(!h) return;
   setHazard(h.dataset.haz,!HAZON[h.dataset.haz]);
+});
+
+$("filters").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-311]"); if(!b) return;
+  set311(!REP311_ON);
 });
 
 /* No new fetch: wind extent and arrival bands ride along with the storm data
