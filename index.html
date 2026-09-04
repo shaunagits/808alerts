@@ -234,7 +234,9 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
      above-the-fold content now. */
   .mapwrap{height:360px}
   .mapwrap.tall{height:calc(100vh - 76px)}
-  .board:has(.mapwrap.tall) #bands{display:none}
+  .board:has(.mapwrap.tall) #bands,
+  .board:has(.mapwrap.tall) #islandWx,
+  .board:has(.mapwrap.tall) .islandwx-h{display:none}
   /* Before a location is chosen #bands is empty (nothing to show yet); hide
      it so an empty grid item does not leave a stray gap line under the map. */
   .board:has(.mapwrap.home) #bands{display:none}
@@ -1333,6 +1335,21 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .maplist .s{display:block;margin-top:3px;font-weight:500;font-size:12.5px;line-height:1.4;color:#5c5c5c}
 .mapnote{padding:12px var(--pad);background:var(--surface2);
   font-weight:500;font-size:12.5px;line-height:1.5;color:var(--body)}
+/* Per-island forecast snapshot, home (pre-location) state only. Reuses the
+   .d-stats/.d-stat tile pattern already established in the detail pages
+   rather than inventing a new one, just under its own class name so the
+   column count can flex for six tiles instead of three. */
+.islandwx-h{padding:16px var(--pad) 0;font-weight:800;font-size:11px;line-height:1;letter-spacing:.12em;color:var(--ink)}
+.islandwx{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:2px;margin-top:12px;
+  background:var(--surface-line);border-top:2px solid var(--surface-line);border-bottom:2px solid var(--surface-line);
+}
+@media (min-width:640px){ .islandwx{grid-template-columns:repeat(3,1fr)} }
+.islandwx>div{background:var(--surface);padding:16px 14px}
+.islandwx>div b{display:block;font-weight:700;font-stretch:77%;font-size:9.5px;line-height:1;letter-spacing:.16em;color:var(--muted3)}
+.islandwx>div span{display:block;margin-top:8px;font-weight:800;font-size:22px;line-height:1;letter-spacing:-.02em;color:var(--ink)}
+.islandwx>div span.unk{font-size:14px;color:var(--muted3)}
+.islandwx>div small{display:block;margin-top:4px;font-weight:500;font-size:12px;line-height:1.35;color:#5c5c5c}
 .leaflet-popup-content-wrapper{border-radius:0;padding:0;box-shadow:0 6px 24px rgba(0,0,0,.22)}
 .leaflet-popup-content{margin:0;width:264px !important;font-family:Archivo,sans-serif}
 .pop-head{padding:15px 16px}
@@ -1428,6 +1445,8 @@ body.detail .board,body.detail .mapnote{display:none}
 </section>
 
   <div id="bands"></div>
+  <p class="islandwx-h" id="islandWxHead" hidden>TODAY, BY ISLAND</p>
+  <div class="islandwx" id="islandWx" hidden></div>
 </div>
 
 <p class="mapnote" id="mapnote" hidden></p>
@@ -1519,13 +1538,21 @@ const COUNTIES={
 /* z is the NWS public forecast zone containing that point, verified against
    /points. Hardcoded so the zone alert query still runs when /points is slow
    or unreachable, which is exactly when it matters. */
+/* gx/gy are the NWS gridpoint the island's own coordinates resolve to (office
+   is always HFO, Honolulu, which covers the whole state, so it is not stored
+   per island). Verified live 2026-09-03 against /points for each island's own
+   lat/lon. Hardcoded for the same reason the forecast zone already is: it is
+   the request most likely to fail, and the weather widget (see loadWeather /
+   loadHomeWeather) needs a grid cell for every island on the home map before
+   anyone has picked a location, not just for the one a visitor eventually
+   picks. */
 const ISLANDS=[
- {label:"Oʻahu",c:"HIC003",z:"HIZ033",lat:21.3099,lon:-157.8581},
- {label:"Hawaiʻi Island",c:"HIC001",z:"HIZ053",lat:19.7297,lon:-155.0900},
- {label:"Maui",c:"HIC009",z:"HIZ018",lat:20.8783,lon:-156.6825},
- {label:"Molokaʻi",c:"HIC009",z:"HIZ041",lat:21.1444,lon:-157.0226},
- {label:"Lānaʻi",c:"HIC009",z:"HIZ015",lat:20.8283,lon:-156.9197},
- {label:"Kauaʻi",c:"HIC007",z:"HIZ030",lat:21.9811,lon:-159.3711}
+ {label:"Oʻahu",c:"HIC003",z:"HIZ033",lat:21.3099,lon:-157.8581,gx:154,gy:145},
+ {label:"Hawaiʻi Island",c:"HIC001",z:"HIZ053",lat:19.7297,lon:-155.0900,gx:270,gy:74},
+ {label:"Maui",c:"HIC009",z:"HIZ018",lat:20.8783,lon:-156.6825,gx:203,gy:125},
+ {label:"Molokaʻi",c:"HIC009",z:"HIZ041",lat:21.1444,lon:-157.0226,gx:189,gy:137},
+ {label:"Lānaʻi",c:"HIC009",z:"HIZ015",lat:20.8283,lon:-156.9197,gx:193,gy:123},
+ {label:"Kauaʻi",c:"HIC007",z:"HIZ030",lat:21.9811,lon:-159.3711,gx:91,gy:175}
 ];
 
 /* Neighbourhood table for the city / ZIP control. Coordinates are town centres
@@ -1787,7 +1814,10 @@ let lastOK=null, poll=null;
 let BANDS=[], NWS=[], BYCAT={WEATHER:[],OCEAN:[],EMERGENCY:[]};
 /* null means not loaded, or not published for this county. An empty array means
    loaded and genuinely nothing active. The two must never render the same. */
-let CLOSURES=null, GAUGES=null, SHELTERS=null, WAVES=null;
+let CLOSURES=null, GAUGES=null, SHELTERS=null, WAVES=null, WX=null;
+/* Per-island forecast snapshot for the home (pre-location) state. Loaded
+   once at boot, independent of S, so it does not get cleared by setLoc. */
+let WXHOME=null;
 
 /* Hawaiʻi County Civil Defense is the only county publishing a live incident
    layer. Public, keyless, CORS open, and edited by their Public Works highways
@@ -1963,6 +1993,108 @@ async function loadWaves(){
   }catch(_){ WAVES=false; }
 }
 
+const WX_UA={headers:{"User-Agent":"808alerts.com storm information (contact: shauna.coy@gmail.com)"}};
+
+/* Current conditions from the nearest reporting station. Not every station
+   in the list reports every field every cycle: verified live 2026-09-03,
+   Honolulu Airport (PHNL), the FIRST station for most of Oʻahu, was
+   reporting nulls for temperature/humidity/wind while a busier station
+   further down the list had real numbers. So this tries up to the 3 nearest
+   stations and takes the first with an actual numeric temperature, rather
+   than trusting whichever station happens to be closest. Returns null (not
+   a thrown error) if none of the 3 have a reading; that is a normal, honest
+   outcome, not a failure. */
+async function currentConditions(gx,gy){
+  const sr=await fetch(`https://api.weather.gov/gridpoints/HFO/${gx},${gy}/stations`,WX_UA);
+  if(!sr.ok) return null;
+  const stations=((await sr.json()).features||[]).slice(0,3);
+  for(const st of stations){
+    const sid=st.properties?.stationIdentifier;
+    if(!sid) continue;
+    try{
+      const or=await fetch(`https://api.weather.gov/stations/${sid}/observations/latest`,WX_UA);
+      if(!or.ok) continue;
+      const p=(await or.json()).properties;
+      if(p.temperature?.value==null) continue; // this station is not reporting right now, try the next
+      return {
+        station:sid,
+        name:st.properties.name,
+        at:p.timestamp,
+        text:p.textDescription||null,
+        tempF:Math.round(p.temperature.value*9/5+32),
+        humidity:p.relativeHumidity?.value!=null?Math.round(p.relativeHumidity.value):null,
+        windMph:p.windSpeed?.value!=null?Math.round(p.windSpeed.value*0.621371):null,
+        windDir:p.windDirection?.value!=null?compass(p.windDirection.value):null,
+      };
+    }catch(_){ /* try the next station */ }
+  }
+  return null;
+}
+
+/* Detailed forecast for the located state: current conditions (best-effort,
+   see currentConditions), the 7-day text forecast, and the next 12 hours.
+   All three come from api.weather.gov, the same host already used for
+   alerts: public, keyless, CORS open (verified: sends
+   Access-Control-Allow-Origin: *). The grid cell is the nearest island's own
+   hardcoded gx/gy (see ISLANDS) rather than a fresh /points lookup for S's
+   exact coordinates, same reasoning as the forecast zone already uses it:
+   that is the request most likely to fail, and this is enhancement on top
+   of the page, not the safety-critical alerts path, which still does its
+   own live lookup. Loaded once per location and cached like the gauge and
+   wave readings; WX stays null while loading, false only if the forecast
+   itself could not be fetched at all. */
+async function loadWeather(){
+  if(WX!==null) return;
+  const g=nearestIsland(S.lat,S.lon);
+  try{
+    const [fr,hr]=await Promise.all([
+      fetch(`https://api.weather.gov/gridpoints/HFO/${g.gx},${g.gy}/forecast`,WX_UA),
+      fetch(`https://api.weather.gov/gridpoints/HFO/${g.gx},${g.gy}/forecast/hourly`,WX_UA),
+    ]);
+    if(!fr.ok||!hr.ok) throw 0;
+    const periods=(await fr.json()).properties.periods||[];
+    const hourly=(await hr.json()).properties.periods||[];
+    let current=null;
+    try{ current=await currentConditions(g.gx,g.gy); }catch(_){ /* bonus, not required */ }
+    WX={periods:periods.slice(0,14),hourly:hourly.slice(0,12),current};
+  }catch(_){ WX=false; }
+}
+
+/* Lightweight per-island snapshot for the home (pre-location) state: just
+   today's forecast period, one fetch per island, no station lookup (that
+   would be 6 more round trips for a page nobody has located yet). Loaded
+   once at boot alongside the home map's own storm fetch, independent of S.
+   A single island failing to answer does not block the other five: each
+   fetch is caught on its own, and that island's tile just says so. */
+async function loadHomeWeather(){
+  if(WXHOME!==null) return;
+  WXHOME=await Promise.all(ISLANDS.map(async i=>{
+    try{
+      const r=await fetch(`https://api.weather.gov/gridpoints/HFO/${i.gx},${i.gy}/forecast`,WX_UA);
+      if(!r.ok) throw 0;
+      const periods=(await r.json()).properties.periods||[];
+      const p=periods.find(x=>x.isDaytime)||periods[0];
+      if(!p) throw 0;
+      return {label:i.label,temp:p.temperature,unit:p.temperatureUnit,short:p.shortForecast};
+    }catch(_){ return {label:i.label,temp:null,unit:null,short:null}; }
+  }));
+}
+
+/* Renders whatever loadHomeWeather has so far: called once synchronously
+   (WXHOME still null, tiles show "Loading…") and again when the fetch
+   resolves. Each island renders independently, so one island's fetch failing
+   does not blank the other five, same "just don't have a number" honesty as
+   every other feed here. */
+function renderIslandWx(){
+  const el=$("islandWx"); if(!el) return;
+  el.innerHTML=(WXHOME||ISLANDS.map(i=>({label:i.label,temp:null,unit:null,short:null}))).map(w=>
+    `<div><b>${esc(up(w.label))}</b>
+       ${w.temp!=null
+         ?`<span>${w.temp}&deg;${esc(w.unit||"F")}</span><small>${esc(w.short||"")}</small>`
+         :`<span class="unk">${WXHOME?"&mdash;":"Loading…"}</span>`}
+     </div>`).join("");
+}
+
 const SEVWORD={warning:"WARNING",advisory:"ADVISORY",watch:"WATCH",clear:"ALL CLEAR"};
 /* NWS names its products by level, which is the same vocabulary the design
    labels with, so the name is the mapping. Severity is the fallback. */
@@ -1983,7 +2115,12 @@ const catOf=p=>EMERG_RE.test(p.event||"")?"EMERGENCY":(OCEAN_RE.test(p.event||""
    the design's. The board reads the same every day; the feed only fills the
    headline and the sub-line. */
 const BANDCOLOR={POWER:"warning",WEATHER:"warning",ROADS:"advisory",OCEAN:"watch",EMERGENCY:"clear"};
-const BANDORDER=["POWER","WEATHER","ROADS","OCEAN","EMERGENCY"];
+/* Changed 2026-09-04 at the owner's direction: WEATHER now leads, POWER moved
+   down. This only reorders the band cards on the board and the map's filter
+   chips (both sort against this array); it does not touch each band's own
+   fixed colour (CATCOLOR/BANDCOLOR are keyed by category name, not position),
+   so "band colour is fixed per category" still holds exactly as before. */
+const BANDORDER=["WEATHER","POWER","ROADS","OCEAN","EMERGENCY"];
 const SEVRANK={warning:0,advisory:1,watch:2,clear:3};
 
 const UTILITY=c=>c==="HIC007"?"Kauaʻi Island Utility Cooperative":"Hawaiian Electric";
@@ -2315,6 +2452,7 @@ function panelWeather(){
         `<div class="d-step"><b style="color:var(--${sev==="warning"?"warn":"advis"})">0${i+1}</b><span>${esc(t)}</span></div>`).join("")}</div>
      </div>`:"")+
     tropicalBlock()+
+    forecastBlock()+
     gaugeBlock()+
     advisoryList("WEATHER")+
     (also?`<div class="d-sec"><span class="d-h">ALSO ACTIVE</span>
@@ -2325,6 +2463,52 @@ function panelWeather(){
          <span class="arw" aria-hidden="true">&#8594;</span>
        </div></div>`:"")+
     footBlock(d,(COUNTIES[S.c].alerts||{}).url||"https://www.weather.gov/hfo");
+}
+
+/* The detailed NWS forecast: current conditions (if a nearby station has a
+   reading, see currentConditions), the 7-day text forecast, and the next 12
+   hours. Reuses the .d-sec/.d-area/.d-eta pattern already established by
+   gaugeBlock/waveBlock rather than inventing new visual language. Each of
+   the three pieces is independently optional (a station can be silent, the
+   forecast fetch can fail outright) and renders nothing when absent, same
+   honest-empty-state rule as everything else on this page. */
+function forecastBlock(){
+  if(WX===null) return `<div class="d-sec"><span class="d-h">FORECAST</span>
+    <div class="d-text">Loading the National Weather Service forecast…</div></div>`;
+  if(!WX) return `<div class="d-sec"><span class="d-h">FORECAST</span>
+    <div class="d-text">Forecast is not loading right now. Check weather.gov for your area.</div></div>`;
+  const cur=WX.current;
+  const hourClock=t=>new Date(t).toLocaleTimeString([],{hour:"numeric",timeZone:"Pacific/Honolulu"});
+  return (cur?`<div class="d-sec"><span class="d-h">CURRENT CONDITIONS</span></div>
+      <div class="d-area">
+        <div><b>${esc(cur.text||"Current conditions")}</b>
+          <small>${esc(cur.name||cur.station)} &middot; read ${esc(up(clock(cur.at)))}</small>
+          ${(cur.windMph!=null||cur.humidity!=null)?`<em>${[
+            cur.windMph!=null?"Wind "+cur.windMph+" mph"+(cur.windDir?" "+cur.windDir:""):null,
+            cur.humidity!=null?"Humidity "+cur.humidity+"%":null,
+          ].filter(Boolean).join(" &middot; ")}</em>`:""}</div>
+        <div class="d-eta"><b>TEMP</b><span>${cur.tempF}&deg;F</span></div>
+      </div>`:"")+
+    `<div class="d-sec"><span class="d-h">7-DAY FORECAST</span></div>`+
+    WX.periods.map(p=>
+      `<div class="d-area">
+         <div><b>${esc(up(p.name))}</b>
+           <small>${esc(p.shortForecast||"")}</small>
+           ${p.windSpeed?`<em>Wind ${esc(p.windSpeed)}${p.windDirection?" "+esc(p.windDirection):""}</em>`:""}</div>
+         <div class="d-eta"><b>${p.isDaytime?"HIGH":"LOW"}</b><span>${p.temperature}&deg;${esc(p.temperatureUnit||"F")}</span></div>
+       </div>`).join("")+
+    (WX.hourly.length?`<div class="d-sec"><span class="d-h">NEXT 12 HOURS</span></div>`+
+      WX.hourly.map(h=>
+        `<div class="d-area">
+           <div><b>${esc(up(hourClock(h.startTime)))}</b>
+             <small>${esc(h.shortForecast||"")}</small></div>
+           <div class="d-eta"><b>${h.probabilityOfPrecipitation?.value?h.probabilityOfPrecipitation.value+"% RAIN":"TEMP"}</b>
+             <span>${h.temperature}&deg;${esc(h.temperatureUnit||"F")}</span></div>
+         </div>`).join(""):"")+
+    `<p class="d-src" style="padding:14px var(--pad) 0">Source: National Weather Service Honolulu Forecast
+      Office. Current conditions come from the nearest reporting station and can lag a few
+      minutes to an hour behind real time; the forecast is not a substitute for any Watch,
+      Warning or Advisory shown above.</p>`;
 }
 
 function gaugeBlock(){
@@ -2830,6 +3014,9 @@ function drawMap(){
   wrap.setAttribute("aria-label",S.c
     ?"Map of active alerts near your location"
     :"Map of Hawaiʻi and active tropical systems in the Central Pacific");
+  $("islandWxHead").hidden=!!S.c;
+  $("islandWx").hidden=!!S.c;
+  if(!S.c) renderIslandWx();
 
   if(!MAP){
     const center=S.c?[S.lat,S.lon]:HI_BOUNDS.getCenter(), zoom=S.c?11:6;
@@ -3209,7 +3396,7 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   $("isleLab").textContent=up(isle);
   const al=COUNTIES[c].alerts;
   if(al) $("navAlerts").href=al.url;
-  NWS=[]; CLOSURES=null; GAUGES=null; SHELTERS=null; WAVES=null; HURRICANES=null; POWER=null;
+  NWS=[]; CLOSURES=null; GAUGES=null; SHELTERS=null; WAVES=null; WX=null; HURRICANES=null; POWER=null;
   buildBands(); renderBands(); route();
   /* The map only used to need this from the async loads below: before the
      home map (see The home map), it sat hidden until then anyway, so a beat
@@ -3228,6 +3415,7 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   /* Stream gauges are the one layer that exists statewide, so they load with
      the board rather than only with the Weather view. */
   loadGauges().then(()=>{ drawMap(); if(openCat==="WEATHER") renderPage("WEATHER"); });
+  loadWeather().then(()=>{ if(openCat==="WEATHER") renderPage("WEATHER"); });
   loadWaves().then(()=>{ buildBands(); renderBands(); if(openCat==="OCEAN") renderPage("OCEAN"); });
   loadHurricane().then(()=>{ buildBands(); renderBands(); if(openCat==="WEATHER") renderPage("WEATHER"); drawMap(); });
   loadPower().then(()=>{ buildBands(); renderBands(); if(openCat==="POWER") renderPage("POWER"); });
@@ -3392,6 +3580,11 @@ function renderSources(){
    map too: Hawaiʻi and any nearby tropical systems, prominent, so someone
    who has not picked a location yet can still see a storm coming. */
 drawMap();
+/* Independent of setLoc's own fetches: the per-island snapshot is home-state
+   content, so it is fetched once here regardless of whether a stored
+   location is about to be restored below. The tiles stay hidden (see
+   drawMap) until/unless S.c is actually null. */
+loadHomeWeather().then(renderIslandWx);
 
 (function restore(){
   const last=store.get("loc",null);

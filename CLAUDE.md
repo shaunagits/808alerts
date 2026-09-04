@@ -144,7 +144,9 @@ hero                    headline, use my location, city / ZIP (hidden once locat
 location strip          {PLACE} ALERTS, island, relocate controls, UPDATED time
                         (hidden pre-location; carries the hero's controls once shown)
 board                   map full width across the top, always, located or not
-                        five bands stack in full width rows below the map
+                        pre-location: per-island forecast snapshot tiles below the map
+                        located: five bands (WEATHER first, see the weather widget
+                        section) stack in full width rows below the map
 map note                what the map can and cannot show
 folds                   Plan, Kit, Sources, all collapsed on load
 footer                  the not an official alert system disclaimer
@@ -583,6 +585,60 @@ which defeated the grid's `align-items:stretch` (the board was still a two colum
 at the time; see the design lineage note above for when that changed). That 360px
 applied nowhere else (mobile has its own 280px), so it was removed. Do not reintroduce
 a fixed `height` on `.mapwrap` at desktop widths.
+
+### The weather forecast widget (added 2026-09-04)
+
+Beyond active alerts, the WEATHER card now carries an actual forecast: current
+conditions, the 7-day text forecast, and the next 12 hours, plus a per-island
+snapshot on the home page before anyone has picked a location. All of it comes
+from `api.weather.gov`, the same host the alerts already use: public, keyless,
+CORS open (`Access-Control-Allow-Origin: *`, verified live 2026-09-04). No new
+external host, no worker involvement, this is a page-side fetch like the
+alerts already are.
+
+- **Grid cell comes from the nearest island's own hardcoded `gx`/`gy`, not a
+  fresh `/points` lookup.** Same reasoning as the forecast zone (`z`) already
+  hardcoded per `ISLANDS` entry: `/points` is the request most likely to
+  fail, and this is enhancement on top of the page, not the safety-critical
+  alerts path (which still does its own live `/points` lookup and always
+  will). Verified live 2026-09-03 against each island's own coordinates; all
+  six resolve to office `HFO` (Honolulu), just different x/y.
+- **`loadWeather()`** (in `index.html`) fetches `/gridpoints/HFO/{gx},{gy}/forecast`
+  and `/forecast/hourly` for the located state, plus `currentConditions()` for
+  a best-effort current-conditions reading. Cached once per location like the
+  gauge and wave readings (`WX` stays `null` while loading, `false` only if
+  the forecast fetch itself fails outright; a current-conditions miss does
+  not fail the whole thing, see below).
+- **`currentConditions()` tries up to the 3 nearest stations, not just the
+  closest one.** Verified live 2026-09-03: Honolulu Airport (PHNL), the
+  *first* station for most of Oʻahu, was reporting `null` for temperature,
+  humidity and wind at the time, while a station further down the list
+  (PHKO, Kona) had real numbers. NWS observation values are metric
+  (`degC`, `km_h-1`), converted to °F/mph on the way in; `textDescription` is
+  taken as-is. A station that returns no numeric temperature is skipped in
+  favor of the next one; if none of the 3 have a reading, current conditions
+  are simply absent from the card, same honest-empty-state rule as
+  everything else here, not an error state.
+- **`forecastBlock()`** renders all three pieces in `panelWeather()`'s detail
+  view, reusing the existing `.d-sec`/`.d-area`/`.d-eta` pattern already
+  established by `gaugeBlock`/`waveBlock` rather than inventing new visual
+  language.
+- **`loadHomeWeather()` / `renderIslandWx()`** give the home (pre-location)
+  state a lightweight per-island snapshot: just today's forecast period, one
+  fetch per island (no station lookup, that would be 6 more round trips for a
+  page nobody has located yet), rendered as a tile grid under the map
+  (`#islandWx`), reusing the `.d-stats`/`.d-stat` tile pattern from the
+  detail pages under its own class name (`.islandwx`) so the column count can
+  flex for six tiles instead of three. Hidden once a location is picked or
+  the map is expanded, same visibility rule `#bands` already follows.
+  Fetched once at boot independent of `setLoc`, since this is home-state
+  content with no equivalent in the located flow.
+- **Band order changed the same day, at the owner's direction: WEATHER now
+  leads, POWER moved down** (`BANDORDER` in `index.html`). This only reorders
+  the band cards on the board and the map's filter chips, both of which sort
+  against `BANDORDER`; it does not touch any band's own color (`CATCOLOR`/
+  `BANDCOLOR` are keyed by category name, not position), so "band colour is
+  fixed per category" (see Design rules above) still holds exactly as before.
 
 ### Fetching alerts: query the point AND the zone
 
