@@ -96,6 +96,7 @@ button,input{font:inherit;border-radius:0}
   display:flex; align-items:center; justify-content:space-between; gap:14px;
   min-height:64px;
 }
+.bar-l{display:flex;flex-direction:column;gap:3px;min-width:0}
 .mark{font-weight:900;font-size:18px;line-height:1;letter-spacing:-.02em;color:#fff;white-space:nowrap}
 .mark i{font-style:normal;color:var(--accent)}
 .bar-r{display:flex;align-items:center;gap:14px}
@@ -1394,7 +1395,10 @@ body.detail .board,body.detail .mapnote{display:none}
 <body>
 
 <header class="bar">
-  <span class="mark">808<i>ALERTS</i></span>
+  <span class="bar-l">
+    <span class="mark">808<i>ALERTS</i></span>
+    <span class="loc-up" id="locUp"></span>
+  </span>
   <span class="bar-r">
     <span class="isle-lab" id="isleLab">HAWAIʻI</span>
     <a class="nav-a" href="#about">ABOUT</a>
@@ -1420,7 +1424,6 @@ body.detail .board,body.detail .mapnote{display:none}
     <span class="loc-is" id="locIsle"></span>
   </span>
   <span class="loc-ctl" id="stripCtl"></span>
-  <span class="loc-up" id="locUp"></span>
 </section>
 
 
