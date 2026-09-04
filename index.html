@@ -1307,10 +1307,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
   bottom:14px;left:14px;background:var(--surface);padding:10px 13px;
   font-weight:600;font-stretch:77%;font-size:11px;line-height:1;letter-spacing:.12em;color:var(--body);
 }
-/* Home-state only: quick jump buttons so getting from the statewide view to
-   an island's local zoom does not depend on pinching/scrolling in on a
-   360px-tall map card. Pure map navigation, does not set S.c or trigger the
-   located flow; that is still what the hero/location strip controls do. */
+/* Shown in every map state, home and located alike: quick jump buttons so
+   getting to another island's local zoom never depends on pinching/scrolling
+   out and back in on a 360px-tall map card. Pure map navigation, does not
+   set S.c or trigger the located flow; that is still what the hero/location
+   strip controls do. */
 .islandnav{bottom:54px;left:14px;right:64px;gap:2px;flex-wrap:wrap}
 .islandnav:not([hidden]){display:flex}
 .islandnav .chip{background:var(--ink);color:#fff}
@@ -3075,8 +3076,8 @@ function drawMap(){
     :"Map of Hawaiʻi and active tropical systems in the Central Pacific");
   $("islandWxHead").hidden=!!S.c;
   $("islandWx").hidden=!!S.c;
-  $("islandnav").hidden=!!S.c;
-  if(!S.c&&!$("islandnav").childElementCount){
+  $("islandnav").hidden=false;
+  if(!$("islandnav").childElementCount){
     $("islandnav").innerHTML=ISLANDS.map(i=>
       `<button class="chip" type="button" data-jump="${esc(i.lat)},${esc(i.lon)}">${esc(up(i.label))}</button>`).join("");
   }

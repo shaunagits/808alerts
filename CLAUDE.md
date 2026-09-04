@@ -334,11 +334,18 @@ any location is known.
 **Island quick-nav, added 2026-09-04.** The owner likes the wide home view but found
 getting from it to island-level detail slow when the only tool is scroll-to-zoom:
 "getting to the detail view is difficult with just zooming." `#islandnav` is a row of
-one chip per island, shown only in the home (pre-location) map state
-(`$("islandnav").hidden=!!S.c`), populated once from the existing `ISLANDS` array the
-located flow already uses for its own forecast-zone lookups. Each chip carries the
-island's `lat,lon` in a `data-jump` attribute; the click handler reads it and calls
+one chip per island, populated once from the existing `ISLANDS` array the located flow
+already uses for its own forecast-zone lookups. Each chip carries the island's
+`lat,lon` in a `data-jump` attribute; the click handler reads it and calls
 `MAP.setView([lat,lon],10)`, nothing else.
+
+**Shown in every map state, not just home.** First shipped hidden once a location was
+picked (`$("islandnav").hidden=!!S.c`), on the reasoning that the located map already
+has its own zoom-11 view. The owner clarified same day: these are meant as standing
+shortcuts ("they are shortcuts so they should appear always"), not a pre-location-only
+affordance, so someone who has already located themselves can still jump straight to a
+different island without scrolling back out first. `drawMap()` now always sets
+`$("islandnav").hidden=false` and always populates it if empty, regardless of `S.c`.
 
 **Deliberately not a location pick.** This app has exactly one way to "locate"
 yourself, the hero/isles list controls, because that is what drives `S.c`, the bands,
