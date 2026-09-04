@@ -282,6 +282,105 @@ async function modelTracks(id) {
   }
 }
 
+/* The full NHC/CPHC Public Advisory text, added 2026-09-04. Everything else
+ * in this file is machine-readable GIS or JSON; this is the actual bulletin
+ * a forecaster writes in plain English every advisory cycle, headline,
+ * location/wind summary, watches and warnings, the forecast discussion, and
+ * land hazards, the richest single piece of official narrative NHC publish
+ * per storm. It is public domain federal text (17 U.S.C. section 105), so
+ * reproducing it verbatim is fine, unlike the HECO press releases elsewhere
+ * in this file, which are only used because HECO explicitly publish them for
+ * redistribution.
+ *
+ * CurrentStorms.json already carries the URL for the CURRENT advisory as
+ * `publicAdvisory.url` (e.g. https://www.nhc.noaa.gov/text/HFOTCPCP4.shtml);
+ * this only fetches that one and does not browse older numbered advisories
+ * (NHC's archive is not a clean indexable list; scoped out deliberately,
+ * current-only matches how every other live feed on this page works).
+ * Verified live 2026-09-04: no Access-Control-Allow-Origin header, so this
+ * goes through the worker like everything else here. The text sits inside a
+ * single <pre> tag in an otherwise ordinary HTML page.
+ */
+const ADVISORY_SECTION_RE = /\n([A-Z][A-Z0-9 .,/()]{2,60})\n-{3,}\n/g;
+/* Raw bulletin text -> {headline, sections}. The raw text always starts with
+ * WMO/AWIPS routing lines (e.g. "WTPA34 PHFO 032036") that mean nothing to a
+ * reader; this starts from the first line that actually names the storm and
+ * advisory number, and ends before the "$$" sign-off. Headline lines are the
+ * "...ALL CAPS TEXT..." lines between that opening block and the first
+ * labelled section. Each labelled section (SUMMARY OF.../WATCHES AND
+ * WARNINGS/DISCUSSION AND OUTLOOK/HAZARDS AFFECTING LAND/NEXT ADVISORY, the
+ * exact set varies a little advisory to advisory) is split into paragraphs
+ * on blank lines, with each paragraph's own internal word-wrap collapsed
+ * back into flowing text, since the source is wrapped for a fixed-width
+ * terminal and this page's type is proportional (Archivo), not monospace. */
+function parseAdvisoryText(raw) {
+  const startMatch = raw.match(/^(Hurricane|Tropical Storm|Tropical Depression|Potential Tropical Cyclone|Post-Tropical Cyclone)\s+.+$/m);
+  if (!startMatch) return null;
+  const body = raw.slice(startMatch.index);
+  const endIdx = body.indexOf("\n$$");
+  const trimmed = (endIdx > -1 ? body.slice(0, endIdx) : body).trim();
+
+  const firstSection = trimmed.search(ADVISORY_SECTION_RE);
+  ADVISORY_SECTION_RE.lastIndex = 0; // .search() does not advance a global regex, but be explicit
+  const head = firstSection > -1 ? trimmed.slice(0, firstSection) : trimmed;
+  const rest = firstSection > -1 ? trimmed.slice(firstSection) : "";
+
+  const headLines = head.split("\n").map((l) => l.trim());
+  const label = headLines[0] ? headLines[0].replace(/\s+/g, " ").trim() : null; // "Hurricane Lowell Advisory Number 30"
+  const issued = headLines.find((l) => /^\d{3,4}\s+(AM|PM)\s+\w+/.test(l)) || null;
+  /* Headline lines ("...LOWELL EXPECTED TO REMAIN A MAJOR HURRICANE...") are
+   * word-wrapped across 2+ source lines just like every paragraph below, so
+   * they cannot be matched one source line at a time. Drop the label line,
+   * the issued-time line, and the NWS/"Issued by" office lines, join what is
+   * left back into flowing text, then pull out every "...span..." from that. */
+  const headlineText = headLines
+    .slice(1)
+    .filter((l) => l && l !== issued && !/^(NWS |Issued by )/.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const headline = [...headlineText.matchAll(/\.\.\.(.*?)\.\.\./g)].map((m) => m[1].trim()).filter(Boolean);
+
+  const sections = [];
+  let m,
+    last = null;
+  ADVISORY_SECTION_RE.lastIndex = 0;
+  while ((m = ADVISORY_SECTION_RE.exec(rest))) {
+    if (last) sections.push({ title: last.title, body: rest.slice(last.bodyStart, m.index) });
+    last = { title: m[1].trim(), bodyStart: ADVISORY_SECTION_RE.lastIndex };
+  }
+  if (last) sections.push({ title: last.title, body: rest.slice(last.bodyStart) });
+
+  const paragraphs = (text) =>
+    text
+      .split(/\n\s*\n/)
+      .map((p) => p.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+
+  return {
+    label,
+    issued,
+    headline,
+    sections: sections.map((s) => ({ title: s.title, paragraphs: paragraphs(s.body) })).filter((s) => s.paragraphs.length),
+  };
+}
+async function publicAdvisory(url) {
+  if (!url) return null;
+  try {
+    const r = await fetch(url, {
+      cf: { cacheTtl: 300 },
+      headers: { "User-Agent": "808alerts.com storm information (contact: shauna.coy@gmail.com)" },
+    });
+    if (!r.ok) return null;
+    const html = await r.text();
+    const m = html.match(/<pre>([\s\S]*?)<\/pre>/);
+    if (!m) return null;
+    return parseAdvisoryText(m[1]);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function hurricane(origin) {
   let all;
   try {
@@ -321,6 +420,7 @@ async function hurricane(origin) {
         s.mostLikelyTimeTSWindsGIS && s.mostLikelyTimeTSWindsGIS.kmzFile
       );
       const models = await modelTracks(s.id);
+      const advisory = await publicAdvisory(s.publicAdvisory && s.publicAdvisory.url);
       return {
         id: s.id,
         name: s.name,
@@ -343,6 +443,7 @@ async function hurricane(origin) {
         windExtent: extra.windExtent, // GeoJSON MultiPolygon, current wind radii (unverified shape, see stormExtras)
         arrival: extra.arrival, // GeoJSON MultiPolygon, most-likely TS-force-wind arrival time bands (unverified shape)
         modelTracks: models, // GeoJSON FeatureCollection, one LineString per model ("spaghetti")
+        advisory, // {label, issued, headline[], sections:[{title,paragraphs[]}]} or null, see publicAdvisory
       };
     })
   );
@@ -740,6 +841,7 @@ export const __test = {
   atcfModelTracks,
   MODEL_TRACK_ALLOW,
   MODEL_TRACK_NAMES,
+  parseAdvisoryText,
 };
 
 export default {

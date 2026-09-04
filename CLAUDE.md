@@ -413,6 +413,43 @@ degrade to the old behaviour if the worker is unreachable.
   palette rule holds, models are told apart by their popup label (tap the line) rather
   than by colour. `worker/test-parse.mjs` pins the parser (cycle filtering, allow-list,
   tau dedupe, lat/lon sign parsing) against a fixture built from the real file's shape.
+- **Added 2026-09-04: the full NHC/CPHC Public Advisory text, not just a link to it.**
+  `CurrentStorms.json` already carried `publicAdvisory.url` (e.g.
+  `https://www.nhc.noaa.gov/text/HFOTCPCP4.shtml`), the always-current bulletin for that
+  storm; the page already linked it in two places (the WEATHER detail's tropical systems
+  block, the map popup) but never showed the actual content. `publicAdvisory()` in
+  `worker/src/index.js` fetches that URL (verified live 2026-09-04: no
+  `Access-Control-Allow-Origin` header, same as everything else from `nhc.noaa.gov`, so
+  through the worker), pulls the text out of the page's single `<pre>` tag, and
+  `parseAdvisoryText()` turns the raw fixed-width bulletin into `{label, issued,
+  headline[], sections:[{title,paragraphs[]}]}`. This is public domain federal text (17
+  U.S.C. section 105), unlike HECO's press releases elsewhere in this file, which are
+  only reproduced because HECO explicitly publish them for redistribution, so verbatim
+  reproduction here needs no such justification.
+  **Deliberately current-advisory-only, not a browsable archive.** NHC's archive of past
+  numbered advisories (like `nhc.noaa.gov/archive/2026/ep12/ep122026.public.006.shtml`)
+  is not a clean indexable list, and every other live feed on this page shows only the
+  current state, not history; adding one would be a materially bigger, separate feature.
+  **The headline lines are the one genuinely tricky part.** A bulletin's
+  "...KEY MESSAGE..." lines are word-wrapped across 2+ source lines exactly like every
+  paragraph below them, so they cannot be read one source line at a time: the label,
+  issued-time, and NWS/"Issued by" office lines are dropped from the leading block, what
+  is left is rejoined into flowing text, and only then are the "...span..." segments
+  pulled out. Section bodies (SUMMARY OF.../WATCHES AND WARNINGS/DISCUSSION AND
+  OUTLOOK/HAZARDS AFFECTING LAND/NEXT ADVISORY, the exact set varies advisory to
+  advisory) are split into paragraphs on blank lines, each paragraph's own internal
+  word-wrap collapsed back into one line, since the source is wrapped for a fixed-width
+  terminal and this page's type is proportional Archivo, not monospace.
+  `advisoryBlock()` in `index.html` renders it in `tropicalBlock()` (the WEATHER
+  detail's tropical systems section), reusing the `.d-sec`/`.guide` heading-plus-prose
+  pattern already established for the county power blocks rather than inventing new
+  typography, with the headline styled like a warning (bold, `--warn`) since that is
+  what it is. The original small "NHC advisory" link-out is kept only as a fallback for
+  when the fetch or parse fails (`h.advisory` is null but `h.advisoryUrl` still is not);
+  when the full text is available, a link to the original bulletin still sits at the end
+  as a citation, so nothing about "read the primary source" is lost. `worker/test-parse.mjs`
+  pins the parser against a real bulletin (Hurricane Lowell, Advisory 30, fetched live
+  2026-09-04), not a synthetic fixture.
 - **`/api/power?county=`** parses the newest Hawaiian Electric release **tagged to that
   county's island** for its outage count, and is now the only source the POWER band has:
   the hand-entered fallback was deleted 2026-08-28. When the newest release for an island

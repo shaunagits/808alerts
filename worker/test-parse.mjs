@@ -20,6 +20,7 @@ const {
   parseAtcfLine,
   atcfModelTracks,
   MODEL_TRACK_ALLOW,
+  parseAdvisoryText,
 } = __test;
 
 let pass = 0,
@@ -227,6 +228,112 @@ eq("atcfModelTracks: friendly name is carried on the feature",
 eq("atcfModelTracks: no rows at all returns null", atcfModelTracks(""), null);
 eq("atcfModelTracks: rows present but none pass the allow-list or point-count filter returns null",
   atcfModelTracks("EP, 12, 2026090312, 03, AP01,   0, 136N, 1581W,  51,  989, XX,  34, NEQ,   0,"), null);
+
+/* ---- NHC public advisory text parsing ---- */
+console.log("\npublic advisory text");
+
+/* A real bulletin, fetched live 2026-09-04 from
+   https://www.nhc.noaa.gov/text/HFOTCPCP4.shtml (Hurricane Lowell, Advisory
+   30). Pinned verbatim, not reconstructed, so a future format change in
+   NHC's bulletins shows up here first. */
+const REAL_ADVISORY = `599
+WTPA34 PHFO 032036
+TCPCP4
+
+BULLETIN
+Hurricane Lowell Advisory Number  30
+NWS Central Pacific Hurricane Center Honolulu HI   EP122026
+Issued by NWS National Hurricane Center Miami FL
+1100 AM HST Thu Sep 03 2026
+
+...LOWELL EXPECTED TO REMAIN A MAJOR HURRICANE FOR THE NEXT SEVERAL
+DAYS...
+...INTERESTS IN THE HAWAIIAN ISLANDS SHOULD MONITOR THE PROGRESS
+OF LOWELL...
+
+
+SUMMARY OF 1100 AM HST...2100 UTC...INFORMATION
+-----------------------------------------------
+LOCATION...13.6N 158.1W
+ABOUT 465 MI...750 KM SSW OF HILO HAWAII
+ABOUT 585 MI...945 KM S OF LIHUE HAWAII
+MAXIMUM SUSTAINED WINDS...140 MPH...220 KM/H
+PRESENT MOVEMENT...W OR 275 DEGREES AT 10 MPH...17 KM/H
+MINIMUM CENTRAL PRESSURE...945 MB...27.91 INCHES
+
+
+WATCHES AND WARNINGS
+--------------------
+There are no coastal watches or warnings in effect.
+
+Interests in the Hawaiian Islands should monitor the progress of
+Lowell.
+
+
+DISCUSSION AND OUTLOOK
+----------------------
+At 1100 AM HST (2100 UTC), the center of Hurricane Lowell was
+located near latitude 13.6 North, longitude 158.1 West. Lowell is
+moving toward the west near 10 mph (17 km/h). This general motion
+with a gradual decrease in forward speed is expected during the next
+couple of days, followed by a turn toward the northwest and north
+this weekend.
+
+Maximum sustained winds are near 140 mph (220 km/h) with higher
+gusts. Lowell is a category 4 hurricane on the Saffir-Simpson
+Hurricane Wind Scale. Some fluctuations in intensity are expected
+during the next few days. However, Lowell is expected to remain a
+major hurricane through the weekend.
+
+Hurricane-force winds extend outward up to 40 miles (65 km) from the
+center and tropical-storm-force winds extend outward up to 140 miles
+(220 km).
+
+The estimated minimum central pressure is 945 mb (27.91 inches).
+
+
+HAZARDS AFFECTING LAND
+----------------------
+Key messages for Lowell can be found in the Tropical Cyclone
+Discussion under AWIPS header HFOTCDCP4 and WMO header WTPA44
+PHFO.
+
+SURF: Swells from Lowell are likely to cause life-threatening surf
+and rip current conditions during the next several days. Please
+consult products from your local weather office.
+
+
+NEXT ADVISORY
+-------------
+Next complete advisory at 500 PM HST.
+
+$$
+Forecaster Reinhart
+
+`;
+
+const adv = parseAdvisoryText(REAL_ADVISORY);
+eq("real advisory: label drops the double space", adv.label, "Hurricane Lowell Advisory Number 30");
+eq("real advisory: issued time", adv.issued, "1100 AM HST Thu Sep 03 2026");
+eq("real advisory: headline spans reassembled across wrapped source lines", adv.headline, [
+  "LOWELL EXPECTED TO REMAIN A MAJOR HURRICANE FOR THE NEXT SEVERAL DAYS",
+  "INTERESTS IN THE HAWAIIAN ISLANDS SHOULD MONITOR THE PROGRESS OF LOWELL",
+]);
+eq("real advisory: finds all 5 labelled sections in order",
+  adv.sections.map((s) => s.title),
+  [
+    "SUMMARY OF 1100 AM HST...2100 UTC...INFORMATION",
+    "WATCHES AND WARNINGS",
+    "DISCUSSION AND OUTLOOK",
+    "HAZARDS AFFECTING LAND",
+    "NEXT ADVISORY",
+  ]);
+eq("real advisory: a paragraph's own word-wrap is rejoined into one line",
+  adv.sections[2].paragraphs[0],
+  "At 1100 AM HST (2100 UTC), the center of Hurricane Lowell was located near latitude 13.6 North, longitude 158.1 West. Lowell is moving toward the west near 10 mph (17 km/h). This general motion with a gradual decrease in forward speed is expected during the next couple of days, followed by a turn toward the northwest and north this weekend.");
+eq("real advisory: WATCHES AND WARNINGS keeps its 2 separate paragraphs, not merged",
+  adv.sections[1].paragraphs.length, 2);
+eq("real advisory: blank/malformed text returns null, not a throw", parseAdvisoryText("nothing useful here"), null);
 
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

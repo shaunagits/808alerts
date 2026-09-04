@@ -2361,15 +2361,38 @@ function powerQuietBlock(){
 /* Active tropical systems: the storm itself, its strength, and where it is
    relative to the user. Watches and warnings for the location come from NWS and
    render above this. */
+/* The full NHC/CPHC Public Advisory text (added 2026-09-04), reusing the
+   .d-sec/.guide prose pattern already established for the county power
+   blocks (powerQuietBlock etc) rather than inventing new typography for
+   flowing paragraphs. Headline lines are the storm's own "...KEY
+   MESSAGE..." lines, styled like a warning since that is what they are;
+   everything else is the forecaster's own section-by-section text, verbatim
+   (public domain federal text, so verbatim reproduction is fine, unlike the
+   HECO press releases elsewhere on this page). The original bulletin is
+   still linked at the end for anyone who wants NHC's own page. */
+function advisoryBlock(h){
+  if(!h.advisory) return "";
+  const a=h.advisory;
+  return `<div class="d-sec"><span class="d-h">FULL ADVISORY${a.label?" &middot; "+esc(up(a.label)):""}</span></div>`+
+    a.headline.map(t=>`<p class="guide" style="padding-bottom:0;font-weight:800;color:var(--warn)">${esc(t)}</p>`).join("")+
+    a.sections.map(s=>
+      `<div class="d-sec"><span class="d-h">${esc(s.title)}</span></div>`+
+      s.paragraphs.map(p=>`<p class="guide">${esc(p)}</p>`).join("")
+    ).join("")+
+    `<p class="d-src" style="padding:14px var(--pad) 0">Full text from NOAA National Hurricane
+      Center / Central Pacific Hurricane Center${a.issued?", issued "+esc(a.issued):""}.
+      ${h.advisoryUrl?`<a href="${esc(h.advisoryUrl)}" target="_blank" rel="noopener">View the original bulletin &#8594;</a>`:""}</p>`;
+}
+
 function tropicalBlock(){
   if(!(HURRICANES&&HURRICANES.length)) return "";
   return `<div class="d-sec"><span class="d-h">TROPICAL SYSTEMS</span></div>`+
     HURRICANES.map(h=>`<div class="d-area">
       <div><b>${esc(h.category)} ${esc(h.name)}</b>
         <small>${Math.round(h.dist).toLocaleString()} mi ${esc(h.dir)} of ${esc(up(S.label||""))}${h.movement?" &middot; moving "+esc(compass(h.movement.dirDeg))+" at "+esc(h.movement.speedMph)+" mph":""}</small>
-        ${h.advisoryUrl?`<em><a href="${esc(h.advisoryUrl)}" target="_blank" rel="noopener">NHC advisory</a></em>`:""}</div>
+        ${(!h.advisory&&h.advisoryUrl)?`<em><a href="${esc(h.advisoryUrl)}" target="_blank" rel="noopener">NHC advisory</a></em>`:""}</div>
       <div class="d-eta"><b>WINDS</b><span>${esc(h.windsMph)} mph</span></div>
-    </div>`).join("")+
+    </div>`+advisoryBlock(h)).join("")+
     `<p class="d-src" style="padding:14px var(--pad) 0">Source: NOAA National Hurricane
       Center. This is the storm's position and strength; watches and warnings for your
       location come from the National Weather Service and appear above.</p>`;
