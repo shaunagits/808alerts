@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Single entry by design: the app is one static page with client-side hash
+     routing (#weather, #power, #roads, #ocean, #emergency), so there is only
+     one URL Google can actually crawl and index right now. If the routing
+     question in CLAUDE.md's SEO section is ever resolved in favor of real
+     per-section URLs, add those as their own <url> entries here. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://808alerts.com/</loc>
+    <changefreq>always</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

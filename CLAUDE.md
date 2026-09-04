@@ -944,6 +944,64 @@ a map marker is arguably different, but ask), and the visual hierarchy between H
 evacuation polygons and NWS alert polygons, which are both red areas and will overlap
 mid-event.
 
+## SEO (started 2026-09-04)
+
+The realistic framing: for head terms like "hurricane hawaii" this page is never going
+to outrank NHC, HI-EMA, the Star-Advertiser or Google's own weather box, all of which
+have either official authority or a long head start. The winnable ground is narrower:
+being genuinely useful and shareable during an event, and ranking for evergreen
+planning queries (kit checklist, shelter directories, evacuation zones) that face far
+less competition than "is there a hurricane right now."
+
+**Added 2026-09-04, no architecture change needed:**
+
+- `<link rel="canonical">`, Open Graph (`og:type`/`og:site_name`/`og:url`/`og:title`/
+  `og:description`) and a Twitter Card (`summary`, no image). All in `index.html`'s
+  `<head>`.
+- `robots.txt` and `sitemap.xml` at the repo root, both deployed automatically since
+  Cloudflare Pages serves the repo root as-is. `sitemap.xml` currently lists exactly one
+  URL, `https://808alerts.com/`, because that is currently the only URL that exists, see
+  the routing note below.
+- One `WebSite` JSON-LD block in `index.html`. **Deliberately `WebSite` only, not
+  `SpecialAnnouncement` or any live-alert schema.** Structured data here is static HTML,
+  shipped identically to every visitor with no build step and no server render; a
+  schema block claiming a specific watch or warning is active could not be kept
+  accurate as that alert changes or expires, which is exactly the stale, misleading
+  assertion invariant 1 exists to prevent. If per-alert structured data is ever wanted,
+  it has to be injected client-side from the same live alert data the page already
+  renders from, not hand-authored statically.
+
+**Not done, needs the owner's sign-off first: a favicon or `og:image`.** There is no
+logo, icon, or screenshot anywhere in this repo. A share card and browser tab work
+fine without one, just plainer. Design rules explicitly forbid inventing a mark, icon
+or illustration without asking, so none was created here. If one is wanted, describe
+the intended look before building it, same as any other visual element on this page.
+
+**Open question, not yet decided: hash routing blocks per-section indexing.** The board
+uses `#weather`/`#power`/`#roads`/`#ocean`/`#emergency` client-side routing with no real
+server-distinguishable URLs, so Google sees exactly one URL and one title/description
+no matter what a visitor is looking at. Queries like "Maui evacuation shelters" or
+"Oʻahu power outage map" would ideally be their own indexable page with its own title,
+but cannot be under the current routing. Fixing this is a real architecture decision,
+not a quick add, and conflicts with "single static file, no build step" unless done
+carefully:
+
+- **Cloudflare Pages `_redirects` / per-path static files**, each serving the same
+  `index.html` shell but letting the JS router read the real path instead of (or in
+  addition to) the hash, so `/weather`, `/power` etc. become real URLs. Meta tags would
+  still be static per load (same "no build step" limitation as the JSON-LD above), so
+  each route would need its own real HTML file with its own `<title>`/description if the
+  goal is genuinely different per-route metadata, not just a different URL, not simply
+  a hash-router change.
+- **A handful of separate static content pages** (not app routes) for the evergreen
+  queries specifically, e.g. a hurricane-kit-checklist page, a shelter-directory page,
+  linking into the app rather than duplicating its live data. Smaller, does not touch
+  the SPA's routing at all, and matches the "evergreen beats breaking news" strategy
+  above directly.
+
+No changes made under this heading; recorded here so the tradeoffs are not
+re-litigated from scratch next time this comes up.
+
 ## Deployment
 
 **Single host, Git-connected, one command: `git push`.** Changed 2026-09-03 at the

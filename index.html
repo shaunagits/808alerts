@@ -6,6 +6,34 @@
 <title>808 Alerts &middot; Hawaiʻi storm information</title>
 <meta name="description" content="Hawaiʻi emergency information in one place. What is happening near you, and where you would go.">
 <meta name="color-scheme" content="dark light">
+<link rel="canonical" href="https://808alerts.com/">
+<!-- No og:image / twitter:image yet: there is no logo or screenshot in this
+     repo, and the design rules forbid inventing a mark or icon without the
+     owner's sign-off first. A share card works without one, just plainer;
+     add image tags here once an image exists (see CLAUDE.md, SEO section). -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="808 Alerts">
+<meta property="og:url" content="https://808alerts.com/">
+<meta property="og:title" content="808 Alerts · Hawaiʻi storm information">
+<meta property="og:description" content="Hawaiʻi emergency information in one place. What is happening near you, and where you would go.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="808 Alerts · Hawaiʻi storm information">
+<meta name="twitter:description" content="Hawaiʻi emergency information in one place. What is happening near you, and where you would go.">
+<!-- WebSite only, deliberately. A SpecialAnnouncement/alert schema would need
+     to reflect whatever is actually active right now, and this page has no
+     build step or server render: the JSON-LD below is static HTML shipped
+     the same to every visitor regardless of what NWS is currently saying.
+     Baking a live-sounding claim into structured data that cannot update
+     itself is exactly the kind of stale, misleading assertion invariant 1
+     exists to prevent. If per-alert structured data is ever wanted, it needs
+     to be injected client-side from the same live data the page already
+     renders from, not hand-authored here. -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"808 Alerts",
+"alternateName":"Hawaiʻi Storm Info","url":"https://808alerts.com/",
+"description":"Hawaiʻi emergency information in one place. What is happening near you, and where you would go. Not an official alert system.",
+"inLanguage":"en","isAccessibleForFree":true}
+</script>
 
 <style>
 /* Archivo, variable, latin subset, inlined. Invariant 5: the page makes zero
