@@ -245,6 +245,18 @@ outside `#mapwrap` calls `.disable()` again, so normal page scroll resumes once 
 click elsewhere. The `.tall` (expand) state is unaffected, it already forces
 wheel-zoom on unconditionally the way it always has.
 
+**Closing the expanded map used to scroll the page to an unrelated spot, fixed
+2026-09-04.** `.mapwrap.tall{height:calc(100vh - 120px)}` makes the expanded map
+nearly full viewport height. Opening already corrected for this with
+`window.scrollTo({top:w.offsetTop-8,...})` so the newly-tall map lands at the top of
+the viewport. Closing never did the same: collapsing `.mapwrap` back down to its
+normal ~360px yanks everything below it up by whatever the difference was, but the
+scroll position stayed put in absolute pixels, so the user landed on whatever content
+now happened to be under that fixed offset, often well past the map. The owner
+described this as CLOSE MAP "linking off the page," which is exactly what an
+unexplained scroll jump reads like. `$("expandBtn")`'s click handler now runs the
+same `scrollTo` correction on both open and close.
+
 ### The home map (added 2026-09-03)
 
 Before this, `#mapwrap` was hidden until `setLoc()` ran, so a first-time visitor who

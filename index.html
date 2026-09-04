@@ -3248,7 +3248,15 @@ $("expandBtn").addEventListener("click",()=>{
   try{ MAP.scrollWheelZoom[open?"enable":"disable"](); }catch(_){}
   setTimeout(()=>{
     try{ MAP.invalidateSize(); }catch(_){}
-    if(open) window.scrollTo({top:w.offsetTop-8,behavior:"smooth"});
+    /* Closing shrinks .mapwrap from calc(100vh - 120px) back down to its
+       normal ~360px, which yanks everything below it up by that same
+       amount. Left alone, the scroll position stays put in absolute
+       pixels and lands on whatever content is now under it, often far
+       past the map, which reads as the button randomly navigating the
+       page. Re-anchoring to the map's own top on close too, the same
+       correction open already made, keeps the user looking at the map
+       card either way. */
+    window.scrollTo({top:w.offsetTop-8,behavior:"smooth"});
   },300);
 });
 
