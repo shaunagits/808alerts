@@ -7,10 +7,11 @@
 <meta name="description" content="Hawaiʻi emergency information in one place. What is happening near you, and where you would go.">
 <meta name="color-scheme" content="dark light">
 <link rel="canonical" href="https://808alerts.com/">
-<!-- No og:image / twitter:image yet: there is no logo or screenshot in this
-     repo, and the design rules forbid inventing a mark or icon without the
-     owner's sign-off first. A share card works without one, just plainer;
-     add image tags here once an image exists (see CLAUDE.md, SEO section). -->
+<!-- Favicon, added 2026-09-03: a base64 PNG data URI, same inlining rule as
+     the font and Leaflet. No separate icon file, no extra request at render,
+     invariant 5 holds. Source is the owner's own shaka-in-a-triangle mark. -->
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAABtlBMVEX5+fn5+Pn4+Pj19fX6+vr////8/Pzu7u6SkZGSkpLt7e0+Pj4AAAA7Ozv49/ePj48GBgaMi4z5+Pj39/f+/f3i4uIVFRUBAQESEhLf39/+/v729fVmZmYDAwNiYmL29vbDw8MBAQDAwMD49/g/Pz8CAgKcnJyZmZnp6ekdHR0bGxvo6OhycnJvb2/39vbMzMwEBATKyspFREQJCQkkJCRFRUWpqam3t7doaGgICAhdXV0YGBikpKT7+/vx8PAoKCg9PT3z8/NMTEyTkpInJiYUFBQcHBzv7+99fX1aWlrX19cnJyfe3t/T09OrqquMjIwKCgrU1NQgICB8fHzX19YLCwsBAAC7u7vc3N3Av7+oqKhNTU1WVlZhYWH9/P3m5uaCgoJSUVK0tLQCAQElJSX9/f3//v739ve2traysrIxMTHR0dH8+/v+/f4ZGRkuLi6NjY36+fn6+fpSU1OIiIjg4OATExO6urqRkZERERHe3t4FBQVXV1eenp5TU1NfX1/k5OQODg4MDAzr6+sWFhYDAwIEAwMTEhOUlJTV1dWwr6+ysbGxsbGxsbCwsLCxsLCvr6/29fZVvgGUAAAB4klEQVQ4y5VTZ3fTQBC8nDymTYjxYQQ2iiCgBDDFYEiAYFoooZjee1PAQOgl9F5jHPjH3EmWHYKcB/P0Ze/mzc7NroT4H7QJaVlyMoZMAIlJGDI5Zeq06cmWDH0xg2yfKVoxLHQwleIsWCIdd69mZ+bQtjl3Xla1xRFymE+H+uuElY6RcLGAARayC26MwKLsYnqG4LE9KWWMw27TwMBhj/b5VwRLltIOCTaX5YMwGlbTRmB5JGAkVkyUWIlVhYDghCqF1RN8KqwprtX2bNqGVuA6qD8d9rIP6+lt2NhPx7N1XJvGN5GlzVu4dRu2694DPf3kjt6du3aX5DiBQaa4B3v35feXxYGDhw4njvBoU0Lh2HGecHgSeZwSXfL0GZylXSw3bLg4p1/g8DzEBYiLbh8u0XF4OXqIiyu8auK5JrO+7w9dxw0TmcdKyJBC3QyHwFu4PTxcQuZOSLibC1bHwr0wQ4eDUPfFAzyM6kfGp8LjJ9EQik/hJzFSz9zms+fap4vO5hBevOx+9Tqi6+M32sXQ23fRtdm3YB8aeJ+B8D98ZMGrw0lpfIqqz/yS93WLr2yJEfNQiW/fK5XRqsaPam1srFarBhit/CwjGIfykUUMsvDrWSs3wC+3iVxQqH/5438DLkFUDNlmH2UAAAAASUVORK5CYII=">
+<meta property="og:image" content="https://808alerts.com/og-image.png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="808 Alerts">
 <meta property="og:url" content="https://808alerts.com/">
@@ -19,6 +20,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="808 Alerts · Hawaiʻi storm information">
 <meta name="twitter:description" content="Hawaiʻi emergency information in one place. What is happening near you, and where you would go.">
+<meta name="twitter:image" content="https://808alerts.com/og-image.png">
 <!-- WebSite only, deliberately. A SpecialAnnouncement/alert schema would need
      to reflect whatever is actually active right now, and this page has no
      build step or server render: the JSON-LD below is static HTML shipped
@@ -166,7 +168,7 @@ body.located .hero{display:none}
   .hero{padding:64px var(--pad) 40px;display:grid;grid-template-columns:1fr 420px;gap:64px;align-items:end}
   .hero h1{font-size:clamp(56px,5.3vw,76px);line-height:.94;letter-spacing:-.04em}
   .hero .col{min-width:0}
-  .controls{flex-direction:column;gap:10px;margin-top:0}
+  .controls{gap:10px;margin-top:0}
   .go{padding:18px 16px;font-size:13px}
   .zip{padding:16px;font-size:13px;text-align:left}
 }
@@ -286,22 +288,16 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
 }
 
 /* -------------------------------------------------------------- collapsed */
-/* Plan, Kit and Sources render as the same band cards as WEATHER/OCEAN/ROADS/
-   EMERGENCY above them (2026-09-03 rework), just wrapped in <details> so they
-   still expand in place instead of routing to their own page. #more used to
-   carry a thick divider and its own fold-* styling to set this section visibly
-   apart from the live bands; both are gone now that the ask is for these to
-   read as more cards, not a separate reference section. */
+/* PLAN and CHECKLIST render as the same band cards as WEATHER/OCEAN/ROADS/
+   EMERGENCY above them (2026-09-03 rework, then consolidated from three
+   cards to two on 2026-09-04: see "Plan, Kit and Sources become one PLAN
+   page" in CLAUDE.md). PLAN routes to its own page like every live band;
+   CHECKLIST links straight to the standalone SEO page. Plain <a class="band">
+   links, so the existing a.band hover/link styling above already covers
+   them, nothing extra needed here. #more used to carry a thick divider and
+   its own fold-* styling to set this section visibly apart from the live
+   bands; both are gone, these read as more cards, not a separate section. */
 #more{background:var(--surface)}
-.prep{border-bottom:2px solid var(--surface-line)}
-.prep>summary{list-style:none;cursor:pointer}
-.prep>summary::-webkit-details-marker{display:none}
-.prep>summary:hover::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.05)}
-.prep[open]>summary .band-arw{transform:rotate(180deg)}
-.band-arw{display:inline-block;transition:transform .15s}
-
-.fold-b{background:var(--surface)}
-.fold-b a{color:var(--ink)}
 @media (min-width:1024px){ #more{display:grid;grid-template-columns:1fr;gap:2px} }
 
 /* ---- reported refuge areas ---- */
@@ -358,8 +354,6 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
   margin:0;padding:17px var(--pad);background:var(--ink);color:#fff;
   font-weight:700;font-stretch:77%;font-size:11px;line-height:1.6;letter-spacing:.12em;
 }
-.fold-b .attrib a{color:var(--accent)}
-
 .empty{
   padding:22px var(--pad);background:var(--surface2);color:var(--body);
   font-weight:500;font-size:15px;line-height:1.55;
@@ -408,7 +402,7 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
 }
 .act:hover{background:var(--accent)}
 .act::after{content:"\2192";font-weight:700;font-size:17px}
-.fold-b>.act,.page>.act{margin-left:var(--pad);margin-right:var(--pad)}
+.page>.act{margin-left:var(--pad);margin-right:var(--pad)}
 .page>.act:last-of-type{margin-bottom:4px}
 
 /* ---- kit ---- */
@@ -1465,29 +1459,15 @@ body.detail .board,body.detail .mapnote{display:none}
 
 <div id="more" hidden>
 
-  <details class="prep" id="d-plan">
-    <summary class="band sev-clear">
-      <span class="band-top"><span class="band-lab">PLAN</span><span class="band-arw" aria-hidden="true">&#8595;</span></span>
-      <span class="band-body"><span class="band-h">Three things to do before it arrives</span></span>
-    </summary>
-    <div class="fold-b" id="plan"></div>
-  </details>
+  <a class="band sev-clear" href="#plan">
+    <span class="band-top"><span class="band-lab">PLAN</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Your evacuation plan, kit and sources</span></span>
+  </a>
 
-  <details class="prep" id="d-kit">
-    <summary class="band sev-clear">
-      <span class="band-top"><span class="band-lab">KIT</span><span class="band-arw" aria-hidden="true">&#8595;</span></span>
-      <span class="band-body"><span class="band-h">Pack a bag</span></span>
-    </summary>
-    <div class="fold-b" id="kit"></div>
-  </details>
-
-  <details class="prep" id="d-sources">
-    <summary class="band sev-clear">
-      <span class="band-top"><span class="band-lab">SOURCES</span><span class="band-arw" aria-hidden="true">&#8595;</span></span>
-      <span class="band-body"><span class="band-h">Go straight to the agency</span></span>
-    </summary>
-    <div class="fold-b"><div id="sources"></div><div id="resources"></div></div>
-  </details>
+  <a class="band sev-clear" href="/hurricane-kit-checklist.html">
+    <span class="band-top"><span class="band-lab">CHECKLIST</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Hurricane kit checklist</span></span>
+  </a>
 
 </div>
 
@@ -1498,7 +1478,6 @@ body.detail .board,body.detail .mapnote{display:none}
   <p>Live alerts from <a href="https://www.weather.gov/hfo" target="_blank" rel="noopener">NWS Honolulu</a>.
   Shelter and refuge information is reported, with a source and a time on every line.
   Confirm any location is open before you travel.</p>
-  <p><a href="/hurricane-kit-checklist.html">Hurricane kit checklist</a></p>
 </footer>
 
 <script>
@@ -2236,7 +2215,8 @@ function buildBands(){
                              head:c[cat].head,sub:c[cat].sub}));
 }
 
-const bandOf=cat=>BANDS.find(b=>b.cat===cat)||{cat,sev:"clear",feed:true};
+const bandOf=cat=>BANDS.find(b=>b.cat===cat)||
+  {cat,sev:"clear",feed:true,head:cat==="PLAN"?"Your plan, kit and sources":""};
 
 /* Detail content. Nothing here invents a reading. */
 const DETAIL={
@@ -2258,7 +2238,9 @@ const DETAIL={
   OCEAN:{src:()=>"NWS Honolulu", cta:"GET TEXT ALERTS",
     foot:"Marine and surf products are republished unedited and in full. Never turn your back on the ocean."},
   EMERGENCY:{src:()=>SHELTERS?"Hawaiʻi County Civil Defense":"County emergency management", cta:"COUNTY ALERT SIGNUP",
-    foot:"Evacuation orders come from your county, not from this page. Confirm any location before you travel."}
+    foot:"Evacuation orders come from your county, not from this page. Confirm any location before you travel."},
+  PLAN:{src:()=>"County & state emergency management",
+    foot:"Three things worth doing before conditions turn: know your zone, know where you would go, and have a kit ready."}
 };
 
 let openCat=null;
@@ -2266,6 +2248,7 @@ let openCat=null;
 /* The board's colour is fixed, so the detail view is where the actual state
    gets named. */
 function metaWord(cat){
+  if(cat==="PLAN") return "REFERENCE";
   const b=bandOf(cat);
   if(b.feed===false) return "NO FEED";
   const top=(BYCAT[cat]||[])[0];
@@ -2644,8 +2627,24 @@ function panelEmergency(){
     footBlock(d,(COUNTIES[S.c].alerts||{}).url||"https://dod.hawaii.gov/hiema/");
 }
 
+/* PLAN combines what used to be three separate accordions (Plan, Kit,
+   Sources) into one routed page, same as WEATHER/OCEAN/ROADS/EMERGENCY.
+   The containers below are empty here and filled in by renderPlan(),
+   renderKit(), renderSources() and renderRes() right after this markup is
+   actually attached to the document (see renderPage()) - those functions
+   target these ids directly and need them to exist in the DOM first. */
+function panelPlan(){
+  return `<div class="d-sec"><span class="d-h">YOUR PLAN</span></div>
+    <div id="plan"></div>
+    <div class="d-sec"><span class="d-h">KIT</span></div>
+    <div id="kit"></div>
+    <div class="d-sec"><span class="d-h">SOURCES</span></div>
+    <div id="sources"></div>
+    <div id="resources"></div>`;
+}
+
 const PANEL={POWER:panelPower,ROADS:panelRoads,WEATHER:panelWeather,
-             OCEAN:panelOcean,EMERGENCY:panelEmergency};
+             OCEAN:panelOcean,EMERGENCY:panelEmergency,PLAN:panelPlan};
 
 function renderBands(){
   let prev=null;
@@ -3250,11 +3249,18 @@ function renderPage(cat){
   $("pages").innerHTML=
     `<section class="page on" data-sev="${esc(b.sev)}">${head}${PANEL[cat]()}</section>`;
   if(cat==="EMERGENCY") renderShelters();
+  if(cat==="PLAN"){ renderPlan(); renderKit(); renderRes(); renderSources(); }
 }
+
+/* Routable categories: the four live hazard bands plus PLAN, which is a
+   static reference page (see panelPlan) rather than a hazard, so it lives
+   outside BANDORDER on purpose - BANDORDER also drives the map's filter
+   chip sort order, and PLAN has no map layer. */
+const ROUTES=[...BANDORDER,"PLAN"];
 
 function route(){
   const want=(location.hash||"").replace(/^#\/?/,"").toUpperCase();
-  const cat=BANDORDER.indexOf(want)>-1?want:null;
+  const cat=ROUTES.indexOf(want)>-1?want:null;
 
   if(cat&&S.c){
     if(!document.body.classList.contains("detail")) boardScroll=window.scrollY;
@@ -3437,7 +3443,6 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   loadWaves().then(()=>{ buildBands(); renderBands(); if(openCat==="OCEAN") renderPage("OCEAN"); });
   loadHurricane().then(()=>{ buildBands(); renderBands(); if(openCat==="WEATHER") renderPage("WEATHER"); drawMap(); });
   loadPower().then(()=>{ buildBands(); renderBands(); if(openCat==="POWER") renderPage("POWER"); });
-  renderPlan(); renderRes(); renderSources();
   syncMapSrc(true);
   loadAlerts();
   if(poll) clearInterval(poll);
@@ -3557,11 +3562,18 @@ function renderShelters(){
 
 /* ============================ kit ============================ */
 
-const kitState=store.get("kit",[]);
-$("kit").innerHTML=KIT.map((k,i)=>
-  `<label><input type="checkbox" id="k${i}"${kitState.indexOf(i)>-1?" checked":""}>
-   <span>${esc(k)}</span></label>`).join("");
-$("kit").addEventListener("change",()=>{
+/* #kit only exists in the DOM while the PLAN page is open (see panelPlan),
+   so this renders on demand from renderPage() rather than once at boot.
+   The change listener is delegated on the persistent #pages container
+   instead of #kit itself, so it keeps working across every re-render. */
+function renderKit(){
+  const kitState=store.get("kit",[]);
+  $("kit").innerHTML=KIT.map((k,i)=>
+    `<label><input type="checkbox" id="k${i}"${kitState.indexOf(i)>-1?" checked":""}>
+     <span>${esc(k)}</span></label>`).join("");
+}
+$("pages").addEventListener("change",e=>{
+  if(!e.target.closest("#kit")) return;
   const on=[];
   document.querySelectorAll("#kit input").forEach((x,i)=>{ if(x.checked) on.push(i); });
   store.set("kit",on);

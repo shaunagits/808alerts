@@ -139,22 +139,23 @@ Where they conflict, the newest wins.
 ## How the page is structured
 
 ```
-sticky brand bar        wordmark, island label
+sticky brand bar        wordmark, UPDATED time stacked below it, island label
 hero                    headline, use my location, city / ZIP (hidden once located)
-location strip          {PLACE} ALERTS, island, relocate controls, UPDATED time
+location strip          {PLACE} ALERTS, island, relocate controls
                         (hidden pre-location; carries the hero's controls once shown)
 board                   map full width across the top, always, located or not
                         pre-location: per-island forecast snapshot tiles below the map
                         located: four bands (WEATHER, OCEAN, ROADS, EMERGENCY,
                         see "POWER removed" below) stack in full width rows
-                        below the map, Plan/Kit/Sources continue as three
+                        below the map, PLAN and CHECKLIST continue as two
                         more cards right after them, same styling
 footer                  the not an official alert system disclaimer
 ```
 
-Tapping a band routes to `#roads`, `#weather`, `#ocean`, `#emergency`. POWER has
-no route any more (see "POWER removed" below). Hash routing, no router and no
-build step. The board hides, the detail view takes the viewport, the browser
+Tapping a band routes to `#roads`, `#weather`, `#ocean`, `#emergency`, `#plan`.
+POWER has no route any more (see "POWER removed" below). Hash routing, no
+router and no build step. The board hides, the detail view takes the viewport,
+the browser
 back button works and board scroll position is restored.
 Landing on the site shows the board with nothing expanded: the map itself renders
 immediately, before anyone picks a location (see "The home map" under The map).
@@ -339,6 +340,21 @@ one-way in practice; `moveLocateControls()` is written idempotent regardless.
 `.isles` classes (already styled for a dark background) with a compact-size override
 scoped under `.loc-ctl`, rather than inventing new styling, so no new colour joins
 the five-value palette.
+
+**`#locUp` (the "UPDATED" timestamp) moved into the brand bar, 2026-09-03.** It
+used to live at the right side of the location strip; the owner asked for it
+under the wordmark instead. It is the same `#locUp` span, just relocated in
+the markup into a new `.bar-l` column (`display:flex;flex-direction:column`)
+alongside `.mark`, not duplicated, so `stamp()` (which sets its text) did not
+need to change. It renders empty until a location resolves and `stamp()` first
+runs, exactly as before, just in a different spot.
+
+**The hero's USE MY LOCATION / CITY-ZIP row stays side by side at every
+width, 2026-09-03.** `.controls` used to switch to `flex-direction:column`
+at the 1024px breakpoint, stacking the button above the field. The owner
+asked for them to stay side by side on larger screens too; removing that one
+declaration is the whole fix, `.controls>*{flex:1}` already splits the row
+evenly and did not need to change.
 
 ### The companion Worker (hurricane + power)
 
@@ -692,27 +708,52 @@ alerts already are.
   elsewhere; it moved from 3rd of 5 to 3rd of 4, just above EMERGENCY.
   `BANDORDER` is now `["WEATHER","OCEAN","ROADS","EMERGENCY"]`.
 
-### Plan, Kit and Sources are band cards now (2026-09-03)
+### Plan, Kit and Sources became one PLAN page (2026-09-03, superseded same day)
 
-Plan, Kit and Sources used to be three `<details class="fold">` accordions
-below the bands, visually distinct (their own `.fold`/`.fold-l`/`.fold-t`/
-`.fold-i` styling, a plus/minus box icon, a thick `border-top:2px solid
-var(--ink)` divider separating them from the live bands above). The owner
-asked for them to look like the bands above instead, so they now share the
-exact `.band`/`.band-top`/`.band-lab`/`.band-arw`/`.band-body`/`.band-h`
-markup and `sev-clear` styling `renderBands()` already uses for EMERGENCY's
-all-clear look, just with the `<summary>` element itself carrying the
-`.band` classes so the desktop grid layout applies to it too. They keep the
-`<details>`/`<summary>` expand-in-place behavior; nothing routes to a new
-page. The old `.fold-l`/`.fold-t`/`.fold-i`/`.fold[open]` rules and the
-plus/minus icon are gone, replaced by a small `.prep` class (hover overlay,
-and the `band-arw` glyph rotating 180° on open instead of a new icon). The
-thick `#more` divider is gone too, and `#more` picked up the same
-`display:grid;gap:2px` treatment `#bands` uses at desktop, so the seam
-between the last live band and PLAN reads the same as the seam between any
-two bands. `#more` itself is unchanged: still hidden until a location is
-set, still sits after the live bands, so PLAN/KIT/SOURCES are additional
-cards continuing the same list rather than a separate section.
+First pass: Plan, Kit and Sources were converted from three `<details
+class="fold">` accordions into three separate `.band`-styled cards, still
+expanding in place. The owner then looked at it running locally and said
+that was not the ask: three cards at the bottom still read as clutter
+("that is awful"), and the ask was for one **PLAN** card that routes to a
+real page, the same way WEATHER/OCEAN/ROADS/EMERGENCY do, with Plan, Kit and
+Sources all living on that one page. `hurricane-kit-checklist.html` (see
+SEO section) gets promoted to its own second card, **CHECKLIST**, since a
+real separate indexable page is what actually helps SEO here.
+
+`#more` now holds exactly two plain `<a class="band sev-clear">` links, no
+`<details>` involved: PLAN goes to `#plan` (hash routed, like every live
+band); CHECKLIST goes straight to `/hurricane-kit-checklist.html` (a real
+page, not a hash route). Both reuse the exact `.band-top`/`.band-lab`/
+`.band-arw`/`.band-body`/`.band-h` markup the live bands use, so no new CSS
+was needed for them, they are `a.band` like everything else. The `.prep`
+class and its hover/rotate rules from the first pass are gone along with
+the `<details>` markup they styled.
+
+**PLAN is a routed page, but it is not a hazard band.** It carries no
+severity color, no map layer, and does not belong in `BANDORDER` (which
+also drives the map's filter-chip sort, and PLAN has nothing to sort there).
+Routing now checks a separate `ROUTES` array (`[...BANDORDER,"PLAN"]`)
+instead of `BANDORDER` directly. `bandOf()`'s fallback and `metaWord()` both
+special-case `cat==="PLAN"` (a plain header line and "REFERENCE" instead of
+a fabricated severity/status word) since PLAN never appears in the `BANDS`
+array `buildBands()` produces. `panelPlan()` returns three empty containers
+(`#plan`, `#kit`, `#sources`/`#resources`); `renderPage()` fills them in
+right after the containers are actually attached to the document, the same
+pattern `renderShelters()` already used for EMERGENCY, because the render
+functions target these ids directly and the ids do not exist until the page
+markup is inserted. The kit checklist's checkbox rendering became a
+function, `renderKit()`, called the same way, since `#kit` now only exists
+while the PLAN page is open rather than sitting permanently in the DOM; its
+change listener is delegated onto the persistent `#pages` container instead
+of binding to `#kit` directly, so it survives every re-render without
+rebinding. `setLoc()` no longer eagerly renders Plan/Kit/Sources into
+always-present DOM nodes on every location change, since `route()` already
+calls `renderPage("PLAN")` whenever the `#plan` hash is open, the same way
+every other detail page rebuilds itself from current state on each route.
+
+The footer's own "Hurricane kit checklist" link is removed now that
+CHECKLIST is a proper home page card; the footer goes back to just the
+disclaimer and the NWS Honolulu credit.
 
 **The `#mapnote` paragraph under the map is removed**, per "the page ends
 after the Hurricane card": both the `<p id="mapnote">` element and the block
@@ -1015,11 +1056,26 @@ less competition than "is there a hurricane right now."
   it has to be injected client-side from the same live alert data the page already
   renders from, not hand-authored statically.
 
-**Not done, needs the owner's sign-off first: a favicon or `og:image`.** There is no
-logo, icon, or screenshot anywhere in this repo. A share card and browser tab work
-fine without one, just plainer. Design rules explicitly forbid inventing a mark, icon
-or illustration without asking, so none was created here. If one is wanted, describe
-the intended look before building it, same as any other visual element on this page.
+**Favicon and `og:image` shipped 2026-09-03, sourced from the owner.** The owner
+supplied the mark directly (a shaka hand on a rounded warning triangle, amber
+fill, close enough to `--advis` `#e8a317` that it reads as the site's own
+amber, not a sixth color), so the design rule against inventing a mark without
+asking does not apply here, the mark was given, not invented. Two crops of the
+same source image, both processed with ImageMagick in the sandbox (`convert
+... -resize ... -strip`):
+- **Favicon**: a 32×32 PNG, stripped of metadata (989 bytes), inlined as a
+  `data:image/png;base64,` URI on `<link rel="icon">` in both `index.html` and
+  `hurricane-kit-checklist.html`. Same inlining rule as the font and Leaflet;
+  invariant 5 holds, zero extra request at render.
+- **`og-image.png`**: a 600×600 PNG at the repo root (`og-image.png`), palette
+  reduced to 16 colors (21.6KB) since the source art is flat amber and white
+  with no gradients to lose. `og:image`/`twitter:image` point at it by full
+  URL in both HTML files. This is a real separate file, not inlined: social
+  crawlers fetch OG images by URL, a data URI is not reliable there, and
+  `robots.txt`/`sitemap.xml`/`hurricane-kit-checklist.html` already establish
+  that separate static files alongside `index.html` are normal for this repo.
+  `twitter:card` stays `summary` (square-image card), which fits a square
+  source image without cropping.
 
 **First evergreen content page shipped 2026-09-04: `hurricane-kit-checklist.html`.**
 Its own real static HTML file at the repo root, its own `<title>`/description/canonical/
