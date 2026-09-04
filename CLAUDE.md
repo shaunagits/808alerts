@@ -145,16 +145,17 @@ location strip          {PLACE} ALERTS, island, relocate controls, UPDATED time
                         (hidden pre-location; carries the hero's controls once shown)
 board                   map full width across the top, always, located or not
                         pre-location: per-island forecast snapshot tiles below the map
-                        located: five bands (WEATHER first, see the weather widget
-                        section) stack in full width rows below the map
-map note                what the map can and cannot show
-folds                   Plan, Kit, Sources, all collapsed on load
+                        located: four bands (WEATHER, OCEAN, ROADS, EMERGENCY,
+                        see "POWER removed" below) stack in full width rows
+                        below the map, Plan/Kit/Sources continue as three
+                        more cards right after them, same styling
 footer                  the not an official alert system disclaimer
 ```
 
-Tapping a band routes to `#power`, `#roads`, `#weather`, `#ocean`, `#emergency`.
-Hash routing, no router and no build step. The board hides, the detail view takes
-the viewport, the browser back button works and board scroll position is restored.
+Tapping a band routes to `#roads`, `#weather`, `#ocean`, `#emergency`. POWER has
+no route any more (see "POWER removed" below). Hash routing, no router and no
+build step. The board hides, the detail view takes the viewport, the browser
+back button works and board scroll position is restored.
 Landing on the site shows the board with nothing expanded: the map itself renders
 immediately, before anyone picks a location (see "The home map" under The map).
 
@@ -676,6 +677,49 @@ alerts already are.
   against `BANDORDER`; it does not touch any band's own color (`CATCOLOR`/
   `BANDCOLOR` are keyed by category name, not position), so "band colour is
   fixed per category" (see Design rules above) still holds exactly as before.
+- **POWER removed from the board entirely, 2026-09-03, at the owner's
+  direction: the HECO outage feed is unreliable and there is no way to fix
+  it.** `BANDORDER` no longer lists `"POWER"`, so `buildBands()` never builds
+  a POWER card and `route()` no longer matches `#power` (it only opens a
+  detail page for a hash that is in `BANDORDER`), so the POWER detail view is
+  unreachable too. `loadPower()`, `panelPower()` and the `powerLive()`/
+  `powerQuiet()` helpers are left in place rather than torn out: they are now
+  dead code from the UI's perspective, harmless, and ripping out a working
+  parser and its worker endpoint for a one-line ask wasn't worth the risk. If
+  POWER is ever fully retired, remove those too. **ROADS was asked to be
+  removed as well, then kept** ("Keep Roads then, but put it lower") since it
+  carries real live HCCDA data for Hawaiʻi County even though it is empty
+  elsewhere; it moved from 3rd of 5 to 3rd of 4, just above EMERGENCY.
+  `BANDORDER` is now `["WEATHER","OCEAN","ROADS","EMERGENCY"]`.
+
+### Plan, Kit and Sources are band cards now (2026-09-03)
+
+Plan, Kit and Sources used to be three `<details class="fold">` accordions
+below the bands, visually distinct (their own `.fold`/`.fold-l`/`.fold-t`/
+`.fold-i` styling, a plus/minus box icon, a thick `border-top:2px solid
+var(--ink)` divider separating them from the live bands above). The owner
+asked for them to look like the bands above instead, so they now share the
+exact `.band`/`.band-top`/`.band-lab`/`.band-arw`/`.band-body`/`.band-h`
+markup and `sev-clear` styling `renderBands()` already uses for EMERGENCY's
+all-clear look, just with the `<summary>` element itself carrying the
+`.band` classes so the desktop grid layout applies to it too. They keep the
+`<details>`/`<summary>` expand-in-place behavior; nothing routes to a new
+page. The old `.fold-l`/`.fold-t`/`.fold-i`/`.fold[open]` rules and the
+plus/minus icon are gone, replaced by a small `.prep` class (hover overlay,
+and the `band-arw` glyph rotating 180° on open instead of a new icon). The
+thick `#more` divider is gone too, and `#more` picked up the same
+`display:grid;gap:2px` treatment `#bands` uses at desktop, so the seam
+between the last live band and PLAN reads the same as the seam between any
+two bands. `#more` itself is unchanged: still hidden until a location is
+set, still sits after the live bands, so PLAN/KIT/SOURCES are additional
+cards continuing the same list rather than a separate section.
+
+**The `#mapnote` paragraph under the map is removed**, per "the page ends
+after the Hurricane card": both the `<p id="mapnote">` element and the block
+in `drawMap()` that filled it in (explaining what the map does and doesn't
+show) are gone. `#radarnote` is untouched, it is a different element that
+answers a different question (why a clear-sky radar toggle draws nothing)
+and stays.
 
 ### Fetching alerts: query the point AND the zone
 

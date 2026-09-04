@@ -285,44 +285,23 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
 }
 
 /* -------------------------------------------------------------- collapsed */
-/* Everything below the bands is folded away by default, so the page the
-   design specifies is the page you land on. */
-#more{background:var(--surface);border-top:2px solid var(--ink)}
-.fold{border-bottom:2px solid var(--surface-line)}
-.fold>summary{
-  list-style:none;cursor:pointer;
-  padding:20px var(--pad);min-height:64px;
-  display:flex;align-items:center;justify-content:space-between;gap:14px;
-  background:var(--surface);color:var(--ink);
-}
-.fold>summary::-webkit-details-marker{display:none}
-.fold>summary:hover{background:var(--surface2)}
-.fold-l{min-width:0}
-.fold-l .u{display:block;font-size:10px;color:var(--muted3)}
-.fold-t{
-  display:block;margin-top:7px;
-  font-weight:800;font-size:19px;line-height:1.15;letter-spacing:-.02em;color:var(--ink);
-}
-.fold-i{
-  flex:none;width:26px;height:26px;position:relative;
-  border:2px solid var(--ink);
-}
-.fold-i::before,.fold-i::after{
-  content:"";position:absolute;background:var(--ink);
-  top:50%;left:50%;transform:translate(-50%,-50%);
-}
-.fold-i::before{width:12px;height:2px}
-.fold-i::after{width:2px;height:12px}
-.fold[open]>summary{background:var(--ink);color:#fff}
-.fold[open] .fold-t{color:#fff}
-.fold[open] .fold-l .u{color:var(--muted)}
-.fold[open] .fold-i{border-color:#fff}
-.fold[open] .fold-i::before{background:#fff}
-.fold[open] .fold-i::after{display:none}
-@media (min-width:1024px){ .fold-t{font-size:24px} }
+/* Plan, Kit and Sources render as the same band cards as WEATHER/OCEAN/ROADS/
+   EMERGENCY above them (2026-09-03 rework), just wrapped in <details> so they
+   still expand in place instead of routing to their own page. #more used to
+   carry a thick divider and its own fold-* styling to set this section visibly
+   apart from the live bands; both are gone now that the ask is for these to
+   read as more cards, not a separate reference section. */
+#more{background:var(--surface)}
+.prep{border-bottom:2px solid var(--surface-line)}
+.prep>summary{list-style:none;cursor:pointer}
+.prep>summary::-webkit-details-marker{display:none}
+.prep>summary:hover::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.05)}
+.prep[open]>summary .band-arw{transform:rotate(180deg)}
+.band-arw{display:inline-block;transition:transform .15s}
 
 .fold-b{background:var(--surface)}
 .fold-b a{color:var(--ink)}
+@media (min-width:1024px){ #more{display:grid;grid-template-columns:1fr;gap:2px} }
 
 /* ---- reported refuge areas ---- */
 .sh+.sh{border-top:10px solid var(--ink)}
@@ -1477,33 +1456,32 @@ body.detail .board,body.detail .mapnote{display:none}
   <div class="islandwx" id="islandWx" hidden></div>
 </div>
 
-<p class="mapnote" id="mapnote" hidden></p>
 <p class="mapnote" id="radarnote" hidden></p>
 
 <main id="pages"></main>
 
 <div id="more" hidden>
 
-  <details class="fold" id="d-plan">
-    <summary>
-      <span class="fold-l"><span class="u">PLAN</span><span class="fold-t">Three things to do before it arrives</span></span>
-      <span class="fold-i" aria-hidden="true"></span>
+  <details class="prep" id="d-plan">
+    <summary class="band sev-clear">
+      <span class="band-top"><span class="band-lab">PLAN</span><span class="band-arw" aria-hidden="true">&#8595;</span></span>
+      <span class="band-body"><span class="band-h">Three things to do before it arrives</span></span>
     </summary>
     <div class="fold-b" id="plan"></div>
   </details>
 
-  <details class="fold" id="d-kit">
-    <summary>
-      <span class="fold-l"><span class="u">KIT</span><span class="fold-t">Pack a bag</span></span>
-      <span class="fold-i" aria-hidden="true"></span>
+  <details class="prep" id="d-kit">
+    <summary class="band sev-clear">
+      <span class="band-top"><span class="band-lab">KIT</span><span class="band-arw" aria-hidden="true">&#8595;</span></span>
+      <span class="band-body"><span class="band-h">Pack a bag</span></span>
     </summary>
     <div class="fold-b" id="kit"></div>
   </details>
 
-  <details class="fold" id="d-sources">
-    <summary>
-      <span class="fold-l"><span class="u">SOURCES</span><span class="fold-t">Go straight to the agency</span></span>
-      <span class="fold-i" aria-hidden="true"></span>
+  <details class="prep" id="d-sources">
+    <summary class="band sev-clear">
+      <span class="band-top"><span class="band-lab">SOURCES</span><span class="band-arw" aria-hidden="true">&#8595;</span></span>
+      <span class="band-body"><span class="band-h">Go straight to the agency</span></span>
     </summary>
     <div class="fold-b"><div id="sources"></div><div id="resources"></div></div>
   </details>
@@ -2149,7 +2127,7 @@ const BANDCOLOR={POWER:"warning",WEATHER:"warning",ROADS:"advisory",OCEAN:"watch
    chips (both sort against this array); it does not touch each band's own
    fixed colour (CATCOLOR/BANDCOLOR are keyed by category name, not position),
    so "band colour is fixed per category" still holds exactly as before. */
-const BANDORDER=["WEATHER","POWER","ROADS","OCEAN","EMERGENCY"];
+const BANDORDER=["WEATHER","OCEAN","ROADS","EMERGENCY"];
 const SEVRANK={warning:0,advisory:1,watch:2,clear:3};
 
 const UTILITY=c=>c==="HIC007"?"Kauaʻi Island Utility Cooperative":"Hawaiian Electric";
@@ -3160,21 +3138,6 @@ function drawMap(){
   $("maplistItems").innerHTML=MAPFEATS.map((f,i)=>
     `<button type="button" data-i="${i}" data-cat="${esc(f.cat)}"><span class="k">${esc(f.cat)}</span>
        <span class="t">${esc(f.t)}</span><span class="s">${f.s}</span></button>`).join("");
-
-  const note=$("mapnote");
-  note.hidden=false;
-  note.innerHTML=S.c
-    ? (cats.length
-        ? "The map shows what this page can verify: "+cats.map(c=>c.toLowerCase()).join(", ")+
-          ". Power outages are not on it, because no public feed carries them."
-        : "Nothing is plotted here yet. Road closures and shelter status come from Hawaiʻi County "+
-          "Civil Defense, the only county publishing them, and no National Weather Service product "+
-          "is in effect for this location. Power outages are not mapped anywhere public.")
-    : (HURRICANES&&HURRICANES.length
-        ? "Active tropical systems from the National Hurricane Center. Enter your location above "+
-          "for county-level roads, shelters and weather alerts."
-        : "No active tropical systems near Hawaiʻi right now, per the National Hurricane Center. "+
-          "Enter your location above for county-level roads, shelters and weather alerts.");
 
   try{ MAP.invalidateSize(); }catch(_){}
 }
