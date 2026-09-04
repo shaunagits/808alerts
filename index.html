@@ -1291,7 +1291,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .map-ui>*{pointer-events:auto}
 .filters{top:14px;left:14px;right:110px;display:flex;gap:2px;flex-wrap:wrap}
 .chip{
-  background:rgba(16,16,16,.14);color:var(--ink);border:0;cursor:pointer;
+  background:var(--surface);color:var(--ink);border:0;cursor:pointer;
   font-weight:800;font-size:10px;line-height:1;letter-spacing:.1em;
   padding:10px 12px;min-height:36px;display:flex;align-items:center;gap:7px;
 }
@@ -1311,7 +1311,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
    an island's local zoom does not depend on pinching/scrolling in on a
    360px-tall map card. Pure map navigation, does not set S.c or trigger the
    located flow; that is still what the hero/location strip controls do. */
-.islandnav{bottom:54px;left:14px;right:64px;display:flex;gap:2px;flex-wrap:wrap}
+.islandnav{bottom:54px;left:14px;right:64px;gap:2px;flex-wrap:wrap}
+.islandnav:not([hidden]){display:flex}
 .islandnav .chip{background:var(--ink);color:#fff}
 .islandnav .chip:hover{background:var(--ink2)}
 .mapwrap.tall .scalenote{display:none}
