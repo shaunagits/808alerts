@@ -977,36 +977,44 @@ fine without one, just plainer. Design rules explicitly forbid inventing a mark,
 or illustration without asking, so none was created here. If one is wanted, describe
 the intended look before building it, same as any other visual element on this page.
 
-**Open question, not yet decided: hash routing blocks per-section indexing.** The board
+**First evergreen content page shipped 2026-09-04: `hurricane-kit-checklist.html`.**
+Its own real static HTML file at the repo root, its own `<title>`/description/canonical/
+OG/Twitter tags, and a `HowTo` JSON-LD block. Same 5-color palette and 0-radius/no-shadow
+rules as the app, but does not inline the Archivo base64 font (a system UI font stack is
+used instead, so this page does not carry the ~64KB font payload the app pays for once);
+no live data, no fetches, just the kit list and the step-2 refuge-area guidance, both
+lifted verbatim from the app's own `KIT` array and `renderPlan()` so the two never drift
+apart in wording. Linked from the app's footer, and listed in `sitemap.xml`. This is the
+template for any further pages of this kind (a shelter directory page is the obvious
+next one); before adding another, check `KIT`/`renderPlan()`/etc. for the current wording
+rather than re-describing it from memory.
+
+**Still open: hash routing blocks per-section indexing of the app itself.** The board
 uses `#weather`/`#power`/`#roads`/`#ocean`/`#emergency` client-side routing with no real
 server-distinguishable URLs, so Google sees exactly one URL and one title/description
 no matter what a visitor is looking at. Queries like "Maui evacuation shelters" or
 "Oʻahu power outage map" would ideally be their own indexable page with its own title,
-but cannot be under the current routing. Fixing this is a real architecture decision,
-not a quick add, and conflicts with "single static file, no build step" unless done
-carefully:
+but cannot be under the current routing. The evergreen content pages above are a
+separate, already-shipped answer for planning-type queries; this is specifically about
+the live app's own sections. Options, genuinely open, including ones that add a build
+step if that is what serves the site best:
 
-- **Cloudflare Pages `_redirects` / per-path static files**, each serving the same
-  `index.html` shell but letting the JS router read the real path instead of (or in
-  addition to) the hash, so `/weather`, `/power` etc. become real URLs. Meta tags would
-  still be static per load (same "no build step" limitation as the JSON-LD above), so
-  each route would need its own real HTML file with its own `<title>`/description if the
-  goal is genuinely different per-route metadata, not just a different URL, not simply
-  a hash-router change.
-- **A handful of separate static content pages** (not app routes) for the evergreen
-  queries specifically, e.g. a hurricane-kit-checklist page, a shelter-directory page,
-  linking into the app rather than duplicating its live data. Smaller, does not touch
-  the SPA's routing at all, and matches the "evergreen beats breaking news" strategy
-  above directly.
+- Give the app's own sections real URLs (`/weather`, `/power`, etc.) instead of hash
+  fragments, with each route's own real HTML and its own `<title>`/description.
+- A static site generator or build step producing multiple pre-rendered pages, if that
+  turns out to be the best way to get real per-page metadata without hand-maintaining
+  duplicate HTML files.
 
-No changes made under this heading; recorded here so the tradeoffs are not
-re-litigated from scratch next time this comes up.
+Not decided, and deliberately not pre-narrowed to whichever option avoids a build step.
 
 ## Deployment
 
-**Single host, Git-connected, one command: `git push`.** Changed 2026-09-03 at the
-owner's direction ("it's just me, this needs to be simple"). Host is **Cloudflare
-Pages**, project `808alerts`, connected directly to the `shaunagits/808alerts` GitHub
+**Single host, Git-connected, one command: `git push`.** Changed 2026-09-03: the two
+staging directories and the manual wrangler/vercel deploy steps were replaced with
+Cloudflare Pages' own Git integration. This was a deploy-mechanics decision, not a
+statement that the site's architecture can never use a build step; see SEO above for an
+open question that may need one. Host is **Cloudflare Pages**, project `808alerts`,
+connected directly to the `shaunagits/808alerts` GitHub
 repo. A push to `main` deploys automatically; there is no manual `wrangler`/`vercel`
 step, no staging directory, and no file to rename before deploying, because `index.html`
 already sits at the repo root and Cloudflare Pages serves the repo root as-is with no
