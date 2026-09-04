@@ -331,6 +331,30 @@ any location is known.
   the home page is no longer inert until interaction: every landing hits Esri and
   the worker once. Worth knowing if traffic ever needs to be pared back.
 
+**Island quick-nav, added 2026-09-04.** The owner likes the wide home view but found
+getting from it to island-level detail slow when the only tool is scroll-to-zoom:
+"getting to the detail view is difficult with just zooming." `#islandnav` is a row of
+one chip per island, shown only in the home (pre-location) map state
+(`$("islandnav").hidden=!!S.c`), populated once from the existing `ISLANDS` array the
+located flow already uses for its own forecast-zone lookups. Each chip carries the
+island's `lat,lon` in a `data-jump` attribute; the click handler reads it and calls
+`MAP.setView([lat,lon],10)`, nothing else.
+
+**Deliberately not a location pick.** This app has exactly one way to "locate"
+yourself, the hero/isles list controls, because that is what drives `S.c`, the bands,
+reports and routing. A quick-zoom button that also called `setLoc()` would blur that
+line and could locate someone who only meant to look at the map. So `#islandnav`
+touches `MAP` only, never `S`, and the located flow is completely unaware of it.
+Zoom 10, not 11 (the located view's own zoom), because this is "show me the island,"
+not "show me my exact spot," and an island genuinely fills the frame better one step
+wider.
+
+**`.islandnav{right:64px}`, not the map-UI default `right:14px`.** Leaflet's own
+zoom control sits bottom-right; `.maplist`'s existing mobile override already carries
+the same `right:64px` for the same reason. Copied that value rather than reinventing
+it. Chips reuse `.chip` styling already established by the layer-toggle row, colored
+`--ink`/`--ink2` on hover, no new palette value.
+
 ### The located strip's relocate controls (added 2026-09-03)
 
 `Home - Located.dc.html` replaces the full-height hero with the compact location
@@ -680,6 +704,13 @@ layered on top of it.
 every call and calls `set311(false)` if the layer is on and the location isn't Oʻahu
 any more, so a relocate can't leave a stale Oʻahu-only layer (or its now-irrelevant chip)
 showing under a different island.
+
+**Marker size reduced 2026-09-04.** At the shipped radius 5 the owner reported the
+dots as "way too big, filling up the map already" at Oʻahu-wide zoom, where ~2,400
+points read as a solid mass rather than individual reports. Reduced to radius 3, the
+hollow (`current:false`) stroke weight from 1.5 to 1.2, and filled `fillOpacity` from
+.85 to .8, so the layer reads as texture rather than covering the roads and markers
+underneath it.
 
 ### The Hawaiian Electric map toggle (removed 2026-09-03)
 

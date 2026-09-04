@@ -1307,6 +1307,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
   bottom:14px;left:14px;background:var(--surface);padding:10px 13px;
   font-weight:600;font-stretch:77%;font-size:11px;line-height:1;letter-spacing:.12em;color:var(--body);
 }
+/* Home-state only: quick jump buttons so getting from the statewide view to
+   an island's local zoom does not depend on pinching/scrolling in on a
+   360px-tall map card. Pure map navigation, does not set S.c or trigger the
+   located flow; that is still what the hero/location strip controls do. */
+.islandnav{bottom:54px;left:14px;right:64px;display:flex;gap:2px;flex-wrap:wrap}
+.islandnav .chip{background:var(--ink);color:#fff}
+.islandnav .chip:hover{background:var(--ink2)}
 .mapwrap.tall .scalenote{display:none}
 .maplist{
   position:absolute;z-index:500;top:60px;right:14px;width:320px;
@@ -1414,6 +1421,7 @@ body.detail .board,body.detail .mapnote{display:none}
     <span id="expandLabel">EXPAND MAP</span>
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#101010" stroke-width="3" aria-hidden="true"><path d="M4 10V4h6M20 14v6h-6"/></svg>
   </button>
+  <div class="map-ui islandnav" id="islandnav" hidden></div>
   <div class="map-ui scalenote" id="scalenote"></div>
   <div class="map-ui radarbadge" id="radarbadge" hidden></div>
   <div class="maplist" id="maplist">
@@ -2860,9 +2868,9 @@ function draw311(){
   if(!REP311_CANVAS) REP311_CANVAS=L.canvas({pane:"rep311"});
   REP311_LAYER=L.geoJSON(REP311_DATA,{
     pointToLayer:(f,ll)=>L.circleMarker(ll,{
-      pane:"rep311",renderer:REP311_CANVAS,radius:5,
-      color:"#101010",weight:f.properties.current===false?1.5:0,
-      fillColor:"#101010",fillOpacity:f.properties.current===false?0:.85}),
+      pane:"rep311",renderer:REP311_CANVAS,radius:3,
+      color:"#101010",weight:f.properties.current===false?1.2:0,
+      fillColor:"#101010",fillOpacity:f.properties.current===false?0:.8}),
     onEachFeature:(f,lyr)=>lyr.bindPopup(rep311Pop(f.properties),
       {maxWidth:260,autoPanPadding:[24,24]})
   }).addTo(MAP);
@@ -3066,6 +3074,11 @@ function drawMap(){
     :"Map of Hawaiʻi and active tropical systems in the Central Pacific");
   $("islandWxHead").hidden=!!S.c;
   $("islandWx").hidden=!!S.c;
+  $("islandnav").hidden=!!S.c;
+  if(!S.c&&!$("islandnav").childElementCount){
+    $("islandnav").innerHTML=ISLANDS.map(i=>
+      `<button class="chip" type="button" data-jump="${esc(i.lat)},${esc(i.lon)}">${esc(up(i.label))}</button>`).join("");
+  }
   if(!S.c) renderIslandWx();
 
   if(!MAP){
@@ -3193,6 +3206,15 @@ $("filters").addEventListener("click",e=>{
 $("filters").addEventListener("click",e=>{
   const b=e.target.closest("button[data-311]"); if(!b) return;
   set311(!REP311_ON);
+});
+
+/* Pure map navigation, no location pick: sets the view only, does not touch
+   S.c, does not trigger setLoc()'s located flow. The hero/isles list above
+   the board is still what actually picks a location. */
+$("islandnav").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-jump]"); if(!b||!MAP) return;
+  const [lat,lon]=b.dataset.jump.split(",").map(Number);
+  MAP.setView([lat,lon],10);
 });
 
 /* No new fetch: wind extent and arrival bands ride along with the storm data
