@@ -611,6 +611,22 @@ automatically, not one of the three still gated behind a toggle.
 - No radar-style "clear day reads as broken" problem: satellite imagery always shows
   something (ocean, land, cloud), so there is no equivalent of `#radarnote` needed.
 
+**Auto satellite by zoom, added 2026-09-04.** GOES-West's own `maxNativeZoom` is 7 (see
+`SAT_SRC` above), so past that Leaflet is already just upscaling a blurry tile, not
+showing real detail. The owner asked for the layer to turn itself off once zoomed to
+island level and back on when zoomed back out, so it stays useful at the scale it
+actually has resolution for rather than sitting on screen as a soft colour wash once
+someone zooms in on their own roads. `satAutoZoom()` tracks a `satZoomBand` of `"wide"`
+or `"local"` (the threshold is zoom 9, a couple steps past `maxNativeZoom` so satellite
+is gone before the blur is obvious, and clear of the zoom-11 local view the located map
+settles on) and only calls `setSatellite()` when that band actually changes, not on
+every `zoomend` - so a manual toggle via the chip is not immediately fought while the
+user stays within one band, it only gets corrected the next time they cross the
+threshold. Hooked once via `MAP.on("zoomend",satAutoZoom)` at map creation. The initial
+call at map creation runs `satAutoZoom()` instead of a bare `setSatellite(true)`, so a
+located visitor who lands already at zoom 11 gets satellite correctly off from first
+paint instead of on-then-immediately-corrected.
+
 ### The Hawaiian Electric map toggle (removed 2026-09-03)
 
 There used to be a two-button toggle, **This map / Hawaiian Electric**, on the three
@@ -1073,14 +1089,11 @@ same source image, both processed with ImageMagick in the sandbox (`convert
   `twitter:card` stays `summary` (square-image card), which fits a square
   source image without cropping.
 
-**The mark also sits next to the wordmark in the sticky brand bar, 2026-09-03.** A third
-crop of the same source image (64×64, transparent background this time, not the white
-square the favicon uses, so it sits directly on the bar's `--ink` background with no
-white box around it) is inlined the same way as a `<img class="mark-logo">` next to
-`808<i>ALERTS</i></span>`, both wrapped in a new `.mark-row` so they sit on one line while
-`#locUp` continues to stack below in `.bar-l`. 22px on mobile, 28px at the 1024px
-breakpoint alongside `.mark`'s own size bump, so it scales with the wordmark rather than
-staying fixed.
+**Putting the mark next to the wordmark in the brand bar was tried and reverted, same
+day.** It briefly sat inline before `808<i>ALERTS</i></span>` via a `.mark-row` wrapper;
+the owner looked at it and asked for it back out ("looks bad"), so the header goes back
+to text-only `.mark`. The favicon and `og-image.png` above are unaffected, this was the
+header placement only.
 
 **First evergreen content page shipped 2026-09-04: `hurricane-kit-checklist.html`.**
 Its own real static HTML file at the repo root, its own `<title>`/description/canonical/
