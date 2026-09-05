@@ -2861,6 +2861,9 @@ function hookHazMove(){
    city's own 14-day window and is only known because hawaii311.org kept it;
    drawn hollow, matching the hollow-marker convention hawaii311.org itself
    uses, filled points are still on the city's own current feed. */
+/* Categories that are always drawn and get no filter chip. */
+const ALWAYS_ON_CATS={WEATHER:true};
+
 const REP311_SRC="https://hawaii311.org/open.geojson";
 let REP311_ON=false, REP311_LAYER=null, REP311_DATA=null, rep311Timer=null, REP311_CANVAS=null;
 let rep311MoveT=null;
@@ -3667,7 +3670,10 @@ function drawMap(){
     (a,b)=>BANDORDER.indexOf(a)-BANDORDER.indexOf(b));
 
   cats.forEach(cat=>{
-    if(MAPON[cat]===undefined) MAPON[cat]=true;
+    /* WEATHER has no chip (see the filter row below), so it can never be
+       switched off and must never start off. */
+    if(ALWAYS_ON_CATS[cat]) MAPON[cat]=true;
+    else if(MAPON[cat]===undefined) MAPON[cat]=true;
     const col=CATCOLOR[cat]||"#101010", g=L.layerGroup();
     MAPFEATS.filter(f=>f.cat===cat).forEach(f=>{
       const lineCol=f.full?"#c22e22":col;
@@ -3722,7 +3728,11 @@ function drawMap(){
     mapFitStorms=true;
   }
 
-  $("filters").innerHTML=cats.map(c=>
+  /* WEATHER is not a chip. Active National Weather Service products are the
+     one thing on this map nobody should have to switch on to see, and the
+     owner asked for the toggle out on those grounds. Dropping it also buys
+     back a slot in a chip row that had grown long. */
+  $("filters").innerHTML=cats.filter(c=>!ALWAYS_ON_CATS[c]).map(c=>
     `<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${!!MAPON[c]}">
        <i style="background:${CATCOLOR[c]}"></i>${esc(c)} ${MAPFEATS.filter(f=>f.cat===c).length}</button>`).join("")
     +`<button class="chip" type="button" data-radar aria-pressed="${RADAR_ON}" title="Live NWS rain radar">RADAR</button>`
