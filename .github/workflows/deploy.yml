@@ -1,0 +1,74 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Newest push wins. A superseded run is cancelled mid-upload rather than racing
+# the newer one to activate. A Pages deployment only goes live after its upload
+# completes, so a cancelled run can never half-publish.
+concurrency:
+  group: pages-deploy-808alerts
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      # Pages direct upload has no --exclude flag, so the publish set is
+      # assembled explicitly here rather than filtered at upload time.
+      #
+      # This is also what keeps worker/ out of reach: it is not in dist/, so it
+      # is neither uploaded nor visible to wrangler's config resolution. That
+      # resolution starts at the working directory and walks UP through parent
+      # directories, never down into children, so worker/wrangler.toml could not
+      # be picked up even if worker/ were present. There is no wrangler.toml at
+      # the repo root, and none above it.
+      - name: Assemble publish directory
+        run: |
+          set -euo pipefail
+          rm -rf dist
+          mkdir dist
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.claude/' \
+            --exclude='.wrangler/' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='docs/' \
+            --exclude='worker/' \
+            --exclude='CLAUDE.md*' \
+            --exclude='*.bak' \
+            ./ dist/
+
+          echo "--- publishing ---"
+          find dist -type f | sort
+
+          echo "--- verifying exclusions ---"
+          fail=0
+          for p in CLAUDE.md docs worker; do
+            if [ -e "dist/$p" ]; then echo "ERROR: dist/$p would be published"; fail=1; else echo "ok: $p excluded"; fi
+          done
+          if find dist -name '*.bak' | grep -q .; then echo "ERROR: .bak files in dist"; fail=1; else echo "ok: no .bak files"; fi
+          exit $fail
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.123.0'
+          command: >-
+            pages deploy dist
+            --project-name=808alerts
+            --branch=main
+            --commit-hash=${{ github.sha }}
+            --commit-dirty=true
