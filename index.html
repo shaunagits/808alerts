@@ -284,6 +284,7 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
   .mapwrap{min-height:640px}
   .mapwrap.tall{height:calc(100vh - 76px)}
   .board:has(.mapwrap.tall) #bands,
+  .board:has(.mapwrap.tall) #maplegend,
   .board:has(.mapwrap.tall) #islandWx,
   .board:has(.mapwrap.tall) .islandwx-h{display:none}
   /* Before a location is chosen #bands is empty (nothing to show yet); hide
@@ -1368,6 +1369,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .maplist .s{display:block;margin-top:3px;font-weight:500;font-size:12.5px;line-height:1.4;color:#5c5c5c}
 .mapnote{padding:12px var(--pad);background:var(--surface2);
   font-weight:500;font-size:12.5px;line-height:1.5;color:var(--body)}
+/* What each mark on the map means. The point layers are told apart by
+   silhouette, since band colour is fixed per category and the palette has no
+   spare value to carry the difference, and a silhouette is no use if nobody
+   is told how to read it. Built from what is actually drawn right now, so it
+   never explains a layer that is not on screen. */
+.maplegend{padding:12px var(--pad);background:var(--surface2);
+  display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.maplegend:not([hidden]){display:flex}
+.maplegend span{display:flex;align-items:center;gap:8px;
+  font-weight:700;font-stretch:77%;font-size:10.5px;letter-spacing:.11em;color:var(--muted3)}
+.maplegend i{flex:none;display:block;width:12px;height:12px;
+  border:2px solid var(--ink);background:var(--ink)}
+.maplegend i.lg-diamond{transform:rotate(45deg);width:11px;height:11px}
+.maplegend i.lg-dot{border-radius:50%;width:9px;height:9px}
+.maplegend i.lg-ring{border-radius:50%;background:transparent;width:10px;height:10px}
+.maplegend i.lg-line{height:0;width:16px;border:0;border-top:4px solid var(--ink)}
+.maplegend i.lg-area{background:transparent;border-style:dashed}
 /* Per-island forecast snapshot, home (pre-location) state only. Reuses the
    .d-stats/.d-stat tile pattern already established in the detail pages
    rather than inventing a new one, just under its own class name so the
@@ -1400,6 +1418,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   width:22px;height:22px;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35);
   display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:11px;line-height:1;font-family:Archivo,sans-serif;
+}
+/* Stream gauge. A diamond, so it reads as its own thing next to the small
+   circles the 311 and camera layers draw. Sized to sit between the 22px
+   shelter square and those 3px dots. The inner element is rotated rather than
+   the marker itself, so Leaflet's positioning is untouched. */
+.gaugepin{
+  width:13px;height:13px;margin:2px;border:2px solid #fff;
+  box-shadow:0 1px 6px rgba(0,0,0,.35);transform:rotate(45deg);
 }
 .hurr{width:34px;height:34px;border-radius:50%;background:var(--warn);
   border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4);
@@ -1487,6 +1513,7 @@ body.detail .board,body.detail .mapnote{display:none}
   </div>
 </section>
 
+  <div class="maplegend" id="maplegend" hidden></div>
   <div id="bands"></div>
   <p class="islandwx-h" id="islandWxHead" hidden>TODAY, BY ISLAND</p>
   <div class="islandwx" id="islandWx" hidden></div>
@@ -3671,6 +3698,33 @@ function drawStorms(){
   }
 }
 
+/* The key to the marks on the map. Only lists what is actually drawn at this
+   moment: a legend that explains a layer you cannot see is worse than none,
+   and it would quietly assert the layer exists. Shapes here are plain CSS
+   boxes, no icon set and no font glyph, which also sidesteps the trap that
+   Archivo has no outline for several symbols (see the okina note in
+   CLAUDE.md). Swatches are --ink rather than each band's colour, because the
+   legend explains shape; colour is already carried by the band the marker
+   belongs to. */
+function drawLegend(){
+  const el=$("maplegend"); if(!el) return;
+  const kinds=new Set(MAPFEATS.map(f=>f.kind));
+  const rows=[];
+  if(kinds.has("pin"))  rows.push(["","Refuge or shelter"]);
+  if(kinds.has("dot"))  rows.push(["lg-diamond","Stream gauge"]);
+  if(kinds.has("line")) rows.push(["lg-line","Road closure"]);
+  if(kinds.has("area")) rows.push(["lg-area","Weather alert area"]);
+  if(REP311_ON)         rows.push(["lg-dot","311 report"]);
+  if(CAMS_ON)           rows.push(["lg-ring","Traffic camera"]);
+  /* No storm entry. Its marker is a 34px red disc with a cyclone in it, which
+     nobody needs a key for, and the only swatch that would fit it is the same
+     filled dot 311 already uses. Two identical swatches in a legend whose
+     whole job is telling marks apart would be worse than leaving it out. */
+  el.hidden=!rows.length;
+  el.innerHTML=rows.map(r=>
+    `<span><i class="${r[0]}"></i>${esc(up(r[1]))}</span>`).join("");
+}
+
 function drawMap(){
   const wrap=$("mapwrap");
   /* Before a location is picked this is the home map: Hawaiʻi and any nearby
@@ -3763,8 +3817,15 @@ function drawMap(){
         `</div>`+
         `<a class="pop-link" href="#${cat.toLowerCase()}">OPEN ${esc(cat)} DETAIL &#8594;</a>`;
       let lyr=null;
-      if(f.kind==="dot") lyr=L.circleMarker(f.ll,
-        {radius:6,color:"#fff",weight:2,fillColor:col,fillOpacity:1});
+      /* Shape, not colour, tells the point layers apart. Band colour is fixed
+         per category and the palette is fixed at five values, so neither is
+         free to carry this. A stream gauge used to be a filled circle, which
+         at a glance was the same mark as a 311 report and a traffic camera,
+         both of which are also small circles. It is a diamond now, which is
+         a silhouette none of the other layers use. See .gaugepin. */
+      if(f.kind==="dot") lyr=L.marker(f.ll,{icon:L.divIcon({className:"",
+        iconSize:[18,18],iconAnchor:[9,9],
+        html:`<div class="gaugepin" style="background:${col}"></div>`})});
       else if(f.kind==="pin") lyr=L.marker(f.ll,{icon:L.divIcon({className:"",
         iconSize:[22,22],iconAnchor:[11,11],
         html:`<div class="pin" style="background:${col};color:#fff">${esc(f.glyph||"")}</div>`})});
@@ -3822,6 +3883,7 @@ function drawMap(){
     `<button class="chip" type="button" data-sat aria-pressed="${SAT_ON}" title="Live GOES-West satellite imagery">SATELLITE</button>`;
 
   $("scalenote").textContent=S.c?up(S.label||"")+" AND NEARBY":"HAWAIʻI & THE CENTRAL PACIFIC";
+  drawLegend();
   $("maplistHead").textContent=MAPFEATS.length+" ON THIS MAP";
   $("maplistItems").innerHTML=MAPFEATS.map((f,i)=>
     `<button type="button" data-i="${i}" data-cat="${esc(f.cat)}"><span class="k">${esc(f.cat)}</span>
@@ -4148,6 +4210,18 @@ $("geo").addEventListener("click",()=>{
       note("");
       setLoc(c,q.relativeLocation?.properties?.city||"Your location",
              nearestIsland(lat,lon).label,lat,lon,true,z);
+      /* Someone who presses USE MY LOCATION is asking "what is around me", so
+         the map goes to their own coordinates at a zoom that shows the
+         surrounding area rather than their roof. Zoom 12, one step wider than
+         the zoom 11 a location pick normally lands on.
+         mapFitStorms is set so fitLocalView() does not immediately pull this
+         view back out to include a distant storm once the hurricane fetch
+         resolves. That widening is right for an island pick, where nobody
+         asked to look at a particular spot, but it is the opposite of what
+         was asked for here: it would answer "where am I" with a view of the
+         open Pacific. The storm is still on the map, still the WEATHER band's
+         headline, and ALL ISLANDS is one tap away. */
+      if(MAP){ MAP.setView([lat,lon],12,{animate:false}); mapFitStorms=true; syncIslandChip(); }
     }catch(_){
       note("Could not identify your county. Type a city or ZIP, or pick an island.",true);
       $("zip").focus();

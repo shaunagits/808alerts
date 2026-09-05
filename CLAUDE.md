@@ -618,6 +618,59 @@ colour legend) were taken out as not useful enough to keep. The TSUNAMI ZONE lay
 and the OCEAN-band wave *reading* (a number, from PacIOOS) stays; only the wave map
 overlay went.
 
+### Telling the marks apart (2026-09-05)
+
+The owner: "they are all one type and confusing to a user." Fair. Three separate
+layers were drawing small circles, so a stream gauge, a 311 report and a traffic
+camera all read as the same mark at a glance.
+
+**Shape carries the difference, not colour.** Band colour is fixed per category
+and the palette is fixed at five values, so neither has anything spare to spend
+on this. The point layers now use distinct silhouettes:
+
+| Mark | Layer |
+|---|---|
+| 22px square with an S | refuge or shelter |
+| diamond | stream gauge |
+| filled small dot | 311 report |
+| hollow small ring | traffic camera |
+| square counted badge | 311 cluster |
+| 34px disc with a cyclone | storm centre |
+
+Only the gauge actually changed, from a filled circle to a rotated square
+(`.gaugepin`). It moved from `L.circleMarker` to an `L.divIcon`, which also
+lifts it from the vector overlay pane into the marker pane, above the 311 and
+camera layers rather than mixed in with them.
+
+**No icon set and no font glyph**, both for the reason the closure `✕` was
+rejected: Archivo has no outline for most symbols, so a glyph silently falls
+back to a system font mid-design. These are plain CSS boxes, one of them
+rotated 45 degrees.
+
+**`#maplegend` is the key**, sitting between the map and the bands inside
+`.board`, hidden when the map is expanded. It is built from what is actually
+drawn at that moment (`drawLegend()`), so it never explains a layer that is not
+on screen, which would quietly assert the layer exists. Swatches are `--ink`,
+because the legend explains shape; colour is already carried by the band the
+marker belongs to. The storm centre is deliberately absent: it is a 34px disc
+with a cyclone in it that needs no key, and the only swatch that would fit it
+is the same filled dot 311 already uses, so listing it would put two identical
+swatches in a legend whose whole job is telling marks apart.
+
+### USE MY LOCATION focuses the map (2026-09-05)
+
+Pressing it now recentres the map on the reported coordinates at zoom 12, one
+step wider than the zoom 11 a location pick lands on, because the question
+behind that button is "what is around me" rather than "where is my roof".
+
+It also sets `mapFitStorms`, which suppresses the `fitLocalView()` widening for
+that pick. That widening is right for an island pick, where nobody asked to look
+at a particular spot, but here it is the opposite of what was asked: it answers
+"where am I" with a view of the open Pacific. Verified with a simulated Waikīkī
+fix: the map lands on Urban Honolulu at zoom 12 and stays there while an active
+Category 5 sits 600 miles offshore. The storm is still drawn, still the WEATHER
+band's headline, and ALL ISLANDS is one tap away.
+
 ### The hazard zone layers
 
 **TSUNAMI ZONE**, on every island. It draws the Hawaiʻi Statewide GIS tsunami
