@@ -2994,6 +2994,457 @@ function set311(on){
   const chip=document.querySelector('#filters [data-311]');
   if(chip) chip.setAttribute("aria-pressed",on?"true":"false");
 }
+/* Traffic camera LOCATIONS, added 2026-09-04. Off by default.
+
+   What this layer is: where HDOT and City & County traffic cameras are
+   mounted, and nothing else. The pin is a location, not a picture and not
+   a reading. The popup links out to GoAkamai, which is where the live view
+   actually lives.
+
+   Why locations only, and why the image is deliberately absent. GoAkamai's
+   own disclaimer (goakamai.org/disclaimer, read 2026-09-04) reserves the
+   site's content, "text, graphics, and pictures", to HDOT and the City and
+   County of Honolulu DTS, and says it may not be published or displayed
+   without their written permission. Unlike the NHC advisory text this page
+   reproduces in full, that is state work, so 17 U.S.C. section 105 does not
+   put it in the public domain. So the snapshot JPEGs and the HLS streams
+   stay off this page entirely, even though both are trivially embeddable.
+   Where a camera is bolted to a pole is a fact about public infrastructure
+   rather than anyone's expression of it, so the coordinates are not caught
+   by that. If HDOT and DTS ever give written permission, showing imagery
+   becomes a separate decision to make then; do not add it before that.
+
+   Why hardcoded. Same reason the shelter coordinates in REPORTS are: there
+   is no fetchable source. GoAkamai's camera service
+   (a.cameraservice.goakamai.org) answers 403 Forbidden to any request that
+   is not their own page's own first load, verified repeatedly on
+   2026-09-04 from a real browser running on goakamai.org's own origin, so
+   this cannot be a live layer no matter where it is fetched from. The
+   POWERREPORTS warning elsewhere in these docs is about a hand-kept
+   *status* going stale; a camera pole is close to the most stable thing
+   this app plots, and a wrong pin sends someone to a website rather than
+   to a shelter that is not open.
+
+   Source: GoAkamai's own live map layer, read 2026-09-04. 336 cameras, 309
+   on Oʻahu and 27 on Maui. Kauaʻi and Hawaiʻi Island have none, so the chip
+   is not offered there.
+
+   Esri's "Hawaii Traffic Cameras" feature service was checked as an
+   alternative and deliberately NOT used, not even for the 168 it covers.
+   Joined on camera id, the two sources agree to a median of 0 m and a 90th
+   percentile of 1 m across the 156 ids present in both, so it adds no
+   accuracy anywhere. Where they do differ it is because it is a 2019
+   snapshot that is now simply wrong: its H-3 labels are shifted one camera
+   along (its TL-0170 is "Hoomaluhia Park", 5.8 km from where that id
+   actually sits today), and it still carries 9 ids GoAkamai has retired,
+   one of which already 404s on GoAkamai's own image CDN. Merging the two
+   would import those errors and gain nothing. Do not "improve" this by
+   adding it back.
+
+   Each row is [id, lat, lon, description]. Island is derived from latitude
+   rather than stored: the two groups are about 1.5 degrees apart with
+   nothing in between. */
+const CAMS=[
+["TL-0001",21.28962,-157.84363,"Ala Moana and Ala Moana Makai Exit"],
+["TL-0002",21.28909,-157.84134,"Ala Moana and Atkinson"],
+["TL-0003",21.28489,-157.83570,"Ala Moana and Kalia"],
+["TL-0004",21.29305,-157.85397,"Ala Moana and Kamakee"],
+["TL-0005",21.29094,-157.84780,"Ala Moana and Piikoi"],
+["TL-0006",21.29500,-157.85777,"Ala Moana and Ward"],
+["TL-0007",21.27924,-157.82304,"Ala Wai and Kanekapolei"],
+["TL-0008",21.28794,-157.83289,"Ala Wai and McCully"],
+["TL-0009",21.42012,-157.80782,"Haiku Rd and Alaloa"],
+["TL-0010",21.31068,-157.85877,"Beretania and Bishop"],
+["TL-0011",21.30022,-157.83950,"Beretania and Keeaumoku"],
+["TL-0012",21.29665,-157.82957,"Beretania and McCully"],
+["TL-0013",21.30159,-157.84323,"Beretania and Piikoi"],
+["TL-0014",21.29868,-157.83531,"Beretania and Punahou"],
+["TL-0015",21.30682,-157.85574,"Beretania and Punchbowl"],
+["TL-0016",21.30381,-157.84944,"Beretania and Ward"],
+["TL-0017",21.32021,-157.86987,"Dillingham and Alakawa"],
+["TL-0018",21.32694,-157.87946,"Dillingham and Kalihi"],
+["TL-0019",21.33241,-157.88731,"Dillingham and Middle"],
+["TL-0020",21.32381,-157.87582,"Dillingham and Waiakamilo"],
+["TL-0021",21.27913,-157.81392,"Kapahulu and Date"],
+["TL-0023",21.37613,-158.02673,"Farrington and Ft. Weaver"],
+["TL-0024",21.39589,-157.98505,"Farrington and H-1 Ramps"],
+["TL-0026",21.37791,-158.02335,"Farrington and Leoku St"],
+["TL-0027",21.38667,-157.99808,"Farrington and Paiwa St"],
+["TL-0028",21.38178,-158.01535,"Farrington and Pupupuhi St"],
+["TL-0029",21.38353,-158.00638,"Farrington and Waipahu Depot Rd"],
+["TL-0030",21.36032,-158.02905,"Ft. Weaver and Aawa Dr"],
+["TL-0031",21.35400,-158.02866,"Ft. Weaver and Family Service"],
+["TL-0032",21.33373,-158.02293,"Ft. Weaver and Geiger"],
+["TL-0033",21.34142,-158.02515,"Ft. Weaver and Kolowaka"],
+["TL-0034",21.36977,-158.02595,"Ft. Weaver and Laulaunui"],
+["TL-0038",21.37991,-157.92910,"H-1 and Aiea Heights Overpass"],
+["TL-0039",21.39591,-157.98510,"H-1 and H-2 Merge (Eastbound)"],
+["TL-0040",21.39589,-157.98505,"H-1 and H-2 Merge (Westbound)"],
+["TL-0041",21.39302,-157.95300,"H-1 and Kaahumanu (Eastbound)"],
+["TL-0042",21.39302,-157.95300,"H-1 and Kaahumanu (Westbound)"],
+["TL-0043",21.38864,-157.94098,"H-1 and Kaonohi (Eastbound)"],
+["TL-0044",21.38864,-157.94098,"H-1 and Kaonohi (Westbound)"],
+["TL-0045",21.27932,-157.79903,"H-1 and Kokohead"],
+["TL-0048",21.32134,-157.86026,"H-1 and Liliha"],
+["TL-0049",21.33758,-157.88396,"H-1 and Middle St"],
+["TL-0051",21.30083,-157.83386,"H-1 and Punahou"],
+["TL-0052",21.35215,-157.93259,"H-1 and Radford (Westbound)"],
+["TL-0053",21.35215,-157.93259,"H-1 and Radford (Eastbound)"],
+["TL-0057",21.33533,-157.90349,"H-1 Viaduct (Eastbound)"],
+["TL-0058",21.32413,-157.86522,"H-1 and Vineyard Off Ramp"],
+["TL-0059",21.39622,-158.00950,"H-1 and Waikele (Eastbound)"],
+["TL-0060",21.39622,-158.00950,"H-1 and Waikele (Westbound)"],
+["TL-0062",21.39094,-157.96250,"H-1 at Waimalu Exit (Eastbound)"],
+["TL-0063",21.30581,-157.84857,"H-1 and Ward"],
+["TL-0064",21.29018,-157.83790,"Hawaii Convention Center"],
+["TL-0065",21.41692,-157.81355,"Kahekili and Haiku"],
+["TL-0066",21.41319,-157.81032,"Kahekili and Kahuhipa"],
+["TL-0067",21.41072,-157.80812,"Kahekili and Keaahala"],
+["TL-0068",21.40624,-157.80711,"Kahekili and Kulukeoe"],
+["TL-0069",21.27792,-157.77971,"Kal Hwy and Ainakoa"],
+["TL-0070",21.28206,-157.73477,"Kal Hwy and E. Halemaumau"],
+["TL-0071",21.28467,-157.71748,"Kal Hwy and Hawaii Kai Dr"],
+["TL-0072",21.28312,-157.71524,"Kal Hwy and Keahole"],
+["TL-0073",21.28608,-157.72311,"Kal Hwy and Kuliouou"],
+["TL-0074",21.27701,-157.77216,"Kal Hwy and Laukahi"],
+["TL-0075",21.28007,-157.74435,"Kal Hwy and Puuikena"],
+["TL-0076",21.27785,-157.75510,"Kal Hwy and West Hind Dr"],
+["TL-0077",21.27650,-157.82610,"Kalakaua and Kaiulani"],
+["TL-0078",21.27154,-157.82272,"Kalakaua and Kapahulu"],
+["TL-0079",21.28382,-157.83188,"Kalakaua and Kuhio"],
+["TL-0080",21.28011,-157.82979,"Kalakaua and Lewers"],
+["TL-0081",21.42640,-157.80685,"Kam Hwy and Halaulani"],
+["TL-0082",21.40295,-157.79954,"Kam and Kaneohe and Likelike"],
+["TL-0083",21.40295,-157.79954,"Kam and Kaneohe and Likelike 2"],
+["TL-0084",21.41061,-157.79906,"Kam and Keole"],
+["TL-0086",21.42219,-157.80426,"Kam and Lilipuna and Haiku"],
+["TL-0087",21.41815,-157.80206,"Kam and Lilipuna and Kahuhipa"],
+["TL-0088",21.40017,-157.79926,"Kam and Luluku"],
+["TL-0089",21.39357,-157.79703,"Kam and Mokulele"],
+["TL-0090",21.41496,-157.80066,"Kam and Wm Henry and Keaahala"],
+["TL-0091",21.39545,-157.97444,"Kam and Acacia Rd"],
+["TL-0092",21.38426,-157.79028,"Kam Hwy and H-3 EB off ramp"],
+["TL-0093",21.38565,-157.79143,"Kam Hwy and H-3 WB off ramp"],
+["TL-0094",21.38709,-157.95442,"Kam Hwy and Kaahumanu"],
+["TL-0095",21.38330,-157.94614,"Kam Hwy and Kaonohi"],
+["TL-0096",21.39376,-157.97028,"Kam Hwy and Waimano Home Rd"],
+["TL-0097",21.36436,-157.93764,"Kamehameha Hwy and Halawa Dr EB"],
+["TL-0098",21.28409,-157.81370,"Kapahulu and Olu"],
+["TL-0099",21.28751,-157.82371,"Kapiolani and Date"],
+["TL-0100",21.29056,-157.83566,"Kapiolani and Kalakaua"],
+["TL-0101",21.29310,-157.84240,"Kapiolani and Keeaumoku"],
+["TL-0102",21.28940,-157.83227,"Kapiolani and McCully"],
+["TL-0103",21.29891,-157.85270,"Kapiolani and Ward"],
+["TL-0104",21.29617,-157.84119,"Keeaumoku and Rycroft 1"],
+["TL-0105",21.29617,-157.84119,"Keeaumoku and Rycroft 2"],
+["TL-0106",21.31662,-157.86404,"King and Beretania"],
+["TL-0107",21.30848,-157.86150,"King and Bishop"],
+["TL-0108",21.31839,-157.86473,"King and Dillingham and Liliha"],
+["TL-0109",21.32851,-157.87150,"King and Houghtailing"],
+["TL-0110",21.29731,-157.83694,"King and Kalakaua"],
+["TL-0111",21.33094,-157.87544,"King and Kalihi"],
+["TL-0112",21.31182,-157.86360,"King and Maunakea"],
+["TL-0113",21.30503,-157.85811,"King and Punchbowl"],
+["TL-0114",21.30354,-157.85454,"King and South and Kapiolani"],
+["TL-0115",21.29195,-157.82190,"King and University"],
+["TL-0116",21.27781,-157.82446,"Kuhio and Kaiulani"],
+["TL-0117",21.40365,-157.80324,"Likelike and Anoi"],
+["TL-0118",21.40315,-157.80699,"Likelike and Kahekili"],
+["TL-0119",21.34701,-157.86649,"Likelike and Kam IV Rd"],
+["TL-0120",21.35035,-157.86160,"Likelike and Kula Kolea"],
+["TL-0121",21.33635,-157.86981,"Likelike and School"],
+["TL-0122",21.34329,-157.88998,"H-201 and Ft. Shafter"],
+["TL-0123",21.37911,-157.93088,"Moanalua Rd and Aiea Hts Dr"],
+["TL-0124",21.38122,-157.93593,"Moanalua Rd and Honomanu"],
+["TL-0125",21.39077,-157.95328,"Moanalua Rd and Kaahumanu St"],
+["TL-0126",21.38643,-157.94199,"Moanalua Rd and Kaonohi St"],
+["TL-0127",21.33465,-157.89890,"Nimitz and Ahua St (Eastbound)"],
+["TL-0128",21.33495,-157.89886,"Nimitz and Ahua St (Westbound)"],
+["TL-0129",21.31710,-157.87514,"Nimitz and Alakawa EB"],
+["TL-0130",21.31702,-157.87532,"Nimitz and Alakawa WB"],
+["TL-0131",21.30622,-157.86307,"Nimitz and Alakea"],
+["TL-0132",21.33821,-157.92275,"Nimitz and Aolele St (Eastbound)"],
+["TL-0133",21.33852,-157.92268,"Nimitz and Aolele St (Westbound)"],
+["TL-0134",21.32426,-157.88200,"Nimitz and Kalihi"],
+["TL-0135",21.33594,-157.90749,"Nimitz and Ohohia St (Eastbound)"],
+["TL-0136",21.33627,-157.90742,"Nimitz and Ohohia St (Westbound)"],
+["TL-0137",21.31304,-157.87062,"Nimitz and Pacific (EB lanes)"],
+["TL-0138",21.31361,-157.87073,"Nimitz and Pacific (WB lanes)"],
+["TL-0139",21.33698,-157.91452,"Nimitz and Paiea (Eastbound)"],
+["TL-0141",21.32883,-157.88650,"Nimitz and Sand Island EB"],
+["TL-0142",21.33995,-157.93020,"Nimitz and Valkenburgh (Eastbound)"],
+["TL-0143",21.34072,-157.92973,"Nimitz and Valkenburgh (Westbound)"],
+["TL-0144",21.32163,-157.87933,"Nimitz and Waiakamilo"],
+["TL-0145",21.31454,-157.85477,"Pali Hwy and H-1 Off Ramp"],
+["TL-0146",21.33086,-157.84370,"Pali Hwy and Jack Lane"],
+["TL-0147",21.33403,-157.84119,"Pali Hwy and Laimi"],
+["TL-0148",21.34248,-157.83254,"Pali Hwy and Waokanaka"],
+["TL-0149",21.33695,-157.83821,"Pali Hwy and Puiwa"],
+["TL-0150",21.30425,-157.85982,"Queen and Punchbowl"],
+["TL-0151",21.34364,-157.91301,"Salt Lake and Ala Lilikoi"],
+["TL-0152",21.34472,-157.90137,"Salt Lake and Ala Napunani"],
+["TL-0153",21.35827,-157.92682,"Salt Lake and Bougainville"],
+["TL-0154",21.36572,-157.92923,"Salt Lake and Kahuapaani"],
+["TL-0155",21.37189,-157.93356,"Kam Hwy and Salt Lake Blvd"],
+["TL-0156",21.34485,-157.89896,"Salt Lake and Puuloa"],
+["TL-0157",21.27915,-157.83270,"Saratoga and Kalia"],
+["TL-0158",21.29678,-157.82114,"University and Dole"],
+["TL-0159",21.31993,-157.86217,"Vineyard and Liliha"],
+["TL-0160",21.32352,-157.86475,"Vineyard and Palama"],
+["TL-0161",21.31285,-157.85637,"Vineyard and Pali"],
+["TL-0162",21.31026,-157.85430,"Vineyard and Punchbowl"],
+["TL-0163",21.28444,-157.80228,"Waialae and 9th Ave"],
+["TL-0164",21.28232,-157.79825,"Waialae and Kokohead"],
+["TL-0165",21.28694,-157.80724,"Waialae and Palolo"],
+["TL-0166",21.30472,-157.84906,"Ward and Kinau"],
+["TL-0167",21.37200,-157.92421,"H-3 Ramp to Airport Viaduct EB"],
+["TL-0168",21.40390,-157.83498,"H-3 - Haiku Portal HB"],
+["TL-0169",21.39647,-157.88414,"H-3 - South Halawa Valley"],
+["TL-0170",21.40639,-157.85916,"H-3 - North Halawa Valley"],
+["TL-0171",21.37868,-157.90654,"H-3 - North of Halawa Interchange"],
+["TL-0172",21.38601,-157.89758,"H-3 - Halawa Valley Emergency Escape Ramp"],
+["TL-0173",21.40527,-157.85304,"H-3 - Halawa Tunnel Approach KB"],
+["TL-0174",21.40367,-157.87204,"H-3 - Halawa Valley"],
+["TL-0175",21.37132,-157.91124,"H-3 - Halawa Interchange"],
+["TL-0176",21.40502,-157.85005,"H-3 - Halawa Portal HB"],
+["TL-0177",21.40454,-157.85078,"H-3 - Halawa Portal KB"],
+["TL-0178",21.38461,-157.79097,"H-3 - Halekou Interchange"],
+["TL-0180",21.38051,-157.79623,"H-3 - South Halekou Interchange"],
+["TL-0181",21.40288,-157.82628,"H-3 - South Haiku Valley"],
+["TL-0182",21.40521,-157.82184,"H-3 - Haiku Valley"],
+["TL-0183",21.40431,-157.81782,"H-3 - North Haiku Valley"],
+["TL-0184",21.39582,-157.81273,"H-3 - Likelike Overpass"],
+["TL-0185",21.40096,-157.81404,"H-3 - Hospital Rock Tunnel"],
+["TL-0186",21.37001,-157.91995,"H-3 and Kahuapaani St"],
+["TL-0187",21.37211,-157.91968,"H-201 and Kahuapaani St"],
+["TL-0188",21.37297,-157.91937,"H-201 and Halawa"],
+["TL-0189",21.37928,-157.93721,"Kamehameha Hwy and Honomanu"],
+["TL-0191",21.31328,-157.86122,"Beretania and Maunakea"],
+["TL-0193",21.30879,-157.85962,"Alakea and Hotel"],
+["TL-0195",21.39754,-157.97613,"Kuala and Acacia"],
+["TL-0196",21.39854,-157.97522,"Kuala and Walmart"],
+["TL-0197",21.39992,-157.97360,"Kuala and Makolu"],
+["TL-0198",21.28458,-157.83755,"Ala Moana and Kahanamoku"],
+["TL-0200",21.28154,-157.82571,"Ala Wai and Seaside"],
+["TL-0202",21.27198,-157.81986,"Kuhio and Kapahulu"],
+["TL-0203",21.38683,-157.95450,"Kam Hwy and Kaahumanu #2"],
+["TL-0204",21.39169,-157.96457,"Kam Hwy and Puu Poni"],
+["TL-0205",21.38094,-157.94086,"Kam Hwy and Pali Momi"],
+["TL-0206",21.37007,-157.93481,"Kam Hwy and Ford Island Blvd"],
+["TL-0207",21.34900,-157.93475,"Kamehameha Hwy and Center Dr WB"],
+["TL-0208",21.29067,-157.83731,"Kapiolani and Atkinson"],
+["TL-0209",21.40257,-157.96954,"Kuala and Kaakepa"],
+["TL-0210",21.29447,-157.85180,"Queen and Kamakee"],
+["TL-0217",21.27377,-157.81651,"Ala Wai and Kapahulu"],
+["TL-0218",21.28852,-157.83461,"Kalakaua and Ala Wai"],
+["TL-0219",21.28568,-157.83316,"Kalakaua and Ala Moana"],
+["TL-0222",21.28141,-157.83055,"Kalakaua and Beachwalk"],
+["TL-0223",21.34171,-158.10683,"Farrington and Laaloa"],
+["TL-0224",21.34015,-158.07594,"Makakilo and Farrington"],
+["TL-0226",21.28556,-157.83875,"Ala Moana and Hobron"],
+["TL-0227",21.33027,-157.86987,"H-1 and Houghtailing"],
+["TL-0228",21.33658,-157.88610,"H-1 and Middle"],
+["TL-0231",21.32837,-158.09006,"Kapolei and Kalaeloa"],
+["TL-0232",21.39590,-158.00944,"H-1 Interchange at Paiwa Street (Eastbound On-Off Ramp)"],
+["TL-0233",21.39647,-158.00975,"H-1 Interchange at Paiwa Street (Westbound On-Off Ramp)"],
+["TL-0234",21.40104,-158.00937,"Lumiaina Street at Paiwa Street"],
+["TL-0235",21.40056,-158.00717,"Lumiaina Street at Waikele Shopping Center Driveway"],
+["TL-0236",21.40115,-158.00226,"Lumiaina Street at Pulelo Street"],
+["TL-0237",21.40467,-157.99846,"Lumiaina Street at Lumiauau Street"],
+["TL-0238",21.41944,-158.00575,"Kamehameha Hwy at Ka Uka Boulevard"],
+["TL-0239",21.42002,-158.00473,"Ka Uka Boulevard at Ukee Street (South)"],
+["TL-0240",21.42216,-158.00305,"Ka Uka Boulevard at Waipio Uka Street"],
+["TL-0241",21.42457,-158.00273,"Ka Uka Boulevard at Ukee Street (North)"],
+["TL-0242",21.42847,-157.99887,"Ka Uka Boulevard at Moaniani Street"],
+["TL-0243",21.42892,-157.99643,"H-2 Interchange (Northbound) at Ka Uka Boulevard"],
+["TL-0244",21.33529,-158.04091,"Kapolei and Renton Road"],
+["TL-0246",21.33570,-158.05142,"Kapolei Parkway and Kualakai Parkway #2"],
+["TL-0247",21.33259,-158.05962,"Kapolei Parkway and Kamaaha Avenue"],
+["TL-0248",21.32994,-158.06934,"Kapolei Parkway and Maluohi Street (Kapolei High School)"],
+["TL-0250",21.33655,-158.06493,"Kamaaha Avenue and Kamaaha Loop and Kuloa Street"],
+["TL-0252",21.34211,-158.07777,"H-1 and Makakilo Dr (Eastbound)"],
+["TL-0253",21.34220,-158.07790,"H-1 and Makakilo Dr (Westbound)"],
+["TL-0255",21.34209,-158.07266,"Farrington Hwy and Kealanani Ave"],
+["TL-0256",21.34028,-158.07611,"Farrington Hwy and Makakilo Drive and Fort Barrette Road #1"],
+["TL-0258",21.33777,-158.07925,"Kamokila Blvd Farrington and Kapowai Place"],
+["TL-0259",21.33655,-158.08020,"Kamokila Blvd and Old Farrington Hwy"],
+["TL-0260",21.33370,-158.08234,"Kamokila Blvd and Wakea Street"],
+["TL-0261",21.33204,-158.08391,"Kamokila Blvd and Uluohia St"],
+["TL-0262",21.32821,-158.08647,"Kapolei Parkway and Kamokila Boulevard #1"],
+["TL-0263",21.32786,-158.08646,"Kapolei Parkway and Kamokila Boulevard #2"],
+["TL-0264",21.36201,-158.05537,"Farrington Hwy and Kualakai Parkway"],
+["TL-0265",21.36554,-158.05966,"Kualakai Parkway at H-1 Ramps"],
+["TL-0268",21.39914,-157.99239,"Kamehameha Hwy and Waipahu Street"],
+["TL-0269",21.40244,-157.99434,"Kamehameha Hwy and Lumiauau Street"],
+["TL-0270",21.40578,-157.99669,"Kamehameha Hwy and Lumiaina Street"],
+["TL-0271",21.41049,-157.99986,"Kamehameha Hwy and Waipio Uka Street"],
+["TL-0272",21.29547,-157.84784,"Kapiolani and Pensacola"],
+["TL-0273",21.30047,-157.84578,"King and Pensacola"],
+["TL-0274",21.30202,-157.85017,"King and Ward"],
+["TL-0275",21.30152,-157.84880,"King and Victoria"],
+["TL-0276",21.30996,-157.86427,"Nimitz and Nuuanu"],
+["TL-0277",21.47173,-157.99902,"Meheula Parkway and Makaikai"],
+["TL-0278",21.47443,-157.99895,"Meheula Parkway and Koolani"],
+["TL-0279",21.47593,-157.99700,"Meheula Parkway and Kaapeha"],
+["TL-0280",21.48073,-157.98497,"Meheula Parkway and Lehiwa"],
+["TL-0281",21.47932,-157.99318,"Meheula Parkway and Kuaoa"],
+["TL-0282",21.46452,-158.00526,"Meheula Pkwy and H-2 Interchange South 1"],
+["TL-0283",21.46442,-158.00499,"Meheula Pkwy and H-2 Interchange South 2"],
+["TL-0284",21.46647,-158.00260,"Meheula Pkwy and H-2 Interchange North"],
+["TL-0285",21.46807,-158.00050,"Meheula Pkwy and Ainamakua Dr"],
+["TL-0300",21.34911,-157.89622,"H-201 and Puuloa Road"],
+["TL-0302",21.35924,-157.89918,"H-201 and Ala Napunani Street"],
+["TL-0305",21.36874,-157.90840,"H-201 and Red Hill"],
+["TL-0306",21.38300,-158.14705,"Farrington Hwy and Haleakala Ave"],
+["TL-0307",21.37869,-158.14243,"Farrington Hwy and Nanakuli Ave"],
+["TL-0308",21.38044,-158.14432,"Farrington Hwy and Nanakuli Village"],
+["TL-0309",21.38449,-158.14868,"Farrington Hwy and Helelua St"],
+["TL-0311",21.34123,-157.93152,"H-1 and Pearl Harbor East"],
+["TL-0314",21.33649,-157.88255,"H-1 and Ola Lane"],
+["TL-0320",21.33184,-158.08994,"H-1 and Kalaeloa Blvd (Westbound)"],
+["TL-0322",21.37864,-158.04077,"H-1 - East of Honouliuli Stream 1"],
+["TL-0323",21.37864,-158.04077,"H-1 - East of Honouliuli Stream 2"],
+["TL-0324",21.36622,-158.06104,"H-1 and Kualakai (Westbound)"],
+["TL-0325",21.36622,-158.06104,"H-1 and Kualakai (Eastbound)"],
+["TL-0326",21.36556,-157.92885,"H-1 and Kahuapaani"],
+["TL-0327",21.37702,-157.92763,"H-1 and Kaimakani"],
+["TL-0328",21.30664,-157.85098,"H-1 and Kinau"],
+["TL-0331",21.37325,-158.05284,"H-1 and Kualakai Message Sign"],
+["TL-0332",21.38947,-158.15405,"Farrington Hwy and Auyong Homestead Rd"],
+["TL-0333",21.39439,-158.15945,"Farrington Hwy and Princess Kahanu Ave"],
+["TL-0334",21.36015,-158.04842,"Hoomohala Ave and Kauluakoko St - 1"],
+["TL-0335",21.36015,-158.04842,"Hoomohala Ave and Kauluakoko St - 2"],
+["TL-0336",21.35823,-158.05130,"Kualakai Pkwy and Hoomohala Ave (NB)"],
+["TL-0337",21.35811,-158.05150,"Kualakai Pkwy and Hoomohala Ave (SB)"],
+["TL-0338",21.28025,-157.82706,"Kuhio and Seaside"],
+["TL-0339",21.36692,-158.06090,"Kualakai Pkwy and H-1 off ramp (WB)"],
+["TL-0340",21.64809,-158.06248,"Kamehameha Hwy and Pupukea Rd"],
+["TL-0341",21.33729,-157.91498,"H-1 Viaduct and Airport Interchange"],
+["TL-0342",21.36617,-157.93684,"Kamehameha Hwy and Kalaloa St EB"],
+["TL-0343",21.38435,-157.93250,"H-1 and Kaamilo St"],
+["TL-0344",21.39324,-158.01341,"H-1 and Managers Drive"],
+["TL-0345",21.35274,-157.93564,"Kamehameha Hwy and Radford Dr EB"],
+["TL-0346",21.35278,-157.93543,"Kamehameha Hwy and Radford Dr WB"],
+["TL-0348",21.33443,-157.89820,"H-1 Viaduct and Keehi"],
+["TL-0349",21.39961,-158.00151,"H-1 near Waikele (Eastbound)"],
+["TL-0350",21.39961,-158.00151,"H-1 near Waikele (Westbound)"],
+["TL-0351",21.41076,-157.98988,"H-2 near H-1 WB ramp (Southbound)"],
+["TL-0352",21.41076,-157.98988,"H-2 near H-1 WB ramp (Northbound)"],
+["TL-0353",21.29663,-157.86086,"Ala Moana and Cooke"],
+["TL-0354",21.30197,-157.86330,"Ala Moana and Punchbowl"],
+["TL-0355",21.30545,-157.86266,"Nimitz and Halekauwila"],
+["TL-0356",21.30618,-157.86314,"Nimitz and Alakea EB"],
+["TL-0357",21.30696,-157.86377,"Nimitz and Bishop EB"],
+["TL-0358",21.30709,-157.86362,"Nimitz and Bishop WB"],
+["TL-0359",21.30997,-157.86441,"Nimitz and Nuuanu EB"],
+["TL-0360",21.31068,-157.86461,"Nimitz and Smith"],
+["TL-0361",21.31307,-157.86517,"Nimitz and River"],
+["TL-0362",21.33342,-157.88951,"Kamehameha and Middle"],
+["TL-0363",21.32983,-157.88289,"Dillingham and Puuhale EB"],
+["TL-0364",21.33342,-157.87917,"King and Gulick"],
+["TL-0365",21.32468,-157.86874,"King and Kokea"],
+["TL-0366",21.32025,-157.86604,"King and Pua Lane"],
+["TL-0367",21.31635,-157.85930,"Vineyard and River"],
+["TL-0368",21.33508,-157.87640,"Gulick and Beckley"],
+["TL-0369",21.31635,-157.86441,"Nimitz and Nuuanu WB"],
+["TL-0370",21.31301,-157.87067,"Nimitz and Pacific EB"],
+["TL-0371",21.31301,-157.87067,"Nimitz and Pacific WB"],
+["TL-0372",21.33257,-157.88710,"Dillingham and Gaspro EB"],
+["TL-0373",21.33220,-157.88728,"Dillingham and Gaspro WB"],
+["TL-0374",21.31881,-157.87227,"Alakawa St and Costco"],
+["TL-0375",21.32983,-157.88289,"Dillingham and Puuhale WB"],
+["TL-0376",21.32694,-157.87946,"Dillingham and Kalihi WB"],
+["TL-0801",20.82931,-156.33025,"Haleakala Hwy at Kula Hwy and Old Haleakala Rd"],
+["TL-0802",20.88329,-156.44910,"Hana Hwy at Mayor Cravalho Way"],
+["TL-0803",20.88600,-156.42635,"Hana Hwy at Haleakala Hwy"],
+["TL-0804",20.91609,-156.38126,"Hana Hwy at Baldwin Ave"],
+["TL-0805",20.81155,-156.50746,"North Kihei Rd at Honoapiilani Hwy"],
+["TL-0806",20.88487,-156.68227,"Honoapiilani Hwy at Keawe St and Cannery Mall"],
+["TL-0807",20.88933,-156.47290,"Kaahumanu Ave at Kahului Beach Rd"],
+["TL-0808",20.78576,-156.46191,"Piilani Hwy at N Kihei Rd"],
+["TL-0809",20.75175,-156.44667,"Piilani Hwy at Piikea St"],
+["TL-0810",20.74873,-156.44614,"Piilani Hwy at Lipoa St"],
+["TL-0811",20.84295,-156.64879,"Lahaina Bypass at Kai Hele Ku St"],
+["TL-0812",20.87856,-156.45752,"Mayor Cravalho Way at Dairy Rd and Pakaula St"],
+["TL-0813",20.87627,-156.46057,"Kuihelani Hwy and Mayor Cravalho Way at Puunene Ave"],
+["TL-0814",20.88565,-156.45287,"Hana Hwy at Dairy Rd"],
+["TL-0815",20.87506,-156.50389,"Kehalani Pkwy at Honoapiilani Hwy"],
+["TL-0816",20.87127,-156.50327,"Kuikahi Dr at Honoapiilani Hwy"],
+["TL-0817",20.85839,-156.50317,"Pilikana St at Honoapiilani Hwy"],
+["TL-0818",20.85493,-156.50354,"Waiko Rd at Honoapiilani Hwy"],
+["TL-0819",20.81671,-156.50693,"Kuihelani Hwy at Honoapiilani Hwy"],
+["TL-0820",20.85873,-156.66597,"Hokiokio Pl at Honoapiilani Hwy"],
+["TL-0822",20.83689,-156.32973,"Haleakala Hwy at Makawao Ave"],
+["TL-0823",20.89384,-156.47790,"Wahinepio Ave at Kahului Beach Rd"],
+["TL-0824",20.89930,-156.48097,"Kanaloa Ave at Kahului Beach Rd"],
+["TL-0825",20.90218,-156.48308,"Waiehu Beach Rd at Kahului Beach Rd"],
+["TL-0826",20.69549,-156.43200,"Piilani Hwy at Okolani/Mikioi"],
+["TL-0827",20.88747,-156.50297,"Main St at Church St"],
+["TL-0828",20.90203,-156.68457,"Honoapiilani Hwy at Leialii Pkwy"]
+];
+/* Oʻahu and Maui County only, because that is where the cameras are. Same
+   "this county has it, that one does not" rule the HCCDA and 311 layers
+   already follow: a chip that draws nothing reads as a broken toggle, which
+   is the exact problem #radarnote exists to answer for radar. */
+const CAMS_COUNTIES=["HIC003","HIC009"];
+let CAMS_ON=false, CAMS_LAYER=null, CAMS_CANVAS=null;
+
+function camsAvailable(){ return !S.c||CAMS_COUNTIES.indexOf(S.c)>=0; }
+
+function camPop(c){
+  return `<div class="pop-head" style="background:#101010;color:#fff">`+
+      `<span class="k" style="color:rgba(255,255,255,.75)">TRAFFIC CAMERA</span>`+
+      `<span class="t">${esc(c[3])}</span></div>`+
+    `<div class="pop-body">`+
+      `<span class="pop-kv"><span class="k">ISLAND</span><span class="v">${c[1]>21?"OʻAHU":"MAUI"}</span></span>`+
+      `<span class="pop-kv"><span class="k">CAMERA</span><span class="v">${esc(c[0])}</span></span>`+
+      `<span class="s">Camera location only. The live view is on GoAkamai, not here. Their camera page has a search box; this camera's name above is what it is listed under.</span>`+
+      `<span class="s">A camera being mapped here is not a report that it is working, or that the road is open.</span>`+
+    `</div>`+
+    `<a class="pop-link" href="https://goakamai.org/Cameras/" target="_blank" rel="noopener">GOAKAMAI CAMERAS &#8594;</a>`;
+}
+
+/* One shared canvas renderer rather than 336 SVG-backed markers, the same
+   reason draw311() uses one. Unlike 311 these are not clustered: 336 static
+   points across two islands is a fraction of 311's ~2,400 on one, and a
+   camera is a thing you look for by name rather than a count you drill
+   into, so a badge saying "24" would answer a question nobody has. */
+function drawCams(){
+  if(CAMS_LAYER){ MAP.removeLayer(CAMS_LAYER); CAMS_LAYER=null; }
+  if(!CAMS_ON) return;
+  if(!CAMS_CANVAS) CAMS_CANVAS=L.canvas({pane:"cams"});
+  const g=L.layerGroup();
+  CAMS.forEach(c=>{
+    /* Small ring, light fill: --ink outline on --surface, both already in
+       the palette, no sixth value. Deliberately unlike the two marks it
+       could be confused with: 311 is a smaller solid dark dot, and the
+       hazard-category dots are radius 6 with a white ring and a coloured
+       fill. */
+    g.addLayer(L.circleMarker([c[1],c[2]],{
+      pane:"cams",renderer:CAMS_CANVAS,radius:3.5,
+      color:"#101010",weight:1.4,fillColor:"#faf8f5",fillOpacity:1})
+      .bindPopup(camPop(c),{closeButton:true,maxWidth:264,autoPanPadding:[24,24]}));
+  });
+  CAMS_LAYER=g.addTo(MAP);
+}
+
+function setCams(on){
+  if(!MAP) return;
+  CAMS_ON=on;
+  if(!MAP.getPane("cams")){
+    /* 440: above Leaflet's overlay pane (400), so a camera stays clickable
+       underneath an NWS alert polygon. That is the exact trap the rep311
+       pane comment above records, and a statewide advisory is up most of
+       the time, so this is not a hypothetical. Below rep311 (450) and below
+       Leaflet's own marker pane (600), so 311 reports and every piece of
+       real incident data (shelters, closures, gauges, storms) still draw
+       over the top. Cameras are context, not incident data. */
+    MAP.createPane("cams"); MAP.getPane("cams").style.zIndex=440;
+  }
+  drawCams();
+  const chip=document.querySelector('#filters [data-cams]');
+  if(chip) chip.setAttribute("aria-pressed",on?"true":"false");
+}
 /* PacIOOS WaveWatch III wave height as a coloured overlay. One transparentPng
    render per map view (not per tile) to stay light on PacIOOS, placed as an
    image overlay and refetched when the map settles. Same host as the ocean
@@ -3254,6 +3705,11 @@ function drawMap(){
      longer applies could linger after a relocate. */
   if(S.c!=="HIC003"&&REP311_ON) set311(false);
 
+  /* Same rule for cameras: relocating to Kauaʻi or Hawaiʻi Island, where
+     there are none, must not leave an Oʻahu/Maui layer and a now-pointless
+     chip behind. */
+  if(!camsAvailable()&&CAMS_ON) setCams(false);
+
   drawStorms();
   if(!S.c) fitStormView();
   else if(!mapFitStorms&&HURRICANES!==null){
@@ -3273,6 +3729,7 @@ function drawMap(){
     +`<button class="chip" type="button" data-sat aria-pressed="${SAT_ON}" title="Live GOES-West satellite imagery">SATELLITE</button>`
     +`<button class="chip" type="button" data-haz="tsunami" aria-pressed="${HAZON.tsunami}" title="Tsunami evacuation zones">TSUNAMI ZONE</button>`
     +(S.c==="HIC003"?`<button class="chip" type="button" data-311 aria-pressed="${REP311_ON}" title="Open 311 service requests on Oʻahu, from hawaii311.org">311 REPORTS</button>`:"")
+    +(camsAvailable()?`<button class="chip" type="button" data-cams aria-pressed="${CAMS_ON}" title="Where HDOT and city traffic cameras are. Locations only; the live view is on GoAkamai">CAMERAS</button>`:"")
     +(HURRICANES&&HURRICANES.some(h=>h.windExtent)
       ?`<button class="chip" type="button" data-storm="wind" aria-pressed="${STORMLAYER_ON.wind}" title="Current tropical-storm-force wind extent">WIND FIELD</button>`:"")
     +(HURRICANES&&HURRICANES.some(h=>h.arrival)
@@ -3307,6 +3764,11 @@ $("filters").addEventListener("click",e=>{
 $("filters").addEventListener("click",e=>{
   const b=e.target.closest("button[data-311]"); if(!b) return;
   set311(!REP311_ON);
+});
+
+$("filters").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-cams]"); if(!b) return;
+  setCams(!CAMS_ON);
 });
 
 /* Pure map navigation, no location pick: sets the view only, does not touch

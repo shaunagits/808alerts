@@ -172,7 +172,10 @@ works with no network; the worker only fills in live data, exactly as the direct
 `api.weather.gov` / USGS / PacIOOS calls already do.
 
 - **`index.html` is the live app** and the only file Cloudflare Pages deploys. About
-  319KB, roughly 123KB gzipped over the wire. It contains markup, CSS, JS, the registry,
+  420KB, roughly 160KB gzipped over the wire (measured 2026-09-04; the "319KB / 123KB"
+  figure this line carried was already stale by ~70KB before the camera layer added
+  28KB raw and 10KB gzipped, so re-measure rather than trusting it). It contains markup,
+  CSS, JS, the registry,
   a base64 Archivo subset and the whole of Leaflet 1.9.4. `index-v5.html` is the previous
   revision, kept for rollback, and is a completely different design. **Renamed from
   `index-v6.html` on 2026-09-03** when deploys moved from a manual two-directory
@@ -794,6 +797,87 @@ hollow (`current:false`) stroke weight from 1.5 to 1.2, and filled `fillOpacity`
 .85 to .8, so the layer reads as texture rather than covering the roads and markers
 underneath it.
 
+### Traffic camera locations (added 2026-09-04)
+
+A **CAMERAS** chip, Oʻahu and Maui County only. Off by default. It draws where the
+HDOT and City & County traffic cameras are mounted, and nothing else: the pin is a
+location, not a picture and not a reading. The popup names the camera and links out
+to `goakamai.org/Cameras/`.
+
+**The imagery is deliberately absent, and this is the part to understand before
+anyone "finishes" the feature.** The snapshots are trivially embeddable: every camera
+has a live JPEG at `cctv.cdn.goakamai.org/SnapShot/320x240/{id}.jpg` that serves fine
+over HTTPS, refreshes about every two minutes, needs no key and no CORS (an `<img>`
+does not), and 282 of the 337 ids checked on 2026-09-04 returned real imagery rather
+than the "no image" placeholder (which is identifiable by its exact 11,841-byte
+payload). Most carry an HLS stream too. None of that is the constraint.
+
+The constraint is GoAkamai's own disclaimer (`goakamai.org/disclaimer`, read
+2026-09-04), which reserves the site's content, "text, graphics, and pictures", to
+HDOT and CCH DTS and states it may not be published or displayed without their
+written permission. This is **state** work, so unlike the NHC advisory text this page
+reproduces in full, 17 U.S.C. section 105 does not put it in the public domain. Other
+sites do republish these images; per the HECO precedent already recorded in this file,
+that is not a footing this site can borrow.
+
+Where a camera is bolted to a pole is a fact about public infrastructure rather than
+anyone's expression of it, so the coordinates are not caught by that. Hence locations
+plus a link, which needs nobody's permission. **If HDOT and DTS ever give written
+permission, showing imagery is a separate decision to make then. Do not add it before
+that.** That is one email away and worth sending; it would also unblock the parked
+GoAkamai/HDOT closure feed in Planned additions, since it is the same two agencies.
+
+**There is no per-camera deep link, so the popup does the next best thing.** GoAkamai
+is a Nuxt SPA with seven routes and no URL for an individual camera; selection lives
+in a cookie. So the popup shows the camera's own name and says their camera page has a
+search box, because that name is the exact string it is listed under there.
+
+**Hardcoded, and that is correct here.** Same pattern as the shelter coordinates in
+`REPORTS`. GoAkamai's camera service (`a.cameraservice.goakamai.org`) answers `403
+Forbidden` to any request that is not their own page's own first load, verified
+repeatedly on 2026-09-04 from a real browser running on goakamai.org's own origin, so
+this cannot be a live layer no matter where it is fetched from. The `POWERREPORTS`
+warning elsewhere in this file is about a hand-kept *status* going stale; a camera pole
+is close to the most stable thing this app plots, and a wrong pin sends someone to a
+website rather than to a shelter that is not open.
+
+**Invariant 5 is untouched.** This adds no host and no fetch, at render or on toggle:
+the array is inlined and the only thing pointing at goakamai.org is an `<a href>` the
+user has to click. It is the first map layer that costs nothing to turn on.
+
+**Source: GoAkamai's own live map layer, read 2026-09-04. 336 cameras, 309 Oʻahu and
+27 Maui.** Kauaʻi and Hawaiʻi Island have none, so the chip is not offered there and
+`drawMap()` forces the layer off on relocating away, the same rule 311 already follows.
+Note this inverts the app's usual coverage story: this is the first live-ish layer that
+is rich on Oʻahu and absent on the Big Island.
+
+**Esri's "Hawaii Traffic Cameras" feature service was checked and deliberately NOT
+used, not even for the 168 cameras it covers, and not as a preferred source where the
+two overlap.** The owner proposed exactly that; the measurement argued against it.
+Joined on camera id, the two sources agree to a **median of 0 m and a 90th percentile
+of 1 m** across the 156 ids present in both, so it adds no accuracy anywhere. Where
+they do differ it is because it is a 2019 snapshot that is now wrong: its H-3 labels
+are shifted one camera along (its `TL-0170` is "Hoomaluhia Park", 5.8 km from where
+that id actually sits today, and its label for one id is GoAkamai's label for the
+next), and it still carries 9 ids GoAkamai has retired, one of which already 404s on
+GoAkamai's own image CDN. Merging would import those errors and gain nothing. Do not
+"improve" this by adding it back. The Honolulu open-data set (`cat5-2v98`, 253 rows) is
+worse still: rows last updated 2015, no declared license, and intersection-style names
+that do not join cleanly to GoAkamai's.
+
+**Own pane at z-index 440.** Above Leaflet's overlay pane (400) so a camera stays
+clickable underneath an NWS alert polygon, which is the exact trap the 311 pane comment
+records and is not hypothetical with a statewide advisory up. Below `rep311` (450) and
+below Leaflet's marker pane (600), so 311 and every piece of real incident data draws
+over the top: cameras are context, not incident data.
+
+Drawn on a shared `L.canvas()` renderer like 311, but **not clustered**: 336 static
+points across two islands is a fraction of 311's ~2,400 on one, and a camera is
+something you look for by name rather than a count you drill into, so a badge reading
+"24" would answer a question nobody has. Marker is a small ring, `--ink` outline on
+`--surface` fill at radius 3.5, deliberately unlike both 311's smaller solid dark dot
+and the hazard categories' radius-6 white-ringed coloured dots. No sixth palette value.
+
 ### The Hawaiian Electric map toggle (removed 2026-09-03)
 
 There used to be a two-button toggle, **This map / Hawaiian Electric**, on the three
@@ -1198,9 +1282,13 @@ current group, and an "after the storm" fold for a hand-flipped recovery mode.
 tooling could not read response headers. `docs/feed-verification.md` has a console
 snippet to run once on 808alerts.com; record the results there first.
 
-**Parked: GoAkamai / HDOT closures.** No public terms found, no CORS at source. Would
-need the worker plus HDOT's explicit OK. The HECO lesson applies: the blocker may be
-terms, not transport. Contact HDOT before any work.
+**Parked: GoAkamai / HDOT closures.** No CORS at source, and the terms are now found
+rather than merely absent: `goakamai.org/disclaimer` forbids publishing or displaying
+their content without HDOT and CCH DTS written permission (quoted in full under Traffic
+camera locations). The HECO lesson held exactly as predicted, the blocker is terms, not
+transport. Contact HDOT and DTS before any work. That one request would cover the
+closure feed and the camera imagery together, since it is the same disclaimer and the
+same two agencies.
 
 Pending owner sign-off, do not build without it: whether a gauge dot may change
 colour above flood stage on the map (severity colour was rejected once at band level;
@@ -1529,7 +1617,11 @@ Ordered by how much they matter. Verified 2026-08-18.
   unless that call changes.
 - **Traffic signal status does not exist anywhere public.** No county publishes it.
   GoAkamai's `alertservice` sends no CORS header and returned `[]`. Cameras show a human
-  whether an intersection is dark; they are not a feed.
+  whether an intersection is dark; they are not a feed. Since 2026-09-04 the map does at
+  least show **where** those cameras are (see Traffic camera locations), so a user can
+  get to the right one on GoAkamai quickly. The picture itself stays off this page until
+  HDOT and CCH DTS give written permission; that is the whole gap now, and it is one
+  email, not a technical problem.
 - **The all clear state has never been designed.** Handoff open question 2. A proposed
   answer exists (2026-08-19): a hand-flipped recovery mode adding a collapsed "after
   the storm" fold, quiet bands otherwise unchanged. See Planned additions.
