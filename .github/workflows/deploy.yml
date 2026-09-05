@@ -1,15 +1,20 @@
-name: Deploy to Cloudflare Pages
+# Deploys the site to the existing Cloudflare Pages project "808alerts".
+#
+# This site has no build step. index.html is already the finished artifact,
+# with the font, Leaflet and the registry inlined, so there is nothing to
+# compile and no build command anywhere below. The job's only real work is
+# deciding which files are allowed to be public.
+name: Deploy
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Newest push wins. A superseded run is cancelled mid-upload rather than racing
-# the newer one to activate. A Pages deployment only goes live after its upload
-# completes, so a cancelled run can never half-publish.
+# Newest push wins. A slower older run cannot finish after a newer one and
+# leave the live site on stale bytes.
 concurrency:
-  group: pages-deploy-808alerts
+  group: pages-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -17,68 +22,85 @@ permissions:
 
 jobs:
   deploy:
+    name: Publish to Cloudflare Pages
     runs-on: ubuntu-latest
     steps:
-      - name: Check out the repo
+      - name: Check out
         uses: actions/checkout@v4
 
-      # Pages direct upload has no --exclude flag, so the publish set is
-      # assembled explicitly here rather than filtered at upload time.
+      # Publish an explicit staging directory rather than the repo root.
+      # Wrangler has implicit ignore rules of its own, but they are not
+      # something this repo should depend on to keep internal notes off a
+      # public site, so the exclusions are stated here where they can be read
+      # and changed. This is also what keeps worker/ out of the deploy: the
+      # staged tree contains no wrangler.toml at all, so a Pages deploy cannot
+      # pick up the Worker's config.
       #
-      # archive/, tools/ and index-v5.html are excluded because they are repo
-      # internals, and the three HTML ones are older copies of the homepage:
-      # published, indexable, carrying no canonical and no noindex, so they
-      # competed with the real homepage in search. sources.json stays
-      # published on purpose, it is the portable registry.
-      #
-      # This is also what keeps worker/ out of reach: it is not in dist/, so it
-      # is neither uploaded nor visible to wrangler's config resolution. That
-      # resolution starts at the working directory and walks UP through parent
-      # directories, never down into children, so worker/wrangler.toml could not
-      # be picked up even if worker/ were present. There is no wrangler.toml at
-      # the repo root, and none above it.
-      - name: Assemble publish directory
+      # Three groups are excluded, and the reasons differ:
+      #   - CLAUDE.md, docs/, worker/, *.bak are internal notes and source.
+      #   - archive/, index-v5.html are older complete copies of this same
+      #     site. Published, they are near-duplicates competing with the live
+      #     page in search, which matters now that the site has SEO pages.
+      #     Excluding them from the deploy does not affect their use as a
+      #     rollback: that is what git history is for.
+      #   - tools/, .claude/, .gitignore and friends are dev files with no
+      #     reason to be reachable over HTTP.
+      # This is a denylist, not an allowlist, on purpose: a new content page
+      # should go live by existing, not by also remembering to edit this file.
+      - name: Stage the public files
         run: |
           set -euo pipefail
-          rm -rf dist
-          mkdir dist
+          rm -rf .cf-publish
+          mkdir .cf-publish
           rsync -a \
             --exclude='.git/' \
             --exclude='.github/' \
+            --exclude='.cf-publish/' \
+            --exclude='node_modules/' \
             --exclude='.claude/' \
             --exclude='.wrangler/' \
-            --exclude='node_modules/' \
-            --exclude='dist/' \
+            --exclude='.gitignore' \
+            --exclude='.DS_Store' \
+            --exclude='CLAUDE.md' \
             --exclude='docs/' \
             --exclude='worker/' \
-            --exclude='CLAUDE.md*' \
             --exclude='*.bak' \
             --exclude='archive/' \
             --exclude='tools/' \
             --exclude='index-v5.html' \
-            --exclude='.gitignore' \
-            ./ dist/
+            ./ .cf-publish/
+          echo "Staged for publication:"
+          find .cf-publish -type f | sort
 
-          echo "--- publishing ---"
-          find dist -type f | sort
-
-          echo "--- verifying exclusions ---"
+      - name: Refuse to deploy if anything private slipped in
+        run: |
+          set -euo pipefail
           fail=0
-          for p in CLAUDE.md docs worker archive tools index-v5.html .gitignore; do
-            if [ -e "dist/$p" ]; then echo "ERROR: dist/$p would be published"; fail=1; else echo "ok: $p excluded"; fi
+          for bad in CLAUDE.md docs worker; do
+            if [ -e ".cf-publish/$bad" ]; then
+              echo "::error::$bad is staged for publication"
+              fail=1
+            fi
           done
-          if find dist -name '*.bak' | grep -q .; then echo "ERROR: .bak files in dist"; fail=1; else echo "ok: no .bak files"; fi
+          if find .cf-publish \( -name '*.bak' -o -name 'wrangler.toml' \) | grep -q .; then
+            echo "::error::a .bak file or a wrangler.toml is staged for publication"
+            find .cf-publish \( -name '*.bak' -o -name 'wrangler.toml' \)
+            fail=1
+          fi
+          # Wrangler resolves config from the working directory, which is the
+          # repo root. worker/wrangler.toml is a directory down and out of
+          # reach; this catches anyone moving or copying one up to the root,
+          # where a Pages deploy could pick it up.
+          if [ -e wrangler.toml ] || [ -e wrangler.json ] || [ -e wrangler.jsonc ]; then
+            echo "::error::a wrangler config exists at the repo root and would be picked up"
+            fail=1
+          fi
           exit $fail
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4.123.0'
-          command: >-
-            pages deploy dist
-            --project-name=808alerts
-            --branch=main
-            --commit-hash=${{ github.sha }}
-            --commit-dirty=true
+          wranglerVersion: "4.129.0"
+          command: pages deploy .cf-publish --project-name=808alerts --branch=main
