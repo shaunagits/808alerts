@@ -357,9 +357,10 @@ any location is known.
   the home page is no longer inert until interaction: every landing hits Esri and
   the worker once. Worth knowing if traffic ever needs to be pared back.
 
-**Island quick-nav, added 2026-09-04.** The owner likes the wide home view but found
-getting from it to island-level detail slow when the only tool is scroll-to-zoom:
-"getting to the detail view is difficult with just zooming." `#islandnav` is a row of
+**Island quick-nav, added 2026-09-04, collapsed to one control 2026-09-05.** The
+owner likes the wide home view but found getting from it to island-level detail slow
+when the only tool is scroll-to-zoom: "getting to the detail view is difficult with
+just zooming." `#islandnav` was a row of
 one chip per island, populated once from the existing `ISLANDS` array the located flow
 already uses for its own forecast-zone lookups. Each chip carries the island's
 `lat,lon` in a `data-jump` attribute; the click handler reads it and calls
@@ -383,6 +384,38 @@ zoom 11 over Oʻahu correctly sees the OʻAHU chip lit without anything having b
 clicked. In between the two framings nothing is lit, which is the honest answer.
 The active state is `--accent` on `--ink` text, reusing the palette's existing
 primary-action colour; no sixth value was added.
+
+**Collapsed to a single control, 2026-09-05.** Seven chips wrapped to two rows
+and 74px, which against the map card measured 26% of the old 280px height and
+21.8% of the 340px it stands at now. The filter row above it had already been
+cut to one chip for the same reason (see The map chip row), and this is the
+other half of that work. Measured at 375px, before and after: **74px / 21.8%
+to 36px / 10.6%.**
+
+`#islandnav` now holds one `#islandBtn` plus an `#islandMenu` that is the exact
+same chip list as before, hidden until tapped and opening upward so it never
+fights the attribution under it. Nothing about the behaviour changed: it still
+touches `MAP` only and never `S` or `setLoc` (verified by jumping to Maui while
+located on Oʻahu and confirming the location strip still read OʻAHU ALERTS),
+ALL ISLANDS still calls `fitStormView()`, an island still calls
+`MAP.setView([lat,lon],10)`, and `syncIslandChip()` still derives the active
+state from `MAP.getCenter()`/`getZoom()` on `moveend` rather than remembering
+the click. No new palette value: the button and the items are the existing
+`.chip`, and the arrow is a CSS border triangle in `currentColor`.
+
+The collapsed button is labelled with the active view, falling back to a
+neutral "ISLAND" when the map is somewhere that matches nothing, since naming
+an island the map is not centred on would be a small lie.
+
+**Two bugs found while verifying this, both fixed.** First, `syncIslandChip()`
+took *any* island whose tolerance box matched, and Maui, Molokaʻi and Lānaʻi
+sit inside one another's (Maui's centre is .24 degrees of longitude from
+Lānaʻi's), so a jump to MAUI labelled the button LĀNAʻI and lit two items at
+once. It now takes the nearest match and lights exactly one. Second, the jump
+is now `{animate:false}`: island to island at the same zoom is a long animated
+slide across open ocean that shows nothing on the way, and making it instant
+also means the view, and so the derived label, is correct the moment the jump
+is made. All seven entries verified: correct label, exactly one item lit.
 
 **Shown in every map state, not just home.** First shipped hidden once a location was
 picked (`$("islandnav").hidden=!!S.c`), on the reasoning that the located map already

@@ -1330,10 +1330,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
    out and back in on a 360px-tall map card. Pure map navigation, does not
    set S.c or trigger the located flow; that is still what the hero/location
    strip controls do. */
-.islandnav{bottom:54px;left:14px;right:64px;gap:2px;flex-wrap:wrap}
-.islandnav:not([hidden]){display:flex}
+/* One collapsed control, not a row. Seven chips wrapped to two rows and 74px
+   over the map card; the filter row above was cut to one chip for the same
+   reason. The list opens upward so it never fights the attribution below it.
+   No new palette value: the button and the items are the existing .chip, and
+   the active item keeps the --accent state defined below. */
+.islandnav{bottom:54px;left:14px;right:64px}
+.islandnav:not([hidden]){display:block}
 .islandnav .chip{background:var(--ink);color:#fff}
 .islandnav .chip:hover{background:var(--ink2)}
+#islandBtn::after{
+  content:"";width:0;height:0;margin-left:1px;
+  border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:5px solid currentColor;
+}
+.islandmenu{position:absolute;bottom:100%;left:0;margin-bottom:2px;
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.islandmenu[hidden]{display:none}
 /* Which framing the map is actually showing right now. Derived from the map's
    own view on every move (see syncIslandChip), never just left set from the
    last click, so panning away by hand drops the highlight rather than leaving
@@ -3654,11 +3667,16 @@ function drawMap(){
   if(!$("islandnav").childElementCount){
     /* ALL ISLANDS first: the wide statewide-plus-storms framing the map opens
        on, so every island jump has a way back to the default without pinching
-       out to find it. */
+       out to find it. The chips themselves are unchanged, they just live
+       inside the collapsed menu now; the button above names whichever view
+       the map is actually on. */
     $("islandnav").innerHTML=
-      `<button class="chip" type="button" data-jump="all" aria-pressed="false">ALL ISLANDS</button>`
+      `<div class="islandmenu" id="islandMenu" hidden>`
+      +`<button class="chip" type="button" data-jump="all" aria-pressed="false">ALL ISLANDS</button>`
       +ISLANDS.map(i=>
-      `<button class="chip" type="button" data-jump="${esc(i.lat)},${esc(i.lon)}" aria-pressed="false">${esc(up(i.label))}</button>`).join("");
+        `<button class="chip" type="button" data-jump="${esc(i.lat)},${esc(i.lon)}" aria-pressed="false">${esc(up(i.label))}</button>`).join("")
+      +`</div>`
+      +`<button class="chip" type="button" id="islandBtn" aria-expanded="false" aria-controls="islandMenu">ISLAND</button>`;
     syncIslandChip();
   }
   if(!S.c) renderIslandWx();
@@ -3834,12 +3852,39 @@ document.addEventListener("click",e=>{
   MAP.setView([+b.dataset.lat,+b.dataset.lon],Math.min(MAP.getZoom()+2,19),{animate:false});
 },true);
 
+function closeIslandMenu(){
+  const m=$("islandMenu"), b=$("islandBtn");
+  if(m) m.hidden=true;
+  if(b) b.setAttribute("aria-expanded","false");
+}
+
 $("islandnav").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-jump]"); if(!b||!MAP) return;
-  if(b.dataset.jump==="all"){ fitStormView(); syncIslandChip(); return; }
-  const [lat,lon]=b.dataset.jump.split(",").map(Number);
-  MAP.setView([lat,lon],10);
+  const t=e.target.closest("button"); if(!t||!MAP) return;
+  if(t.id==="islandBtn"){
+    const m=$("islandMenu"), opening=m.hidden;
+    m.hidden=!opening;
+    t.setAttribute("aria-expanded",opening?"true":"false");
+    return;
+  }
+  const b=t.closest("button[data-jump]"); if(!b) return;
+  if(b.dataset.jump==="all") fitStormView();
+  else{
+    const [lat,lon]=b.dataset.jump.split(",").map(Number);
+    /* Not animated: island to island at the same zoom is a long slide across
+       open ocean that shows nothing on the way, and this is a "take me there"
+       action where the destination wants to be on screen at once. It also
+       keeps the view, and so the button's derived label, correct the moment
+       the jump is made rather than whenever an animation happens to finish. */
+    MAP.setView([lat,lon],10,{animate:false});
+  }
+  closeIslandMenu();
   syncIslandChip();
+});
+
+/* Clicking anywhere else, the map included, puts the list away. */
+document.addEventListener("click",e=>{
+  if(e.target.closest&&e.target.closest("#islandnav")) return;
+  closeIslandMenu();
 });
 
 /* Highlight the chip that describes what the map is currently framing, read
@@ -3850,15 +3895,32 @@ $("islandnav").addEventListener("click",e=>{
 function syncIslandChip(){
   const nav=$("islandnav"); if(!MAP||!nav.childElementCount) return;
   const c=MAP.getCenter(), z=MAP.getZoom();
-  nav.querySelectorAll("button[data-jump]").forEach(b=>{
-    let on;
-    if(b.dataset.jump==="all") on=z<=7;                      // zoomed out past island level
-    else{
-      const [lat,lon]=b.dataset.jump.split(",").map(Number); // centred on this island, island-level zoom
-      on=z>=9&&Math.abs(c.lat-lat)<.35&&Math.abs(c.lng-lon)<.35;
-    }
-    b.setAttribute("aria-pressed",on?"true":"false");
-  });
+  /* Exactly one entry can be active, and it is the NEAREST match rather than
+     any match. Maui, Molokaʻi and Lānaʻi sit inside one another's tolerance
+     box (Maui's centre is .24 degrees of longitude from Lānaʻi's), so a plain
+     "first or last one that matches" test labelled a jump to MAUI as LĀNAʻI
+     and lit two items in the list at once.
+     The collapsed button takes the name of whichever view is active, so it
+     stays informative rather than becoming a mystery button. It falls back to
+     the neutral "ISLAND" when nothing matches, which is the honest label for
+     a map the user has panned somewhere of their own: naming an island the
+     map is not centred on would be a small lie. */
+  const btns=[...nav.querySelectorAll("button[data-jump]")];
+  let best=null, bestD=Infinity;
+  if(z<=7){                                                  // zoomed out past island level
+    best=btns.find(b=>b.dataset.jump==="all")||null;
+  }else if(z>=9){                                            // island-level zoom
+    btns.forEach(b=>{
+      if(b.dataset.jump==="all") return;
+      const [lat,lon]=b.dataset.jump.split(",").map(Number);
+      const dLat=c.lat-lat, dLon=c.lng-lon;
+      if(Math.abs(dLat)>=.35||Math.abs(dLon)>=.35) return;
+      const d=dLat*dLat+dLon*dLon;
+      if(d<bestD){ bestD=d; best=b; }
+    });
+  }
+  btns.forEach(b=>b.setAttribute("aria-pressed",b===best?"true":"false"));
+  const btn=$("islandBtn"); if(btn) btn.textContent=best?best.textContent:"ISLAND";
 }
 
 /* No new fetch: wind extent and arrival bands ride along with the storm data
