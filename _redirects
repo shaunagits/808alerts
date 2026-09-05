@@ -1,0 +1,11 @@
+# Cloudflare Pages redirect rules. Consumed by Pages at deploy time, never
+# served as a file. The local python http.server used for review ignores it,
+# so this rule can only be verified against a real deploy.
+#
+# hurricane-kit-checklist.html moved to /hurricane-kit-checklist/ on
+# 2026-09-04, so every content page sits at a trailing-slash URL. The old
+# path was live and is in sitemap.xml's crawl history, so it redirects
+# permanently rather than 404ing. Pages used to strip the .html itself while
+# the file existed; once the file moved, that stopped happening and this rule
+# is what answers the old URL.
+/hurricane-kit-checklist.html  /hurricane-kit-checklist/  301

@@ -851,13 +851,13 @@ expanding in place. The owner then looked at it running locally and said
 that was not the ask: three cards at the bottom still read as clutter
 ("that is awful"), and the ask was for one **PLAN** card that routes to a
 real page, the same way WEATHER/OCEAN/ROADS/EMERGENCY do, with Plan, Kit and
-Sources all living on that one page. `hurricane-kit-checklist.html` (see
+Sources all living on that one page. `hurricane-kit-checklist/index.html` (see
 SEO section) gets promoted to its own second card, **CHECKLIST**, since a
 real separate indexable page is what actually helps SEO here.
 
 `#more` now holds exactly two plain `<a class="band sev-clear">` links, no
 `<details>` involved: PLAN goes to `#plan` (hash routed, like every live
-band); CHECKLIST goes straight to `/hurricane-kit-checklist.html` (a real
+band); CHECKLIST goes straight to `/hurricane-kit-checklist/` (a real
 page, not a hash route). Both reuse the exact `.band-top`/`.band-lab`/
 `.band-arw`/`.band-body`/`.band-h` markup the live bands use, so no new CSS
 was needed for them, they are `a.band` like everything else. The `.prep`
@@ -1200,14 +1200,14 @@ same source image, both processed with ImageMagick in the sandbox (`convert
 ... -resize ... -strip`):
 - **Favicon**: a 32×32 PNG, stripped of metadata (989 bytes), inlined as a
   `data:image/png;base64,` URI on `<link rel="icon">` in both `index.html` and
-  `hurricane-kit-checklist.html`. Same inlining rule as the font and Leaflet;
+  every standalone content page. Same inlining rule as the font and Leaflet;
   invariant 5 holds, zero extra request at render.
 - **`og-image.png`**: a 600×600 PNG at the repo root (`og-image.png`), palette
   reduced to 16 colors (21.6KB) since the source art is flat amber and white
   with no gradients to lose. `og:image`/`twitter:image` point at it by full
   URL in both HTML files. This is a real separate file, not inlined: social
   crawlers fetch OG images by URL, a data URI is not reliable there, and
-  `robots.txt`/`sitemap.xml`/`hurricane-kit-checklist.html` already establish
+  `robots.txt`, `sitemap.xml` and the standalone content pages already establish
   that separate static files alongside `index.html` are normal for this repo.
   `twitter:card` stays `summary` (square-image card), which fits a square
   source image without cropping.
@@ -1218,8 +1218,8 @@ the owner looked at it and asked for it back out ("looks bad"), so the header go
 to text-only `.mark`. The favicon and `og-image.png` above are unaffected, this was the
 header placement only.
 
-**First evergreen content page shipped 2026-09-04: `hurricane-kit-checklist.html`.**
-Its own real static HTML file at the repo root, its own `<title>`/description/canonical/
+**First evergreen content page shipped 2026-09-04: the hurricane kit checklist.**
+Its own real static HTML file, its own `<title>`/description/canonical/
 OG/Twitter tags, and a `HowTo` JSON-LD block. Same 5-color palette and 0-radius/no-shadow
 rules as the app, but does not inline the Archivo base64 font (a system UI font stack is
 used instead, so this page does not carry the ~64KB font payload the app pays for once);
@@ -1229,6 +1229,20 @@ apart in wording. Linked from the app's footer, and listed in `sitemap.xml`. Thi
 template for any further pages of this kind (a shelter directory page is the obvious
 next one); before adding another, check `KIT`/`renderPlan()`/etc. for the current wording
 rather than re-describing it from memory.
+
+**Moved to `/hurricane-kit-checklist/` on 2026-09-04**, from the flat
+`hurricane-kit-checklist.html` it shipped as. Cloudflare Pages strips `.html`
+itself, so the old URL was already 308-ing to an extensionless form while the
+page's own canonical and `sitemap.xml` still named the `.html` one: the
+canonical URL redirected, which is exactly the signal a canonical exists to
+avoid. It is now `hurricane-kit-checklist/index.html`, matching the
+trailing-slash convention, with its canonical, `og:url` and sitemap entry all
+pointing at `/hurricane-kit-checklist/` and every internal link updated. The
+old path is answered by a 301 in a new `_redirects` file at the repo root
+rather than left to 404, since it was live and may already be crawled.
+`_redirects` is consumed by Pages at deploy time and never served as a file;
+the local `python -m http.server` used for review ignores it, so that one rule
+can only be verified against a real deploy.
 
 **Still open: hash routing blocks per-section indexing of the app itself.** The board
 uses `#weather`/`#power`/`#roads`/`#ocean`/`#emergency` client-side routing with no real
