@@ -3,9 +3,12 @@
      (#weather, #power, #roads, #ocean, #emergency), so there is only one URL
      Google can crawl and index for it right now. If the routing question in
      CLAUDE.md's SEO section is ever resolved in favor of real per-section
-     URLs, add those as their own <url> entries here. Standalone evergreen
-     content pages (hurricane-kit-checklist.html and any that follow it) are
-     real separate pages and are listed below. -->
+     URLs, add those as their own <url> entries here. Standalone content
+     pages are real separate pages and are listed below: the kit checklist,
+     three per-island alert pages, and four topic pages. Each carries its own
+     title, description, canonical and JSON-LD. The per-island and tracker
+     pages hold no live claim in their static HTML; anything live on them is
+     fetched client-side at view time, which is why they are safe to index. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://808alerts.com/</loc>
@@ -16,5 +19,40 @@
     <loc>https://808alerts.com/hurricane-kit-checklist.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/oahu-alerts/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/maui-alerts/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/hawaii-island-alerts/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/hurricane-tracker-hawaii/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/hawaii-tsunami-alerts/</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/emergency-shelters-hawaii/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://808alerts.com/hurricane-preparation-hawaii/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>

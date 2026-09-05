@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hurricane Tracker for Hawaiʻi: Live Storm Map &middot; 808 Alerts</title>
+<meta name="description" content="Track active hurricanes and tropical storms approaching Hawaiʻi: the National Hurricane Center forecast cone, track, wind field and model guidance on one live map.">
+<link rel="canonical" href="https://808alerts.com/hurricane-tracker-hawaii/">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAABtlBMVEX5+fn5+Pn4+Pj19fX6+vr////8/Pzu7u6SkZGSkpLt7e0+Pj4AAAA7Ozv49/ePj48GBgaMi4z5+Pj39/f+/f3i4uIVFRUBAQESEhLf39/+/v729fVmZmYDAwNiYmL29vbDw8MBAQDAwMD49/g/Pz8CAgKcnJyZmZnp6ekdHR0bGxvo6OhycnJvb2/39vbMzMwEBATKyspFREQJCQkkJCRFRUWpqam3t7doaGgICAhdXV0YGBikpKT7+/vx8PAoKCg9PT3z8/NMTEyTkpInJiYUFBQcHBzv7+99fX1aWlrX19cnJyfe3t/T09OrqquMjIwKCgrU1NQgICB8fHzX19YLCwsBAAC7u7vc3N3Av7+oqKhNTU1WVlZhYWH9/P3m5uaCgoJSUVK0tLQCAQElJSX9/f3//v739ve2traysrIxMTHR0dH8+/v+/f4ZGRkuLi6NjY36+fn6+fpSU1OIiIjg4OATExO6urqRkZERERHe3t4FBQVXV1eenp5TU1NfX1/k5OQODg4MDAzr6+sWFhYDAwIEAwMTEhOUlJTV1dWwr6+ysbGxsbGxsbCwsLCxsLCvr6/29fZVvgGUAAAB4klEQVQ4y5VTZ3fTQBC8nDymTYjxYQQ2iiCgBDDFYEiAYFoooZjee1PAQOgl9F5jHPjH3EmWHYKcB/P0Ze/mzc7NroT4H7QJaVlyMoZMAIlJGDI5Zeq06cmWDH0xg2yfKVoxLHQwleIsWCIdd69mZ+bQtjl3Xla1xRFymE+H+uuElY6RcLGAARayC26MwKLsYnqG4LE9KWWMw27TwMBhj/b5VwRLltIOCTaX5YMwGlbTRmB5JGAkVkyUWIlVhYDghCqF1RN8KqwprtX2bNqGVuA6qD8d9rIP6+lt2NhPx7N1XJvGN5GlzVu4dRu2694DPf3kjt6du3aX5DiBQaa4B3v35feXxYGDhw4njvBoU0Lh2HGecHgSeZwSXfL0GZylXSw3bLg4p1/g8DzEBYiLbh8u0XF4OXqIiyu8auK5JrO+7w9dxw0TmcdKyJBC3QyHwFu4PTxcQuZOSLibC1bHwr0wQ4eDUPfFAzyM6kfGp8LjJ9EQik/hJzFSz9zms+fap4vO5hBevOx+9Tqi6+M32sXQ23fRtdm3YB8aeJ+B8D98ZMGrw0lpfIqqz/yS93WLr2yJEfNQiW/fK5XRqsaPam1srFarBhit/CwjGIfykUUMsvDrWSs3wC+3iVxQqH/5438DLkFUDNlmH2UAAAAASUVORK5CYII=">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="808 Alerts">
+<meta property="og:url" content="https://808alerts.com/hurricane-tracker-hawaii/">
+<meta property="og:title" content="Hurricane Tracker for Hawaiʻi">
+<meta property="og:description" content="Track active hurricanes and tropical storms approaching Hawaiʻi: the National Hurricane Center forecast cone, track, wind field and model guidance on one live map.">
+<meta property="og:image" content="https://808alerts.com/og-image.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hurricane Tracker for Hawaiʻi">
+<meta name="twitter:description" content="Track active hurricanes and tropical storms approaching Hawaiʻi: the National Hurricane Center forecast cone, track, wind field and model guidance on one live map.">
+<meta name="twitter:image" content="https://808alerts.com/og-image.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage",
+"name":"Hurricane Tracker for Hawaiʻi",
+"description":"Track active hurricanes and tropical storms approaching Hawaiʻi: the National Hurricane Center forecast cone, track, wind field and model guidance on one live map.",
+"url":"https://808alerts.com/hurricane-tracker-hawaii/",
+"isPartOf":{"@type":"WebSite","name":"808 Alerts","url":"https://808alerts.com/"},
+"publisher":{"@type":"Organization","name":"808 Alerts","url":"https://808alerts.com/"}}
+</script>
+<style>
+:root{
+  --ink:#101010; --ink2:#1c1c1c; --surface:#faf8f5; --surface2:#f0ece4;
+  --accent:#ffd93b; --warn:#c22e22; --advis:#e8a317; --watch:#1c6f7d; --muted3:#5c5c5c;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--surface);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  line-height:1.5;
+}
+a{color:var(--ink)}
+header{background:var(--ink);color:#fff;padding:18px clamp(16px,4vw,32px)}
+header a{color:#fff;text-decoration:none;font-weight:800;letter-spacing:.02em}
+header a b{color:var(--accent)}
+main{max-width:640px;margin:0 auto;padding:32px clamp(16px,4vw,32px) 48px}
+h1{font-size:clamp(26px,5vw,36px);line-height:1.15;letter-spacing:-.01em;margin:0 0 12px}
+h2{font-size:clamp(19px,3.4vw,23px);line-height:1.2;letter-spacing:-.01em;margin:36px 0 12px}
+h3{font-size:16px;margin:22px 0 6px}
+p{margin:0 0 14px}
+.lead{font-size:16px;color:var(--muted3);margin:0 0 28px;max-width:56ch}
+ul.kit{list-style:none;margin:0 0 28px;padding:0;border-top:2px solid var(--surface2)}
+ul.kit li{padding:16px 4px;border-bottom:2px solid var(--surface2);font-size:16px;font-weight:600}
+ul.plain{margin:0 0 18px;padding-left:20px}
+ul.plain li{margin-bottom:8px}
+.note{background:var(--surface2);padding:18px 20px;font-size:14.5px;color:var(--muted3);margin:0 0 28px}
+.note b{color:var(--ink)}
+.warnbox{border-left:6px solid var(--warn);background:var(--surface2);padding:18px 20px;margin:0 0 28px;font-size:15px}
+.warnbox b{color:var(--warn)}
+.cta{display:inline-block;background:var(--ink);color:#fff;text-decoration:none;
+  font-weight:800;font-size:14px;letter-spacing:.04em;padding:16px 24px;margin-bottom:8px}
+.cta:hover{background:var(--ink2)}
+/* Live block. Static HTML never asserts a live reading; everything inside
+   #live is written by script from a fetch made in the visitor's browser,
+   and says plainly when it has nothing or could not load. */
+.live{border:2px solid var(--ink);margin:0 0 28px}
+.live-h{background:var(--ink);color:#fff;padding:11px 16px;font-weight:800;
+  font-size:11px;letter-spacing:.12em}
+.live-b{padding:16px}
+.live-b p:last-child{margin-bottom:0}
+.al{border-left:6px solid var(--warn);background:var(--surface2);padding:12px 14px;margin:0 0 10px}
+.al:last-child{margin-bottom:0}
+.al .e{font-weight:800;font-size:15px;display:block}
+.al .m{font-size:13px;color:var(--muted3);display:block;margin-top:3px}
+.al.sev-mod{border-left-color:var(--advis)}
+.al.sev-low{border-left-color:var(--watch)}
+.src{font-size:12px;color:var(--muted3);margin:12px 0 0}
+.links{list-style:none;margin:0 0 26px;padding:0;border-top:2px solid var(--surface2)}
+.links li{border-bottom:2px solid var(--surface2)}
+.links a{display:block;padding:14px 4px;text-decoration:none;font-weight:700;font-size:15px}
+.links a:hover{background:var(--surface2)}
+.links .p{display:block;font-weight:500;font-size:13px;color:var(--muted3);margin-top:2px}
+.tel{font-weight:800}
+footer{max-width:640px;margin:0 auto;padding:0 clamp(16px,4vw,32px) 60px;
+  font-size:12.5px;color:var(--muted3)}
+footer nav{margin:0 0 20px;padding:20px 0 0;border-top:2px solid var(--surface2)}
+footer nav a{display:inline-block;margin:0 14px 8px 0;font-size:13px;font-weight:700;color:var(--ink)}
+</style>
+</head>
+<body>
+<header><a href="/">808 <b>ALERTS</b></a></header>
+<main>
+  <h1>Hurricane Tracker for Hawaiʻi</h1>
+  <p class="lead">Active tropical systems in range of Hawaiʻi, straight from the National Hurricane Center, plus what the forecast cone actually means before you read one.</p>
+  <div class="live">
+    <div class="live-h">ACTIVE TROPICAL SYSTEMS</div>
+    <div class="live-b" id="live-b"><p>Loading current storm data&hellip;</p></div>
+  </div>
+  <a class="cta" href="/">OPEN THE LIVE STORM MAP &#8594;</a>
+
+  <h2>Read the cone correctly</h2>
+  <div class="warnbox"><b>The cone is not the storm.</b> It shows where the <i>center</i> of the
+    storm is likely to go, and even then only about two thirds of the time. It says nothing about
+    how wide the damaging winds are, and nothing about rain, surf or storm surge. Serious impacts
+    routinely land well outside it. If you are near the cone, you are in this.</div>
+  <p>The other thing worth knowing: the cone gets wider further out because the forecast gets less
+    certain, not because the storm gets bigger. A narrow tip near day one and a wide mouth at day
+    five is a statement about confidence, not size.</p>
+
+  <h2>What the live map shows</h2>
+  <ul class="plain">
+    <li><b>Forecast cone and track</b> from the National Hurricane Center, the official five day
+      outlook for the storm's center.</li>
+    <li><b>Best track</b>, where the storm has actually been, drawn lighter so the observed past
+      reads differently from the uncertain forecast ahead.</li>
+    <li><b>Wind field</b>, the current extent of tropical storm force winds, off by default.</li>
+    <li><b>Arrival time</b>, the most likely arrival of tropical storm force winds, off by default.</li>
+    <li><b>Model tracks</b>, what GFS, ECMWF, UKMET and the other models each independently
+      predict, so agreement or disagreement between them is visible rather than hidden behind a
+      single blended line. Off by default.</li>
+    <li><b>Live satellite imagery</b> from NOAA and NASA's GOES-West, on by default when zoomed
+      out, so you see real cloud cover rather than an abstract shape.</li>
+    <li><b>The full public advisory text</b> for each storm, not just a link to it.</li>
+  </ul>
+
+  <h2>Who forecasts Hawaiʻi storms</h2>
+  <p>Two offices split the Pacific. The <b>Central Pacific Hurricane Center</b> in Honolulu covers
+    the basin from 140&deg;W west to the International Date Line, which is where a storm sits once
+    it is genuinely threatening Hawaiʻi. The <b>National Hurricane Center</b> in Miami covers the
+    Eastern Pacific east of 140&deg;W, where most storms that eventually reach Hawaiʻi form. A
+    storm crossing 140&deg;W changes which office writes its advisories, but not its behavior.</p>
+  <p>Central Pacific hurricane season runs <b>June 1 through November 30</b>. Storms outside that
+    window are uncommon, not impossible.</p>
+
+  <h2>Watch and warning timing</h2>
+  <ul class="plain">
+    <li><b>Hurricane or Tropical Storm Watch</b>: those conditions are <i>possible</i> in the area,
+      generally within 48 hours.</li>
+    <li><b>Hurricane or Tropical Storm Warning</b>: those conditions are <i>expected</i>, generally
+      within 36 hours.</li>
+  </ul>
+  <p>Preparation that needs daylight, a working road or an open store has to happen in the watch
+    window, not the warning window.</p>
+  <a class="cta" href="/hurricane-preparation-hawaii/">HOW TO PREPARE &#8594;</a>
+<script>
+var LIVE=document.getElementById("live-b");
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function hst(t){try{return new Date(t).toLocaleString("en-US",
+  {timeZone:"Pacific/Honolulu",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" HST";
+  }catch(e){return "";}}
+fetch("https://808alerts-api.shauna-coy.workers.dev/api/hurricane")
+  .then(function(r){if(!r.ok)throw 0;return r.json();})
+  .then(function(d){
+    var st=(d&&d.storms)||[];
+    if(!st.length){
+      LIVE.innerHTML="<p><b>No active tropical systems near Hawai\u02bbi right now.</b></p>"+
+        "<p>The National Hurricane Center and the Central Pacific Hurricane Center are not "+
+        "tracking a system in range at this moment. That is the quiet state, and it is the "+
+        "right time to find your evacuation zone and pack a kit.</p>"+
+        '<p class="src">Source: NOAA National Hurricane Center. Checked '+esc(hst(Date.now()))+".</p>";
+      return;
+    }
+    LIVE.innerHTML=st.map(function(s){
+      var bits=[];
+      if(s.windsMph) bits.push(s.windsMph+" mph sustained winds");
+      if(s.pressureMb) bits.push(s.pressureMb+" mb");
+      if(s.position&&s.position.length===2)
+        bits.push("near "+Number(s.position[0]).toFixed(1)+", "+Number(s.position[1]).toFixed(1));
+      return '<div class="al">'+
+        '<span class="e">'+esc(s.category||s.classification||"Tropical system")+" "+esc(s.name||"")+"</span>"+
+        '<span class="m">'+bits.map(esc).join(" &middot; ")+"</span>"+
+        (s.updated?'<span class="m">Advisory issued '+esc(hst(s.updated))+"</span>":"")+
+        (s.advisoryUrl?'<span class="m"><a href="'+esc(s.advisoryUrl)+'" target="_blank" rel="noopener">Read the full public advisory</a></span>':"")+
+      "</div>";
+    }).join("")+
+    '<p class="src">'+st.length+" active "+(st.length===1?"system":"systems")+
+    ' &middot; Source: <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">'+
+    "NOAA National Hurricane Center</a>. Checked "+esc(hst(Date.now()))+
+    ". Position and intensity are from the latest advisory, not a continuous reading.</p>";
+  }).catch(function(){
+    LIVE.innerHTML="<p><b>Could not load current storm data.</b></p>"+
+      "<p>That is a problem reaching the feed from this page, not a reading either way. Go to "+
+      '<a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">nhc.noaa.gov</a> or '+
+      '<a href="https://www.weather.gov/hfo" target="_blank" rel="noopener">weather.gov/hfo</a>.</p>';
+  });
+</script>
+</main>
+<footer>
+<nav><a href="/oahu-alerts/">Oʻahu Alerts</a><a href="/maui-alerts/">Maui County Alerts</a><a href="/hawaii-island-alerts/">Hawaiʻi Island Alerts</a><a href="/hawaii-tsunami-alerts/">Tsunami Alerts</a><a href="/emergency-shelters-hawaii/">Emergency Shelters</a><a href="/hurricane-preparation-hawaii/">Hurricane Preparation</a><a href="/hurricane-kit-checklist.html">Kit Checklist</a></nav>
+808 Alerts is an information aggregator and a link directory. It is not an official alert system and does not replace county emergency management or 911.
+</footer>
+</body>
+</html>
