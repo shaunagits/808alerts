@@ -57,11 +57,22 @@ would violate one, stop and ask.
    `www.hawaiianelectric.com` **is gone entirely, removed 2026-09-03** along with the
    map toggle that loaded it (see The Hawaiian Electric map toggle) - it is no longer a
    host this page calls under any circumstance.
-   The honest framing now: three hosts call automatically on every landing (Esri tiles,
-   NHC via the worker, GOES satellite), three more stay behind an explicit toggle
-   (radar, hazard zones, and now 311). Wind field/arrival/models add no new host at
-   all, they ride on the hurricane data the worker already fetched. Not "nothing loads
-   until you act" any more, not since the home map first shipped.
+   **As of 2026-09-05 nothing is behind a toggle any more.** The owner asked for
+   SATELLITE to be the only switch on the map and every other layer to just show
+   (see The map chip row). So radar, the tsunami hazard zones and 311 now load
+   automatically like the other three, and the toggle-gated tier is empty. Every
+   host this page can call, it calls, on the landings where that layer applies:
+   Esri tiles, the worker's NHC proxy, GOES satellite, NOAA radar and
+   geodata.hawaii.gov everywhere, hawaii311.org on a located Oʻahu visit.
+   Wind field/arrival/models add no new host at all, they ride on the hurricane
+   data the worker already fetched, and cameras are hardcoded and fetch nothing.
+   What still holds of this invariant is the part that matters: the HTML, CSS, JS,
+   registry, font and Leaflet are inlined, the served page has zero `<script src>`
+   and zero `<link href>`, and a saved copy still opens and still shows the plan,
+   the kit and the sources with no network. What it loses offline is every live
+   layer and the basemap. "Nothing loads until you act" has been false since the
+   home map shipped; it is now emphatically false, and the 311 payload below is
+   the part worth watching if traffic ever needs paring back.
 6. **Empty states are honest.** If no reports exist for a county, say so, point at that
    county's agency, and push the user to plan. Never imply absence of data means absence
    of shelters.
@@ -628,6 +639,48 @@ refresh while it is visible. Notes for anyone touching it:
 - The symbolized MapServer returns proper radar colours with no rendering rule. The
   sibling `radar_base_reflectivity_time` is an ImageServer (time-enabled, raw pixels); it
   would need a rendering rule to colour, so it was not used.
+
+### The map chip row (reduced to one toggle, 2026-09-05)
+
+The chip row grew with every layer added and became the thing covering the map.
+Measured at narrow width with everything present: the filter chips wrapped to
+**three rows, 112px tall, over a 280px map card**, about 40% of it, and with the
+island quick-nav's two rows below them roughly **two thirds of the map was
+buttons**. The owner's call: SATELLITE stays a toggle, everything else draws
+unconditionally and loses its chip. After the change the row is one chip, 36px,
+13% of the map card.
+
+- **Why SATELLITE keeps its switch and nothing else does.** It is the one layer
+  that actively hides what is under it, replacing the street map with cloud
+  imagery, so wanting it off is a real and frequent need. Everything else adds
+  marks on top of the map rather than replacing it. `satAutoZoom()` also already
+  turns satellite off past island zoom, so the chip mostly confirms what the map
+  was going to do anyway.
+- **`MAPON[cat]` is forced true for every hazard category**, not merely defaulted,
+  so no stale state can leave a category hidden with no way to bring it back.
+  Same reasoning that took WEATHER's chip first.
+- **The county gates now cut both ways.** 311 (Oʻahu) and cameras (Oʻahu, Maui)
+  used to only ever be force-*off* on relocating somewhere they do not apply.
+  With no chip to turn them on, `drawMap()` turns them on where they do apply and
+  off where they do not. Each call is guarded on the layer's own flag, because
+  these setters fetch and start refresh timers and `drawMap()` runs on every band
+  refresh; unguarded, they would refetch in a loop.
+- **WIND FIELD and ARRIVAL TIME are the exception: they are off and not drawn.**
+  Their chips are gone like the rest, but the layers stay off rather than joining
+  the always-on set. Their parsers have only ever been checked against a synthetic
+  fixture in `worker/test-parse.mjs`, never a real wind-radii or arrival-time KMZ
+  from a live storm, and a wrong shape there reads as a claim about how far
+  damaging wind actually reaches. That is exactly invariant 1. They stay off until
+  someone fetches a real KMZ from an active storm and looks at the shapes. MODELS
+  is on, because its parser was verified live against a real a-deck file and is
+  pinned by tests.
+- **The click handlers for the removed chips are left in place.** They no-op with
+  no button to match. Restoring any chip is a one-line change to the `#filters`
+  template, which is the point: the owner framed this as "for now".
+- **Two side effects worth knowing.** `#radarnote` under the map, which explains
+  why a clear-sky radar draws nothing, is now permanently visible rather than
+  appearing with the toggle. And the Leaflet attribution line now carries every
+  layer's credit at once, which wraps to three lines on a 375px screen.
 
 ### The satellite layer (added 2026-09-03, on by default same day)
 

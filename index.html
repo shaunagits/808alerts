@@ -2636,7 +2636,14 @@ let mapFitStorms=false;
    by default: they are drawn from a generic KMZ-ring extractor that has not
    been checked against a real live shape yet (see stormExtras in the worker),
    so they sit behind an explicit toggle rather than drawing automatically. */
-let STORMLAYER_ON={wind:false,arrival:false,models:false};
+/* models on by default with the chips gone: its parser is pinned by
+   worker/test-parse.mjs against a real a-deck file and was verified live.
+   wind and arrival stay off and are NOT drawn. Their parsers have only ever
+   been checked against a synthetic fixture, never a real wind-radii or
+   arrival-time KMZ, and a wrong shape there reads as a claim about how far
+   damaging wind reaches. That is invariant 1 territory, so they stay off
+   until someone checks them against a live storm. See CLAUDE.md. */
+let STORMLAYER_ON={wind:false,arrival:false,models:true};
 
 /* Statewide floor for the map before a location is chosen: Niʻihau to
    Hawaiʻi Island with ocean padding, so the islands never sit flush against
@@ -3670,10 +3677,9 @@ function drawMap(){
     (a,b)=>BANDORDER.indexOf(a)-BANDORDER.indexOf(b));
 
   cats.forEach(cat=>{
-    /* WEATHER has no chip (see the filter row below), so it can never be
-       switched off and must never start off. */
-    if(ALWAYS_ON_CATS[cat]) MAPON[cat]=true;
-    else if(MAPON[cat]===undefined) MAPON[cat]=true;
+    /* No category has a chip any more (see the filter row below), so none can
+       be switched off and none must ever start off. */
+    MAPON[cat]=true;
     const col=CATCOLOR[cat]||"#101010", g=L.layerGroup();
     MAPFEATS.filter(f=>f.cat===cat).forEach(f=>{
       const lineCol=f.full?"#c22e22":col;
@@ -3706,15 +3712,21 @@ function drawMap(){
     if(MAPON[cat]) g.addTo(MAP);
   });
 
-  /* 311 is Oʻahu only (that is all hawaii311.org covers), so leaving Oʻahu
-     forces it off - otherwise a stale layer or a chip for data that no
-     longer applies could linger after a relocate. */
-  if(S.c!=="HIC003"&&REP311_ON) set311(false);
+  /* With the chips gone these layers have no way to be switched on, so
+     drawMap turns them on itself. Each is guarded on its own flag: these
+     setters fetch and start refresh timers, and drawMap runs on every band
+     refresh, so calling them unguarded would refetch in a loop.
+     The two county gates still hold, and now cut both ways: 311 is Oʻahu
+     only and cameras are Oʻahu and Maui only, so each is turned on where it
+     applies and forced off on relocating somewhere it does not. */
+  if(!RADAR_ON) setRadar(true);
+  if(!HAZON.tsunami) setHazard("tsunami",true);
 
-  /* Same rule for cameras: relocating to Kauaʻi or Hawaiʻi Island, where
-     there are none, must not leave an Oʻahu/Maui layer and a now-pointless
-     chip behind. */
-  if(!camsAvailable()&&CAMS_ON) setCams(false);
+  if(S.c==="HIC003"){ if(!REP311_ON) set311(true); }
+  else if(REP311_ON) set311(false);
+
+  if(camsAvailable()){ if(!CAMS_ON) setCams(true); }
+  else if(CAMS_ON) setCams(false);
 
   drawStorms();
   if(!S.c) fitStormView();
@@ -3728,24 +3740,18 @@ function drawMap(){
     mapFitStorms=true;
   }
 
-  /* WEATHER is not a chip. Active National Weather Service products are the
-     one thing on this map nobody should have to switch on to see, and the
-     owner asked for the toggle out on those grounds. Dropping it also buys
-     back a slot in a chip row that had grown long. */
-  $("filters").innerHTML=cats.filter(c=>!ALWAYS_ON_CATS[c]).map(c=>
-    `<button class="chip" type="button" data-cat="${esc(c)}" aria-pressed="${!!MAPON[c]}">
-       <i style="background:${CATCOLOR[c]}"></i>${esc(c)} ${MAPFEATS.filter(f=>f.cat===c).length}</button>`).join("")
-    +`<button class="chip" type="button" data-radar aria-pressed="${RADAR_ON}" title="Live NWS rain radar">RADAR</button>`
-    +`<button class="chip" type="button" data-sat aria-pressed="${SAT_ON}" title="Live GOES-West satellite imagery">SATELLITE</button>`
-    +`<button class="chip" type="button" data-haz="tsunami" aria-pressed="${HAZON.tsunami}" title="Tsunami evacuation zones">TSUNAMI ZONE</button>`
-    +(S.c==="HIC003"?`<button class="chip" type="button" data-311 aria-pressed="${REP311_ON}" title="Open 311 service requests on Oʻahu, from hawaii311.org">311 REPORTS</button>`:"")
-    +(camsAvailable()?`<button class="chip" type="button" data-cams aria-pressed="${CAMS_ON}" title="Where HDOT and city traffic cameras are. Locations only; the live view is on GoAkamai">CAMERAS</button>`:"")
-    +(HURRICANES&&HURRICANES.some(h=>h.windExtent)
-      ?`<button class="chip" type="button" data-storm="wind" aria-pressed="${STORMLAYER_ON.wind}" title="Current tropical-storm-force wind extent">WIND FIELD</button>`:"")
-    +(HURRICANES&&HURRICANES.some(h=>h.arrival)
-      ?`<button class="chip" type="button" data-storm="arrival" aria-pressed="${STORMLAYER_ON.arrival}" title="Most likely arrival of tropical-storm-force winds">ARRIVAL TIME</button>`:"")
-    +(HURRICANES&&HURRICANES.some(h=>h.modelTracks)
-      ?`<button class="chip" type="button" data-storm="models" aria-pressed="${STORMLAYER_ON.models}" title="Individual forecast models (GFS, ECMWF, UKMET and others), not just NHC's official track">MODELS</button>`:"");
+  /* SATELLITE is the only toggle left on the map, at the owner's direction
+     (2026-09-05). Every other layer is drawn unconditionally and has no chip:
+     the chip row had grown to three wrapped rows covering ~40% of a 280px map
+     card, and with the island quick-nav below it roughly two thirds of the
+     map was buttons. Satellite keeps its chip because it is the one layer
+     that genuinely gets in the way, hiding the street detail underneath it,
+     and because satAutoZoom() already turns it off past island zoom.
+     The handlers for the removed chips are deliberately left in place further
+     down. They no-op with no button to match, and keeping them means putting
+     any of these back is a one-line change to this template. */
+  $("filters").innerHTML=
+    `<button class="chip" type="button" data-sat aria-pressed="${SAT_ON}" title="Live GOES-West satellite imagery">SATELLITE</button>`;
 
   $("scalenote").textContent=S.c?up(S.label||"")+" AND NEARBY":"HAWAIʻI & THE CENTRAL PACIFIC";
   $("maplistHead").textContent=MAPFEATS.length+" ON THIS MAP";
