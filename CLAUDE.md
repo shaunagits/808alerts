@@ -743,6 +743,50 @@ every call and calls `set311(false)` if the layer is on and the location isn't O
 any more, so a relocate can't leave a stale Oʻahu-only layer (or its now-irrelevant chip)
 showing under a different island.
 
+**Clustered 2026-09-04.** Even at radius 3 the owner reported that zoomed out
+the reports "cover everything because they are so numerous and clustered", which
+they are: ~2,400 points inside one island reads as a solid mass at island zoom no
+matter how small each dot is. `cluster311()` groups the reports into a grid of
+54-screen-pixel cells at the current zoom and `draw311()` renders one counted
+badge per cell; a cell holding one report is still drawn as that report, exactly
+as before, popup and all. Oʻahu-wide goes from ~2,400 dots to about 25 badges,
+and the grouping dissolves on its own as you zoom in (verified live: 25 badges at
+zoom 10, 67 at 12, 83 at 14, 19 at 16, 3 at 18).
+
+- **Screen-pixel cells, not degree cells,** so there is no zoom threshold to pick
+  and no second rendering mode to keep in step: the same code covers every zoom.
+- **Only what is in view is grouped and drawn**, bounds padded 25%, so the marker
+  count is bounded by the size of the map rather than by the size of the file.
+  Rebuilt on a debounced `moveend`, which covers pans and zooms alike.
+- **A grid, not Leaflet.markercluster.** The plugin would be another library
+  inlined into a file every visitor downloads, for a layer that is Oʻahu only and
+  off by default.
+- **Badges are square**, reusing the `.chip` look, where individual reports are
+  round dots. The page is 0-radius everywhere, and the shape difference means an
+  aggregate is never misread as a single report.
+- **The current/kept split survives clustering.** A badge cannot be hollow the way
+  a single point is, so the count of each goes in the badge's tooltip instead of
+  being dropped. Invariant 7: surface the distinction, do not quietly resolve it.
+- **The pane moved from z-index 380 to 450**, above Leaflet's overlay pane rather
+  than below it. This was forced by making the layer clickable: at 380 the NWS
+  alert polygons sat on top, and a filled polygon swallows every click inside it,
+  so with a statewide advisory up (most of the time) no 311 point or badge could
+  be clicked at all. Points have to sit above area fills to stay usable, which is
+  why Leaflet's own marker pane is above its overlay pane. The original intent of
+  380, that 311 reads as secondary to real emergency data, still holds: small dark
+  dots against big red polygons, and everything in the 600 marker pane still draws
+  on top.
+- **The click is delegated at the document, not bound per marker.** A marker in a
+  custom pane does not reliably receive Leaflet's own click event; binding
+  `marker.on("click")` produced a badge that said "click to zoom in" and did
+  nothing. The zoom target rides on the badge as `data-lat`/`data-lon`.
+- **`{animate:false}` on the drill-down zoom** is deliberate, see the comment at
+  the call. Note for the next session: Leaflet's *animated* zoom never completes
+  inside the Browser preview pane, because its CSS `transitionend` never fires
+  there, so any zoom of 4 steps or fewer looks frozen while large jumps work
+  normally. That is a preview-pane artifact, not a bug in the page, and it costs
+  a long debugging detour if you meet it without knowing.
+
 **Marker size reduced 2026-09-04.** At the shipped radius 5 the owner reported the
 dots as "way too big, filling up the map already" at Oʻahu-wide zoom, where ~2,400
 points read as a solid mass rather than individual reports. Reduced to radius 3, the

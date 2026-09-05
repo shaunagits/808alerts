@@ -1374,6 +1374,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   border:2px solid #fff;box-shadow:0 1px 8px rgba(0,0,0,.4);
   display:flex;align-items:center;justify-content:center}
 .hurr svg{width:22px;height:22px;display:block}
+/* 311 cluster badge. Square, not the usual round cluster bubble: the page is
+   0-radius everywhere and this reads as a chip, which is vocabulary the map
+   already uses. Square also tells a group apart from the round individual
+   report dots at a glance, so an aggregate is never mistaken for one report. */
+.c311{
+  background:var(--ink);color:#fff;border:2px solid #fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;line-height:1;font-family:Archivo,sans-serif;letter-spacing:.02em;
+}
+.c311:hover{background:var(--ink2)}
 @media (max-width:1023.98px){
   .mapwrap{height:280px}
   .mapwrap.tall{height:calc(100vh - 60px)}
@@ -2853,6 +2863,12 @@ function hookHazMove(){
    uses, filled points are still on the city's own current feed. */
 const REP311_SRC="https://hawaii311.org/open.geojson";
 let REP311_ON=false, REP311_LAYER=null, REP311_DATA=null, rep311Timer=null, REP311_CANVAS=null;
+let rep311MoveT=null;
+/* Grid cell for clustering, in screen pixels at the current zoom. Screen
+   pixels rather than degrees is the whole point: the grouping loosens as you
+   zoom in and dissolves into individual points on its own, with no zoom
+   threshold to pick and no second rendering mode to keep in step. */
+const REP311_CELL=54;
 
 function rep311Pop(p){
   const opened=p.created_date?up(new Date(p.created_date).toLocaleDateString("en-US",
@@ -2869,18 +2885,71 @@ function rep311Pop(p){
     `<a class="pop-link" href="https://hawaii311.org" target="_blank" rel="noopener">HAWAIʻI 311 &#8594;</a>`;
 }
 
+/* Group the reports in view into a grid of screen-space cells. Only what is
+   on screen (plus a margin) is grouped and drawn, so the number of markers
+   is bounded by the size of the map, not by the ~2,400 points in the file:
+   at island zoom that is a few dozen badges instead of a solid mass, and at
+   street zoom it is the handful of individual dots actually in frame.
+   A grid rather than a clustering library: Leaflet.markercluster would be
+   another library inlined into a file every visitor downloads, for a layer
+   that is Oʻahu only and off by default. */
+function cluster311(){
+  const b=MAP.getBounds().pad(.25), z=MAP.getZoom(), cells={}, out=[];
+  ((REP311_DATA&&REP311_DATA.features)||[]).forEach(f=>{
+    const c=f.geometry&&f.geometry.coordinates;
+    if(!c||c.length<2) return;
+    const ll=L.latLng(c[1],c[0]);
+    if(!b.contains(ll)) return;
+    const p=MAP.project(ll,z);
+    const k=Math.floor(p.x/REP311_CELL)+":"+Math.floor(p.y/REP311_CELL);
+    if(!cells[k]){ cells[k]=[]; out.push(cells[k]); }
+    cells[k].push({f,ll});
+  });
+  return out;
+}
+
 function draw311(){
   if(REP311_LAYER){ MAP.removeLayer(REP311_LAYER); REP311_LAYER=null; }
   if(!REP311_DATA) return;
   if(!REP311_CANVAS) REP311_CANVAS=L.canvas({pane:"rep311"});
-  REP311_LAYER=L.geoJSON(REP311_DATA,{
-    pointToLayer:(f,ll)=>L.circleMarker(ll,{
-      pane:"rep311",renderer:REP311_CANVAS,radius:3,
-      color:"#101010",weight:f.properties.current===false?1.2:0,
-      fillColor:"#101010",fillOpacity:f.properties.current===false?0:.8}),
-    onEachFeature:(f,lyr)=>lyr.bindPopup(rep311Pop(f.properties),
-      {maxWidth:260,autoPanPadding:[24,24]})
-  }).addTo(MAP);
+  const g=L.layerGroup();
+  cluster311().forEach(grp=>{
+    /* One report in the cell is just that report, drawn exactly as before. */
+    if(grp.length===1){
+      const f=grp[0].f, hollow=f.properties.current===false;
+      g.addLayer(L.circleMarker(grp[0].ll,{
+        pane:"rep311",renderer:REP311_CANVAS,radius:3,
+        color:"#101010",weight:hollow?1.2:0,
+        fillColor:"#101010",fillOpacity:hollow?0:.8})
+        .bindPopup(rep311Pop(f.properties),{maxWidth:260,autoPanPadding:[24,24]}));
+      return;
+    }
+    const n=grp.length;
+    let lat=0,lon=0;
+    grp.forEach(o=>{ lat+=o.ll.lat; lon+=o.ll.lng; });
+    const at=L.latLng(lat/n,lon/n);
+    /* The current/kept split is what the hollow markers say for a single
+       report, so a badge that hides it would drop a distinction the popup
+       and hawaii311.org both make. It moves into the badge's tooltip
+       instead of disappearing. */
+    const kept=grp.filter(o=>o.f.properties.current===false).length;
+    const size=n<10?22:n<50?28:34, fs=n<10?11:n<50?12:13;
+    const tip=n+" reports in this area. "+(n-kept)+" on the city's current feed"+
+      (kept?", "+kept+" kept past the city's own 14 day window":"")+
+      ". Click to zoom in.";
+    /* The target of the zoom rides on the badge as data attributes and the
+       click is handled by one delegated listener on the map container, not
+       by marker.on("click"): a marker in a custom pane does not reliably
+       receive Leaflet's own click event, so binding it there gave a badge
+       that said "click to zoom in" and did nothing. Delegation is also the
+       pattern #islandnav and #filters already use in this file. */
+    g.addLayer(L.marker(at,{pane:"rep311",icon:L.divIcon({className:"",
+      iconSize:[size,size],iconAnchor:[size/2,size/2],
+      html:'<div class="c311" data-lat="'+at.lat+'" data-lon="'+at.lng+'" '+
+           'style="width:'+size+'px;height:'+size+'px;font-size:'+fs+'px" '+
+           'title="'+esc(tip)+'">'+(n>999?"999+":n)+'</div>'})}));
+  });
+  REP311_LAYER=g.addTo(MAP);
 }
 
 async function load311(){
@@ -2896,11 +2965,23 @@ function set311(on){
   if(!MAP) return;
   REP311_ON=on;
   if(!MAP.getPane("rep311")){
-    /* Above the wave/radar/satellite/hazard panes (240/250/205/350), below
-       the default panes live incident markers (closures, shelters, alerts)
-       use, so this reads as secondary to actual emergency data, not on top
-       of it. */
-    MAP.createPane("rep311"); MAP.getPane("rep311").style.zIndex=380;
+    /* Above the wave/radar/satellite/hazard panes (240/250/205/350) and above
+       Leaflet's overlay pane (400), below its marker pane (600).
+       Raised from 380 to 450 on 2026-09-04, when clustering made this
+       layer something you click rather than just look at. At 380 the layer
+       sat under the overlay pane, where the NWS alert polygons live, and a
+       polygon is a filled shape that swallows every click inside it. With a
+       statewide advisory up, which is most of the time, that made every 311
+       point and every cluster badge unclickable: the badge said "click to
+       zoom in" and nothing happened. Points have to sit above area fills to
+       stay usable, which is exactly why Leaflet's own marker pane is above
+       its overlay pane.
+       The original intent of 380, that 311 reads as secondary to real
+       emergency data, still holds: these are small dark dots and badges
+       against big red alert polygons, and the shelters, gauges, closured
+       road markers and storm markers Leaflet puts in the 600 marker pane
+       still draw on top of them. */
+    MAP.createPane("rep311"); MAP.getPane("rep311").style.zIndex=450;
   }
   if(rep311Timer){ clearInterval(rep311Timer); rep311Timer=null; }
   if(on){
@@ -3101,6 +3182,12 @@ function drawMap(){
     L.control.zoom({position:"bottomright"}).addTo(MAP);
     MAP.on("zoomend",satAutoZoom);
     MAP.on("moveend",syncIslandChip);
+    /* 311 clusters are computed in screen space over what is currently in
+       view, so they have to be rebuilt after any pan or zoom. Debounced,
+       and a no-op unless the layer is actually on. */
+    MAP.on("moveend",()=>{ clearTimeout(rep311MoveT); rep311MoveT=setTimeout(()=>{
+      if(REP311_ON&&REP311_DATA) draw311();
+    },160); });
     /* maxZoom raised from 17 to 19, 2026-09-03: Esri's World_Street_Map serves
        real, distinct street-level tiles at 18 and 19 too (verified live against
        Honolulu, see CLAUDE.md), so zooming in past 17 now keeps loading sharper
@@ -3225,6 +3312,23 @@ $("filters").addEventListener("click",e=>{
 /* Pure map navigation, no location pick: sets the view only, does not touch
    S.c, does not trigger setLoc()'s located flow. The hero/isles list above
    the board is still what actually picks a location. */
+/* Clicking a 311 cluster zooms into it. Delegated at the document, in the
+   capture phase, and registered once at top level like every other handler
+   here rather than inside drawMap: the badges are rebuilt on every pan and
+   zoom, and a marker sitting in a custom Leaflet pane does not reliably get
+   Leaflet's own click event, so neither per-marker binding nor a listener
+   tied to map creation is dependable. The zoom target rides on the badge as
+   data attributes, so the handler needs no state of its own. */
+document.addEventListener("click",e=>{
+  const b=e.target&&e.target.closest&&e.target.closest(".c311");
+  if(!b||!MAP) return;
+  /* Not animated, on purpose. Drilling into a cluster is a "show me what is
+     under this" action where the result wants to be on screen at once, and
+     animating it means re-clustering all ~2,400 points against a view that
+     is still moving, which reads as jank rather than polish. */
+  MAP.setView([+b.dataset.lat,+b.dataset.lon],Math.min(MAP.getZoom()+2,19),{animate:false});
+},true);
+
 $("islandnav").addEventListener("click",e=>{
   const b=e.target.closest("button[data-jump]"); if(!b||!MAP) return;
   if(b.dataset.jump==="all"){ fitStormView(); syncIslandChip(); return; }
