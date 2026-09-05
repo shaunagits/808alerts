@@ -15,6 +15,7 @@ const {
   newestRelease,
   alertBanner,
   coordBlocks,
+  placemarks,
   decimate,
   parseAtcfLatLon,
   parseAtcfLine,
@@ -169,6 +170,104 @@ eq("track fixture: separates the line from the standalone points", trackLines.le
 eq("track fixture: keeps both point placemarks", trackPoints.length, 2);
 eq("track fixture: a bare point's z coordinate is dropped, not parsed as a 3rd axis",
   trackPoints[0], [-156.0, 20.1]);
+
+/* Real KMZ structure, not a synthetic guess. Both fixtures are the actual KML
+ * out of Hurricane Lowell advisory 36, fetched 2026-09-05, with the coordinate
+ * lists truncated and the styling stripped so they stay readable. The shape
+ * that matters, which Placemark carries which geometry type and what its name
+ * is, is untouched.
+ *
+ * These pin the thing that was actually wrong: arrival time is LineStrings,
+ * and treating it as polygons drew filled blobs where NHC draws contour lines. */
+const REAL_WIND_KML = String.raw`<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="wind_field" id="wind_field">
+        <SimpleField name="Name" type="string"></SimpleField>
+        <SimpleField name="Description" type="string"></SimpleField>
+</Schema>
+<Folder><name>wind_field</name>
+  <Placemark><name>34</name>
+        <Polygon><outerBoundaryIs><LinearRing><coordinates>-161.379944,15.5426741 -161.339371,15.5401411 -161.298889,15.5369225 -161.258514,15.5330181</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+  <Placemark><name>50</name>
+        <Polygon><outerBoundaryIs><LinearRing><coordinates>-161.38855,14.54737 -161.366013,14.54883 -161.34343,14.5499067 -161.32077,14.5505962</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+  <Placemark><name>64</name>
+        <Polygon><outerBoundaryIs><LinearRing><coordinates>-161.393066,14.0487919 -161.379547,14.0504045 -161.365967,14.0517864 -161.352325,14.0529366</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>
+</Folder></Document></kml>`;
+
+const REAL_TOA_KML = String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://earth.google.com/kml/2.2">
+    <Document>
+        <name>Most-Likely Time of Arrival: EP122026_Adv36</name>
+        <ExtendedData>
+            <Data name="timezone">
+                <value>HST</value>
+            </Data>
+            <Data name="storm">
+                <value>Hurricane Lowell</value>
+            </Data>
+            <Data name="atcfid">
+                <value>EP122026</value>
+            </Data>
+            <Data name="advisoryNum">
+                <value>36</value>
+            </Data>
+            <Data name="pubAdvTime">
+                <value>500 PM HST Fri Sep 04 2026</value>
+            </Data>
+        </ExtendedData>
+        <Placemark id="label1a">
+            <styleUrl>#style1a</styleUrl>
+            <Point>
+                <coordinates>-163.60495,13.39984,0.0</coordinates>
+            </Point>
+        </Placemark>
+<Placemark id="label1b">
+            <styleUrl>#style1b</styleUrl>
+            <Point>
+                <coordinates>-163.30029,14.52970,0.0</coordinates>
+            </Point>
+        </Placemark>
+<Placemark> 
+            <Snippet maxLines="0">empty</Snippet>
+            <styleUrl>#toa_line</styleUrl>
+            <LineString>
+                <coordinates>-163.206299,11.3173437,0.0 -163.170837,11.6846085,0.0 -163.170837,11.8661032,0.0 -163.251297,12.0595779,0.0</coordinates> 
+            </LineString>
+        </Placemark>
+<Placemark> 
+            <Snippet maxLines="0">empty</Snippet>
+            <styleUrl>#toa_line</styleUrl>
+            <LineString>
+                <coordinates>-165.412064,12.4473343,0.0 -165.401215,12.5590534,0.0 -165.321152,12.7078800,0.0 -165.246506,12.8636036,0.0</coordinates> 
+            </LineString>
+        </Placemark>
+<Placemark> 
+            <Snippet maxLines="0">empty</Snippet>
+            <styleUrl>#toa_line</styleUrl>
+            <LineString>
+                <coordinates>-167.059128,16.0510197,0.0 -166.975739,16.0405006,0.0 -166.794556,16.0405006,0.0 -166.613373,16.1032982,0.0</coordinates> 
+            </LineString>
+        </Placemark>
+</Folder></Document></kml>`;
+
+const windPm = placemarks(REAL_WIND_KML);
+eq("real wind KMZ: every placemark is a Polygon", windPm.every((p) => p.type === "Polygon"), true);
+eq("real wind KMZ: three wind thresholds, not four quadrants", windPm.length, 3);
+eq("real wind KMZ: names are the knot thresholds, kept in order",
+  windPm.map((p) => p.name), ["34", "50", "64"]);
+eq("real wind KMZ: a threshold parses to a number for styling",
+  parseInt(windPm[2].name, 10), 64);
+
+const toaPm = placemarks(REAL_TOA_KML);
+eq("real arrival KMZ: carries no Polygon at all",
+  toaPm.some((p) => p.type === "Polygon"), false);
+eq("real arrival KMZ: isochrones are LineStrings",
+  toaPm.filter((p) => p.type === "LineString").length, 3);
+eq("real arrival KMZ: label anchors are Points and stay separable",
+  toaPm.filter((p) => p.type === "Point").length, 2);
+eq("real arrival KMZ: a line keeps more than one coordinate",
+  toaPm.find((p) => p.type === "LineString").coords.length > 1, true);
 
 const bigRing = Array.from({ length: 400 }, (_, i) => [i * 0.01, i * 0.01]);
 const thinned = decimate(bigRing, 150);

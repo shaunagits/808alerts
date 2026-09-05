@@ -2676,14 +2676,14 @@ let mapFitStorms=false;
    by default: they are drawn from a generic KMZ-ring extractor that has not
    been checked against a real live shape yet (see stormExtras in the worker),
    so they sit behind an explicit toggle rather than drawing automatically. */
-/* models on by default with the chips gone: its parser is pinned by
-   worker/test-parse.mjs against a real a-deck file and was verified live.
-   wind and arrival stay off and are NOT drawn. Their parsers have only ever
-   been checked against a synthetic fixture, never a real wind-radii or
-   arrival-time KMZ, and a wrong shape there reads as a claim about how far
-   damaging wind reaches. That is invariant 1 territory, so they stay off
-   until someone checks them against a live storm. See CLAUDE.md. */
-let STORMLAYER_ON={wind:false,arrival:false,models:true};
+/* All three on, and all three verified against real data rather than assumed.
+   models is pinned against a real a-deck file. wind and arrival were checked
+   on 2026-09-05 against live KMZ from Hurricane Lowell advisory 36: the wind
+   field is three nested Polygons named 34/50/64 knots, and arrival time is
+   ten LineString isochrones with no polygon in the file at all. The parser
+   had been filling those lines into blobs; that is fixed and pinned by real
+   KMZ fixtures in worker/test-parse.mjs. See CLAUDE.md. */
+let STORMLAYER_ON={wind:true,arrival:true,models:true};
 
 /* Statewide floor for the map before a location is chosen: Niʻihau to
    Hawaiʻi Island with ocean padding, so the islands never sit flush against
@@ -3616,12 +3616,35 @@ function drawStorms(){
       /* Current wind extent and most-likely arrival time, both off by default
          (see STORMLAYER_ON above): outline only, no dash, so they read as
          "right now" against the cone's dashed "the forecast could go here". */
-      if(STORMLAYER_ON.wind&&h.windExtent) HURRLAYER.addLayer(L.geoJSON(h.windExtent,{style:{color:"#c22e22",
-          weight:1,opacity:.45,fillColor:"#c22e22",fillOpacity:.16}})
-        .bindPopup("Current wind extent (34kt or greater), from NOAA NHC.",{maxWidth:240}));
+      /* Wind field: one ring per threshold, carrying its speed in knots (see
+         kmzWindExtent in the worker). They nest, 34kt outermost, so a single
+         flat style would read as one shape and leave the viewer guessing
+         which edge is hurricane force. Denser fill inwards separates them,
+         and each ring says its own speed in words when tapped. Still one
+         colour, --warn, like every other storm element; no palette value was
+         added to carry the difference. */
+      if(STORMLAYER_ON.wind&&h.windExtent) HURRLAYER.addLayer(L.geoJSON(h.windExtent,{
+        style:f=>{
+          const kt=(f.properties||{}).kt;
+          return {color:"#c22e22",weight:kt>=64?1.8:1,opacity:.5,
+            fillColor:"#c22e22",fillOpacity:kt>=64?.20:kt>=50?.13:.07};
+        },
+        onEachFeature:(f,l)=>{
+          const kt=(f.properties||{}).kt;
+          const what=kt>=64?"Hurricane force winds, 64kt and above"
+                   :kt>=50?"Damaging winds, 50kt and above"
+                   :kt>=34?"Tropical storm force winds, 34kt and above"
+                   :"Wind field";
+          l.bindPopup(esc(what)+" reach this far right now. Observed extent at the "+
+            "latest advisory, not a forecast. From NOAA NHC.",{maxWidth:250});
+        }})); 
+      /* Arrival time: isochrones, which are LINES, one per arrival time. They
+         were being drawn as filled polygons before, which invented solid
+         areas NHC never published. fill:false so that cannot come back. */
       if(STORMLAYER_ON.arrival&&h.arrival) HURRLAYER.addLayer(L.geoJSON(h.arrival,{style:{color:"#c22e22",
-          weight:1,opacity:.35,fillColor:"#c22e22",fillOpacity:.08,dashArray:"2 3"}})
-        .bindPopup("Most likely time tropical-storm-force winds arrive, from NOAA NHC.",{maxWidth:240}));
+          weight:1.2,opacity:.5,dashArray:"2 4",fill:false}})
+        .bindPopup("Most likely arrival of tropical storm force winds. Each line is one "+
+          "arrival time, earliest nearest the storm. From NOAA NHC.",{maxWidth:250}));
       /* Individual model tracks ("spaghetti"), off by default. Thin and fine
          dotted so they read as the uncertain, many-strands layer underneath
          the single bold official track, not a second official answer; each

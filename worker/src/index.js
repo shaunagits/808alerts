@@ -120,18 +120,81 @@ async function kmzLinesPoints(url) {
   }
   return out;
 }
-/* Fetch one KMZ and return every closed ring (>2 points) as a GeoJSON
- * Polygon, decimated. Wind radii and arrival-time KMZ carry several rings
- * (one per quadrant, or one per threshold); this returns all of them as a
- * MultiPolygon rather than picking one, unlike the cone (which is genuinely
- * a single ring and always takes the largest). */
-async function kmzPolygons(url) {
+/* Typed placemark reader. coordBlocks above is deliberately blind to geometry
+ * type, which is fine for the cone and track where every block is the shape we
+ * want. It is NOT fine for wind radii and arrival time, verified against live
+ * KMZ from Hurricane Lowell advisory 36 on 2026-09-05:
+ *
+ *   initialradii.kmz        3 <Polygon>, named "34", "50" and "64". Those are
+ *                           wind thresholds in knots, not quadrants: each ring
+ *                           is one closed 361-point wind field for that speed,
+ *                           nested largest (34) to smallest (64).
+ *   most_likely_toa_34.kmz  0 <Polygon>. 10 <LineString> isochrones and 27
+ *                           <Point> label anchors.
+ *
+ * So arrival time is a set of open contour LINES, and the old code turned them
+ * into filled polygons. That drew solid blobs where NHC draws lines, which is
+ * exactly the kind of invented shape invariant 1 exists to stop. This reader
+ * keeps the geometry type and the placemark name so neither can happen again. */
+function placemarks(kml) {
+  const out = [];
+  const re = /<(Polygon|LineString|Point)\b[\s\S]*?<coordinates>\s*([\s\S]*?)\s*<\/coordinates>/g;
+  const names = [];
+  const nre = /<Placemark\b[\s\S]*?<name>\s*([\s\S]*?)\s*<\/name>/g;
+  let n;
+  while ((n = nre.exec(kml))) names.push(n[1].trim());
+  let m, i = 0;
+  while ((m = re.exec(kml))) {
+    const pts = m[2]
+      .trim()
+      .split(/\s+/)
+      .map((t) => {
+        const p = t.split(",");
+        return [parseFloat(p[0]), parseFloat(p[1])];
+      })
+      .filter((p) => isFinite(p[0]) && isFinite(p[1]));
+    if (pts.length) out.push({ type: m[1], name: names[i] || "", coords: pts });
+    i++;
+  }
+  return out;
+}
+
+/* Current wind field. One Polygon per wind threshold, each carrying the
+ * threshold in knots, so the map can tell 34kt (tropical-storm force) from
+ * 64kt (hurricane force) instead of drawing three nested rings identically
+ * and leaving the viewer to guess which edge means what. */
+async function kmzWindExtent(url) {
   if (!url) return null;
   try {
     const buf = await fetch(url, { cf: { cacheTtl: 300 } }).then((r) => r.arrayBuffer());
-    const rings = coordBlocks(kmlFromKmz(buf)).filter((r) => r.length > 2);
+    const rings = placemarks(kmlFromKmz(buf)).filter((p) => p.type === "Polygon" && p.coords.length > 2);
     if (!rings.length) return null;
-    return { type: "MultiPolygon", coordinates: rings.map((r) => [decimate(r, 150)]) };
+    return {
+      type: "FeatureCollection",
+      features: rings.map((r) => ({
+        type: "Feature",
+        properties: { kt: parseInt(r.name, 10) || null },
+        geometry: { type: "Polygon", coordinates: [decimate(r.coords, 150)] },
+      })),
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/* Most likely arrival of tropical-storm-force winds: isochrones, which are
+ * lines. Returned as a MultiLineString so nothing downstream can fill them.
+ * The Point placemarks are label anchors for the day/time images inside the
+ * KMZ and are dropped; the labels themselves are not reproduced. */
+async function kmzArrivalLines(url) {
+  if (!url) return null;
+  try {
+    const buf = await fetch(url, { cf: { cacheTtl: 300 } }).then((r) => r.arrayBuffer());
+    const lines = placemarks(kmlFromKmz(buf))
+      .filter((p) => p.type === "LineString" && p.coords.length > 1)
+      .map((p) => decimate(p.coords, 150));
+    if (!lines.length) return null;
+    return { type: "MultiLineString", coordinates: lines };
   } catch (e) {
     return null;
   }
@@ -161,8 +224,8 @@ async function stormExtras(bestTrackUrl, windExtentUrl, arrivalUrl) {
   return {
     bestTrack: bt.lines.length ? { type: "MultiLineString", coordinates: bt.lines } : null,
     bestTrackPoints: bt.points.length ? { type: "MultiPoint", coordinates: bt.points } : null,
-    windExtent: await kmzPolygons(windExtentUrl),
-    arrival: await kmzPolygons(arrivalUrl),
+    windExtent: await kmzWindExtent(windExtentUrl),
+    arrival: await kmzArrivalLines(arrivalUrl),
   };
 }
 
@@ -835,6 +898,7 @@ export const __test = {
   strip,
   releaseBody,
   coordBlocks,
+  placemarks,
   decimate,
   parseAtcfLatLon,
   parseAtcfLine,

@@ -503,17 +503,33 @@ degrade to the old behaviour if the worker is unreachable.
   drawn too, but behind two new off-by-default map chips, WIND FIELD and ARRIVAL
   TIME (`STORMLAYER_ON`), shown only when a storm actually carries that data. No
   extra fetch: both ride along with the same `/api/hurricane` response, so toggling
-  just rebuilds `HURRLAYER` locally. **These two are unverified.** `stormExtras()` in
-  `worker/src/index.js` parses them with the same generic "every `<coordinates>`
-  block is a ring" extractor already proven for the cone, but a wind radii or
-  arrival-time KMZ carries several rings (one per quadrant, or per threshold) where
-  the cone is genuinely one, and that has only been checked against a synthetic
-  fixture in `worker/test-parse.mjs`, not a real KMZ pulled from a live storm. Fetch
-  one from an active storm's `initialWindExtent.kmzFile` / `mostLikelyTimeTSWindsGIS.kmzFile`
-  and look at the shapes on the map before trusting them. Best track was left on by
-  default anyway because a bad line still just looks like a line; a wrong wind-extent
-  shape could read as a claim about how far damaging wind actually reaches, which is
-  exactly the kind of thing invariant 1 exists for.
+  just rebuilds `HURRLAYER` locally. **Verified against real KMZ on 2026-09-05, and one of them was wrong.**
+  Both were fetched from live Hurricane Lowell advisory 36 and opened up rather
+  than trusted. What is actually in them:
+
+  - `initialradii.kmz`: **3 `<Polygon>`**, named `34`, `50` and `64`. Those are
+    wind thresholds in knots, not quadrants: each is one closed 361-point wind
+    field, nested largest (34kt) to smallest (64kt).
+  - `most_likely_toa_34.kmz`: **0 polygons.** 10 `<LineString>` isochrones plus
+    27 `<Point>` label anchors for the day/time images bundled in the KMZ.
+
+  So arrival time is a set of open contour LINES, and the old generic extractor
+  was turning them into filled polygons: solid areas NHC never published, drawn
+  over the ocean as if they meant something. Precisely the invented shape
+  invariant 1 exists to stop, and it would not have been caught by looking at
+  the map casually, because a filled blob near a hurricane looks plausible.
+
+  Fixed by reading the geometry type and placemark name instead of treating
+  every `<coordinates>` block alike: `placemarks()`, `kmzWindExtent()` and
+  `kmzArrivalLines()` in `worker/src/index.js`. Wind extent returns a
+  FeatureCollection carrying `kt` per ring so the map can distinguish
+  tropical-storm force from hurricane force and say which is which when tapped,
+  rather than drawing three nested rings identically. Arrival returns a
+  MultiLineString, and the page draws it `fill:false` so the blobs cannot come
+  back. Both are pinned in `worker/test-parse.mjs` by fixtures built from the
+  real KML, not synthetic ones. Confirmed on screen afterwards: three nested
+  rings at each storm centre at fill opacities .07/.13/.20, and the isochrones
+  drawn as unfilled dashed curves.
 - **Added 2026-09-03: individual model tracks ("spaghetti"), off by default, a MODELS
   chip.** Everything above is NHC's own single blended forecast (cone/track) plus where
   the storm has actually been (best track). This is different: it shows what each
@@ -715,15 +731,12 @@ unconditionally and loses its chip. After the change the row is one chip, 36px,
   off where they do not. Each call is guarded on the layer's own flag, because
   these setters fetch and start refresh timers and `drawMap()` runs on every band
   refresh; unguarded, they would refetch in a loop.
-- **WIND FIELD and ARRIVAL TIME are the exception: they are off and not drawn.**
-  Their chips are gone like the rest, but the layers stay off rather than joining
-  the always-on set. Their parsers have only ever been checked against a synthetic
-  fixture in `worker/test-parse.mjs`, never a real wind-radii or arrival-time KMZ
-  from a live storm, and a wrong shape there reads as a claim about how far
-  damaging wind actually reaches. That is exactly invariant 1. They stay off until
-  someone fetches a real KMZ from an active storm and looks at the shapes. MODELS
-  is on, because its parser was verified live against a real a-deck file and is
-  pinned by tests.
+- **WIND FIELD and ARRIVAL TIME were held off here, then settled on 2026-09-05.**
+  They were the one exception when the chips went, because their parsers had only
+  been checked against a synthetic fixture. That check has since been done against
+  real KMZ from a live storm, it found a genuine bug in the arrival parser, and
+  after fixing it both are on with the rest. See the worker section above for what
+  the files actually contain.
 - **The click handlers for the removed chips are left in place.** They no-op with
   no button to match. Restoring any chip is a one-line change to the `#filters`
   template, which is the point: the owner framed this as "for now".
