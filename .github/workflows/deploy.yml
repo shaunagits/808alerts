@@ -25,6 +25,12 @@ jobs:
       # Pages direct upload has no --exclude flag, so the publish set is
       # assembled explicitly here rather than filtered at upload time.
       #
+      # archive/, tools/ and index-v5.html are excluded because they are repo
+      # internals, and the three HTML ones are older copies of the homepage:
+      # published, indexable, carrying no canonical and no noindex, so they
+      # competed with the real homepage in search. sources.json stays
+      # published on purpose, it is the portable registry.
+      #
       # This is also what keeps worker/ out of reach: it is not in dist/, so it
       # is neither uploaded nor visible to wrangler's config resolution. That
       # resolution starts at the working directory and walks UP through parent
@@ -47,6 +53,10 @@ jobs:
             --exclude='worker/' \
             --exclude='CLAUDE.md*' \
             --exclude='*.bak' \
+            --exclude='archive/' \
+            --exclude='tools/' \
+            --exclude='index-v5.html' \
+            --exclude='.gitignore' \
             ./ dist/
 
           echo "--- publishing ---"
@@ -54,7 +64,7 @@ jobs:
 
           echo "--- verifying exclusions ---"
           fail=0
-          for p in CLAUDE.md docs worker; do
+          for p in CLAUDE.md docs worker archive tools index-v5.html .gitignore; do
             if [ -e "dist/$p" ]; then echo "ERROR: dist/$p would be published"; fail=1; else echo "ok: $p excluded"; fi
           done
           if find dist -name '*.bak' | grep -q .; then echo "ERROR: .bak files in dist"; fail=1; else echo "ok: no .bak files"; fi

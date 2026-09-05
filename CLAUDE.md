@@ -1264,44 +1264,88 @@ Not decided, and deliberately not pre-narrowed to whichever option avoids a buil
 
 ## Deployment
 
-**Single host, Git-connected, one command: `git push`.** Changed 2026-09-03: the two
-staging directories and the manual wrangler/vercel deploy steps were replaced with
-Cloudflare Pages' own Git integration. This was a deploy-mechanics decision, not a
-statement that the site's architecture can never use a build step; see SEO above for an
-open question that may need one. Host is **Cloudflare Pages**, project `808alerts`,
-connected directly to the `shaunagits/808alerts` GitHub
-repo. A push to `main` deploys automatically; there is no manual `wrangler`/`vercel`
-step, no staging directory, and no file to rename before deploying, because `index.html`
-already sits at the repo root and Cloudflare Pages serves the repo root as-is with no
-build command.
+**One command: `git push`.** Host is **Cloudflare Pages**, project `808alerts`. A push to
+`main` runs `.github/workflows/deploy.yml`, which uploads to that project. There is no
+manual `wrangler` step, no staging directory, and no file to rename. The workflow also
+has a `workflow_dispatch` trigger, so it can be run by hand from the Actions tab.
 
-**Vercel is retired.** It was kept as a live mirror behind a second manual deploy step;
-that was exactly the complexity being removed here. `808alerts.vercel.app`,
-`808alerts-shaunagits-projects.vercel.app` and `hawaii-storm-info.vercel.app` may still
-resolve to whatever was last deployed there, but nothing updates them any more. Treat
-them as dead links, not a live mirror, until someone either deletes the Vercel project
-or explicitly decides to wire it back up.
+**The project stays a Direct Upload project on purpose. The Git cutover described in
+earlier revisions of this file is not planned and should not be attempted.** Cloudflare
+cannot convert a Direct Upload project to Git-integrated in place, so that cutover meant
+creating a second project, moving both custom domains onto it, and abandoning the
+original `*.pages.dev` subdomain (those are assigned once and can never be renamed or
+reused). Driving the existing project from GitHub Actions gets the same push-to-deploy
+result with none of that. It also keeps something the Git integration cannot do at all:
+control over exactly which files get published. See the exclusion list below.
 
-**One-time cutover, not yet done as of this writing.** The existing `808alerts` Cloudflare
-Pages project was created with `wrangler pages deploy` (a Direct Upload project), and
-Cloudflare does not support converting a Direct Upload project to Git-integrated in
-place. The path that avoids downtime:
+**Two repository secrets** on `shaunagits/808alerts` authenticate the deploy:
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The token is scoped to **Cloudflare
+Pages: Edit** and nothing else, so anything needing broader permissions will fail by
+design. Do not widen it to work around an error, and do not echo either secret in a
+workflow step.
 
-1. In the Cloudflare dashboard, Workers & Pages -> Create application -> Pages ->
-   Connect to Git. Pick the `shaunagits/808alerts` repo, branch `main`.
-2. Build settings: framework preset **None**, build command **empty**, build output
-   directory **`/`** (repo root). No environment variables needed.
-3. This creates a **new** project (it cannot reuse the name `808alerts` while the old
-   one still exists, so name it something like `808alerts-live` for now). Confirm it
-   deploys correctly at its own `*.pages.dev` URL before touching anything live.
-4. Once confirmed, move the custom domains: add `808alerts.com` and `www.808alerts.com`
-   as Custom Domains on the new project. Cloudflare will prompt for any DNS change
-   needed; since the zone is already Cloudflare-proxied this is usually automatic.
-5. Remove the custom domains from the old Direct Upload project, then delete it (or
-   leave it paused as a fallback for a few days before deleting).
+**Vercel is retired.** It was kept as a live mirror behind a second manual deploy step.
+`808alerts.vercel.app`, `808alerts-shaunagits-projects.vercel.app` and
+`hawaii-storm-info.vercel.app` may still resolve to whatever was last deployed there, but
+nothing updates them any more. Treat them as dead links, not a live mirror, until someone
+either deletes the Vercel project or explicitly decides to wire it back up.
 
-`*.pages.dev` subdomains are assigned once at project creation and cannot be renamed or
-reused, which is why this goes through a second project rather than converting in place.
+### What actually gets published
+
+**The repo root is not the publish root.** The workflow assembles a `dist/` directory with
+`rsync` and deploys that, rather than uploading the checkout as-is. Pages direct upload has
+no `--exclude` flag, and `.assetsignore` is a Workers-Assets feature that is not reliably
+applied to `pages deploy`, so an assembled directory is the mechanism that actually works
+and can be verified before the upload runs. The workflow fails the build if anything on the
+exclusion list survives into `dist/`.
+
+Excluded, and why:
+
+| Excluded | Reason |
+|---|---|
+| `CLAUDE.md*` | this file, plus its `.bak` variants |
+| `docs/` | design handoffs and planning notes |
+| `worker/` | Worker source, and see the note below |
+| `*.bak` | working backups |
+| `archive/`, `index-v5.html` | older copies of the homepage |
+| `tools/` | build scripts, not site content |
+| `.gitignore`, `.git/`, `.github/`, `.claude/`, `.wrangler/`, `node_modules/` | repo and CI internals |
+
+`sources.json` **stays published on purpose.** It is the portable registry and the schema
+of record, and it is meant to be readable.
+
+`archive/index.html`, `archive/index-v4.html` and `index-v5.html` are the ones worth
+understanding rather than just obeying. All three are older revisions of the homepage.
+They were publicly reachable and indexable, carried no `<link rel="canonical">` and no
+`noindex`, and served a `<title>` of "Hawaiʻi Storm Info" against the live homepage's
+"808 Alerts, Hawaiʻi storm information". Nothing linked them and they were not in
+`sitemap.xml`, so they earned nothing, while competing with the real homepage in search.
+They stay in git as the rollback record; they just are not served. If a rollback is ever
+needed, restore the file to `index.html` rather than re-publishing the archived copy.
+
+**Excluding `worker/` is load-bearing, not tidiness.** It keeps `worker/wrangler.toml`
+out of the Pages deploy, so the Pages upload can never pick up the Worker's own config.
+Wrangler resolves its config by walking **up** from the working directory through parent
+directories, never down into children, and there is no `wrangler.toml` at the repo root
+or above it, so this is belt and braces. Keep it that way. The Worker is deployed
+separately; see the companion Worker section above.
+
+### The root `404.html` is required, do not delete it
+
+**Cloudflare Pages serves the root `index.html` with a `200` for any unmatched path when
+the deployment contains no `404.html`.** That is a silent SPA fallback, and it is why
+every wrong URL on this site used to return the whole board with a success status:
+`/CLAUDE.md`, `/worker/src/index.js` and any typo alike. Excluding a file from the upload
+does not by itself make its URL 404, it just changes what the fallback serves.
+
+A root `404.html` switches Pages to serving that file with a real `404` status instead.
+It follows `hurricane-kit-checklist/index.html` as its template: the same five-value
+palette, zero radius, no shadows, and the system font stack rather than the inlined
+Archivo, since it carries no live data and should not pay the font payload. It is
+`noindex`, and it lists the real pages so a bad link still lands somewhere useful. If a
+page is ever added or renamed, update that list.
+
+### Verifying a deploy
 
 Confirm the deployed bytes with a sha256 against the source rather than trusting a green
 deploy:
@@ -1312,6 +1356,17 @@ deploy:
 After a deploy, the custom domain can briefly serve the previous build while the
 project's own `pages.dev` already has the new one. Poll until the sha matches rather
 than judging by the first reload.
+
+Worth spot-checking after any change to the publish set, since all of these were broken
+at some point by a stale deploy that served `index.html` for every path:
+
+    curl -sI https://808alerts.com/robots.txt      # text/plain, not text/html
+    curl -sI https://808alerts.com/sitemap.xml     # application/xml
+    curl -sI https://808alerts.com/og-image.png    # image/png
+    curl -so /dev/null -w '%{http_code}' https://808alerts.com/nope   # 404, not 200
+
+Note that Pages 308-redirects `/foo.html` to `/foo`, so check the extensionless form when
+a `.html` path looks like it is still alive.
 
 ## Conventions
 
