@@ -351,6 +351,25 @@ already uses for its own forecast-zone lookups. Each chip carries the island's
 `lat,lon` in a `data-jump` attribute; the click handler reads it and calls
 `MAP.setView([lat,lon],10)`, nothing else.
 
+**An ALL ISLANDS chip leads the row, added 2026-09-04.** Zooming to one island was
+one-way: the only route back to the wide default was pinching out or reloading. The
+first chip carries `data-jump="all"` and calls `fitStormView()`, the same function
+that produces the map's own default framing (statewide `HI_BOUNDS`, extended for any
+storm that passes `stormNearHawaii()`), so "back to the default" really is the
+default rather than a second hardcoded wide view that could drift from it. Like the
+island chips it touches `MAP` only, never `S.c`.
+
+**The active chip is derived from the map, not remembered from the click.**
+`syncIslandChip()` reads `MAP.getCenter()`/`getZoom()` on every `moveend` and lights
+the one chip that still describes what is on screen: `z<=7` for ALL ISLANDS, or
+island-level zoom (`z>=9`) centred within about .35 degrees of an island for that
+island's chip. So panning or pinching away drops the highlight instead of leaving a
+chip asserting a view the user has already left, and a located visitor sitting at
+zoom 11 over Oʻahu correctly sees the OʻAHU chip lit without anything having been
+clicked. In between the two framings nothing is lit, which is the honest answer.
+The active state is `--accent` on `--ink` text, reusing the palette's existing
+primary-action colour; no sixth value was added.
+
 **Shown in every map state, not just home.** First shipped hidden once a location was
 picked (`$("islandnav").hidden=!!S.c`), on the reasoning that the located map already
 has its own zoom-11 view. The owner clarified same day: these are meant as standing

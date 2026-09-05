@@ -1316,6 +1316,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .islandnav:not([hidden]){display:flex}
 .islandnav .chip{background:var(--ink);color:#fff}
 .islandnav .chip:hover{background:var(--ink2)}
+/* Which framing the map is actually showing right now. Derived from the map's
+   own view on every move (see syncIslandChip), never just left set from the
+   last click, so panning away by hand drops the highlight rather than leaving
+   a chip claiming a view the user has already left. */
+.islandnav .chip[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
 .mapwrap.tall .scalenote{display:none}
 .maplist{
   position:absolute;z-index:500;top:60px;right:14px;width:320px;
@@ -3078,8 +3083,14 @@ function drawMap(){
   $("islandWx").hidden=!!S.c;
   $("islandnav").hidden=false;
   if(!$("islandnav").childElementCount){
-    $("islandnav").innerHTML=ISLANDS.map(i=>
-      `<button class="chip" type="button" data-jump="${esc(i.lat)},${esc(i.lon)}">${esc(up(i.label))}</button>`).join("");
+    /* ALL ISLANDS first: the wide statewide-plus-storms framing the map opens
+       on, so every island jump has a way back to the default without pinching
+       out to find it. */
+    $("islandnav").innerHTML=
+      `<button class="chip" type="button" data-jump="all" aria-pressed="false">ALL ISLANDS</button>`
+      +ISLANDS.map(i=>
+      `<button class="chip" type="button" data-jump="${esc(i.lat)},${esc(i.lon)}" aria-pressed="false">${esc(up(i.label))}</button>`).join("");
+    syncIslandChip();
   }
   if(!S.c) renderIslandWx();
 
@@ -3089,6 +3100,7 @@ function drawMap(){
     /* bottom right, so it never collides with the category chips */
     L.control.zoom({position:"bottomright"}).addTo(MAP);
     MAP.on("zoomend",satAutoZoom);
+    MAP.on("moveend",syncIslandChip);
     /* maxZoom raised from 17 to 19, 2026-09-03: Esri's World_Street_Map serves
        real, distinct street-level tiles at 18 and 19 too (verified live against
        Honolulu, see CLAUDE.md), so zooming in past 17 now keeps loading sharper
@@ -3215,9 +3227,30 @@ $("filters").addEventListener("click",e=>{
    the board is still what actually picks a location. */
 $("islandnav").addEventListener("click",e=>{
   const b=e.target.closest("button[data-jump]"); if(!b||!MAP) return;
+  if(b.dataset.jump==="all"){ fitStormView(); syncIslandChip(); return; }
   const [lat,lon]=b.dataset.jump.split(",").map(Number);
   MAP.setView([lat,lon],10);
+  syncIslandChip();
 });
+
+/* Highlight the chip that describes what the map is currently framing, read
+   from the map itself rather than remembered from the last click, so a pan,
+   a pinch or a fresh location pick all correct it on their own. Nothing
+   matches in between the two framings, and that is the honest answer: the
+   view is neither one island nor the whole state. */
+function syncIslandChip(){
+  const nav=$("islandnav"); if(!MAP||!nav.childElementCount) return;
+  const c=MAP.getCenter(), z=MAP.getZoom();
+  nav.querySelectorAll("button[data-jump]").forEach(b=>{
+    let on;
+    if(b.dataset.jump==="all") on=z<=7;                      // zoomed out past island level
+    else{
+      const [lat,lon]=b.dataset.jump.split(",").map(Number); // centred on this island, island-level zoom
+      on=z>=9&&Math.abs(c.lat-lat)<.35&&Math.abs(c.lng-lon)<.35;
+    }
+    b.setAttribute("aria-pressed",on?"true":"false");
+  });
+}
 
 /* No new fetch: wind extent and arrival bands ride along with the storm data
    already loaded, so toggling just rebuilds HURRLAYER with that piece in or
