@@ -196,6 +196,17 @@ body.located .hero{display:none}
 .loc-ctl .zip{padding:8px 12px;min-height:0;width:150px}
 .loc-ctl .note{margin:0;flex-basis:100%}
 .loc-ctl .isles{margin-top:0;flex-basis:100%}
+/* On a narrow phone the relocate controls do not fit beside the place name:
+   the button and the 150px ZIP field are both flex:none, so the pair ran 66px
+   off the right edge of a 375px screen. They keep the side by side
+   arrangement the owner asked for; they just take their own full width row
+   and share it, instead of crossing the viewport edge. */
+@media (max-width:520px){
+  .loc-ctl{flex-basis:100%}
+  .loc-ctl .controls{width:100%;flex:1 1 100%}
+  .loc-ctl .controls>*{flex:1 1 0;min-width:0}
+  .loc-ctl .zip{width:auto}
+}
 @media (min-width:1024px){
   .loc{padding:18px var(--pad);align-items:baseline}
   .loc-l{gap:18px}
@@ -260,10 +271,17 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
      used to sit left at 1.15fr with the five bands beside it at 1fr only
      once a location was known. That two column split is gone. */
   .board{display:grid;grid-template-columns:1fr;gap:2px;background:var(--surface)}
-  /* Capped, not min-height, per docs/Home - Located.dc.html: the map is a
-     card, not the whole fold. The bands right below it are the primary
-     above-the-fold content now. */
-  .mapwrap{height:360px}
+  /* 640px minimum, per docs/808alerts-r4-actions.html artboard 7c
+     ("MAP - 1.35fr x 640px MINIMUM"). This supersedes Home - Located.dc.html,
+     which capped the card at 360px on the reasoning that the bands below it
+     were the primary above-the-fold content. The map has since become the
+     prominent piece of the page and 360px was too small to read it in.
+     min-height, not height: a fixed height here is what caused the grey gap
+     under the map on desktop once before (see The Hawaiian Electric map
+     toggle). Only the height changes; the board stays one full width column,
+     so 7c's 1.35fr two column split is deliberately not adopted, the owner
+     asked for full width on 2026-09-03. */
+  .mapwrap{min-height:640px}
   .mapwrap.tall{height:calc(100vh - 76px)}
   .board:has(.mapwrap.tall) #bands,
   .board:has(.mapwrap.tall) #islandWx,
@@ -1385,7 +1403,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 .c311:hover{background:var(--ink2)}
 @media (max-width:1023.98px){
-  .mapwrap{height:280px}
+  /* 340px per docs/808alerts-r4-actions.html artboard 7a ("MAP 340px"), up
+     from 280px. Same reason as the desktop bump: the map is the thing people
+     come to read now. */
+  .mapwrap{height:340px}
+  /* With every layer drawing at once, Leaflet's attribution carries six
+     credits and wraps to three lines on a phone, running straight through the
+     scale note above it. The attribution has to stay, so the scale note goes:
+     the location strip already names where you are and the island control
+     already names the view, making it the one redundant label of the three. */
+  .scalenote{display:none}
   .mapwrap.tall{height:calc(100vh - 60px)}
   .maplist{left:14px;right:64px;width:auto;top:auto;bottom:14px;max-height:44%}
 }
@@ -3877,20 +3904,26 @@ $("expandBtn").addEventListener("click",()=>{
 
 /* Touch drag and pinch-to-zoom need no gate: Leaflet enables both by default
    and nothing here turns them off, so a finger already pans and pinch-zooms
-   the map with no "expand" step. Mouse scroll-wheel zoom is different: it
-   starts disabled (see MAP init) because a visitor scrolling PAST the map,
-   cursor incidentally passing over it, would otherwise get their whole page
-   scroll hijacked into a map zoom, a well-known embedded-map problem. A
-   click on the map first activates wheel-zoom for it (same trade-off Google
-   Maps makes); a click anywhere outside the map turns it back off so normal
-   page scroll resumes elsewhere. Expanded ("tall") map is unaffected by
-   this, it already forces wheel-zoom on above regardless of clicks. */
-$("map").addEventListener("mousedown",()=>{
-  try{ if(MAP&&!MAP.scrollWheelZoom.enabled()) MAP.scrollWheelZoom.enable(); }catch(_){}
-});
+   the map with no "expand" step.
+
+   Mouse scroll-wheel zoom stays off in the normal map, full stop. It starts
+   disabled at MAP init and nothing turns it back on.
+
+   It used to arm on a click inside the map and disarm on a click outside, the
+   trade-off Google Maps makes. That was tolerable while the card was 360px;
+   at the 640px the map now stands at it became a scroll trap. The map fills
+   most of a desktop viewport, so clicking it, which you do to read a popup,
+   left nowhere to put the cursor that was off the map, and the page could not
+   be scrolled past it at all. Reported by the owner as "it wont let me scroll
+   down past it once I am clicked in that space".
+
+   Nothing is lost: the +/- control zooms, double click zooms, a finger
+   pinches, and EXPAND MAP still turns wheel-zoom on for the expanded state,
+   where the map genuinely is the whole viewport and page scroll is not
+   competing for the wheel. */
 document.addEventListener("click",e=>{
   if(!MAP||$("mapwrap").classList.contains("tall")) return;
-  if(!e.target.closest("#mapwrap")){ try{ MAP.scrollWheelZoom.disable(); }catch(_){} }
+  try{ MAP.scrollWheelZoom.disable(); }catch(_){}
 });
 
 $("maplistItems").addEventListener("click",e=>{
