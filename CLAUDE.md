@@ -571,10 +571,19 @@ overlay went.
 
 ### The hazard zone layers
 
-Two more map toggles, **TSUNAMI ZONE** and **FLOOD ZONE**, on every island. Off by
-default. They draw the Hawaiʻi Statewide GIS hazard polygons so someone can see whether
-their location sits in a tsunami evacuation zone or a coastal flood zone. This is the one
-map data that exists for Oʻahu, Maui and Kauaʻi, where there are otherwise no live layers.
+**TSUNAMI ZONE**, on every island. It draws the Hawaiʻi Statewide GIS tsunami
+evacuation polygons so someone can see whether their location sits in one. This is the
+one map data that exists for Oʻahu, Maui and Kauaʻi, where there are otherwise no live
+layers.
+
+**Two corrections to what this section used to say, both 2026-09-05.** It described
+"two more map toggles, TSUNAMI ZONE and **FLOOD ZONE**, off by default", and neither
+half is true any more. FLOOD ZONE was removed on 2026-08-19 (see the Removed note just
+above this section), so this section contradicted the paragraph four lines above it for
+two weeks. And nothing here is a toggle now: see The map chip row, the layer draws
+unconditionally. The `setHazard(k,on)` signature and the `flood` key are still in the
+code and still work, which is why restoring FLOOD ZONE would be small, but it is not
+wired to anything today.
 
 Source is the state's own `Hazards` MapServer, chosen the same way as everything else:
 official, keyless, open CORS, statewide. Verified 2026-08-18.
@@ -594,7 +603,12 @@ handler re-queries the active zones after a pan or an island change. Notes:
 - **Own pane, like the radar.** The zones render in a `hazard` pane at z-index 350, above
   the basemap and radar and below the live incident markers, and outside the grayscale
   filter so the teal shows.
-- **Invariant 5.** Queried only on toggle; nothing loads at render.
+- **Invariant 5, changed 2026-09-05.** This used to read "queried only on toggle;
+  nothing loads at render", and that is no longer true: with the chip gone the zones
+  are queried on every landing where they apply. Measured 2026-09-05, a tsunami-zone
+  query for an Oʻahu-sized view returns about **56KB** of GeoJSON, and the debounced
+  `moveend` handler re-runs it on every pan. That re-query, not the 311 file, is the
+  largest repeating cost this map now carries.
 - Both zones are teal (the ocean-hazard colour), tsunami filled and flood dashed, so they
   stay on-palette and remain legible where they overlap.
 - `loadHazard` carries a per-key request token (`hazSeq`) so a pan-triggered refetch can
@@ -603,9 +617,9 @@ handler re-queries the active zones after a pan or an island change. Notes:
 
 ### The radar layer
 
-The map has a **RADAR** chip in the layer row (Oʻahu and every island). Off by default.
-Turning it on overlays live NWS base reflectivity so someone can see the rain bands
-approaching, not just the alert text.
+Live NWS base reflectivity, on every island, so someone can see the rain bands
+approaching and not just the alert text. **It had a RADAR chip and was off by default
+until 2026-09-05**; see The map chip row. It now draws on every landing.
 
 Source is NOAA's symbolized radar MapServer, chosen the same way every other feed here
 was: it is official (National Weather Service), keyless, sends an open CORS header, and
@@ -623,8 +637,11 @@ refresh while it is visible. Notes for anyone touching it:
   green/yellow/red reflectivity scale. The layer uses a dedicated `radar` pane at
   z-index 250 (above the basemap, below the markers) with no filter. This was a real bug,
   caught and fixed 2026-08-18. Do not move the radar back into the tile pane.
-- **Invariant 5.** The layer is built lazily on first toggle, so no NOAA request fires at
-  render and a saved copy still opens offline. Keep it that way.
+- **Invariant 5, changed 2026-09-05.** This used to read "the layer is built lazily on
+  first toggle, so no NOAA request fires at render. Keep it that way." That instruction
+  has been overtaken: with no chip, NOAA is called on every landing. The lazy-build
+  machinery is still there and still correct, it is just always triggered now. A saved
+  copy still opens offline, it simply shows no radar.
 - No `crossOrigin` on the tiles: the overlay is only displayed, never read pixel by pixel,
   so it needs no CORS and cannot taint if a header is ever missing.
 - **A clear sky draws nothing, which reads as a broken toggle.** This came up
@@ -747,7 +764,9 @@ paint instead of on-then-immediately-corrected.
 
 ### Hawaiʻi 311 open service requests (added 2026-09-04)
 
-A **311 REPORTS** chip, Oʻahu only. Off by default, drawn as small points on the map:
+Oʻahu only, drawn as small points on the map. **It had a 311 REPORTS chip and was off
+by default until 2026-09-05**; see The map chip row. It now draws on every located
+Oʻahu landing. What it shows:
 what's broken right now (potholes, streetlights, illegal dumping, and the rest of the
 city's 311 categories), not an emergency feed but genuinely useful street-level context.
 
@@ -771,9 +790,17 @@ Oʻahu features, ~900KB). Using it sidesteps the geocoding problem entirely rath
 rebuilding it. Scoped to Oʻahu only, because that is all `hawaii311.org` covers, the
 same "this county has it, that one doesn't" pattern the HCCDA layers already established.
 
-**Invariant 5: fetched only on toggle, never at render**, same as radar and the hazard
-zones - the ~900KB payload is too heavy to put on every visitor regardless. `load311()`
-fetches `open.geojson` on toggle-on and every 15 minutes while the layer stays on;
+**Invariant 5, changed 2026-09-05, and the reasoning it used to carry was wrong.**
+This said "fetched only on toggle, never at render, the ~900KB payload is too heavy to
+put on every visitor regardless." Both halves have since failed. The chip is gone, so
+it is fetched on every located Oʻahu landing. And the 900KB figure was the
+**uncompressed** size: `hawaii311.org` serves `open.geojson` with
+`content-encoding: br`, so measured over the wire on 2026-09-05 it is **78KB**, not
+900KB. It was never the heavy thing on this page, and anyone re-gating it on that
+number would be acting on an 11x overstatement. For scale, a located Oʻahu landing
+pulls about 319KB total: 157KB of `index.html`, 56KB of tsunami polygons, 78KB of 311,
+and ~28KB of basemap tiles. `load311()`
+fetches `open.geojson` when the layer turns on and every 15 minutes while it stays on;
 `set311(false)` clears both the layer and the cached data rather than just hiding it,
 so toggling back on always re-fetches fresh rather than showing a stale in-memory copy.
 
@@ -794,10 +821,11 @@ panes (240/250/205/350) but below the default panes Leaflet gives live incident 
 (closures, shelters, alerts), so 311 reads as secondary to actual emergency data, not
 layered on top of it.
 
-**Forced off automatically on leaving Oʻahu.** `drawMap()` checks `S.c!=="HIC003"` on
-every call and calls `set311(false)` if the layer is on and the location isn't Oʻahu
-any more, so a relocate can't leave a stale Oʻahu-only layer (or its now-irrelevant chip)
-showing under a different island.
+**The county gate now cuts both ways, 2026-09-05.** It used to only force the layer
+*off* on leaving Oʻahu, because the chip was the only thing that could turn it on. With
+no chip, `drawMap()` turns it on for Oʻahu and off everywhere else. Each direction is
+guarded on `REP311_ON`, because `set311(true)` fetches and starts a 15-minute timer and
+`drawMap()` runs on every band refresh; unguarded it would refetch in a loop.
 
 **Clustered 2026-09-04.** Even at radius 3 the owner reported that zoomed out
 the reports "cover everything because they are so numerous and clustered", which
@@ -852,10 +880,15 @@ underneath it.
 
 ### Traffic camera locations (added 2026-09-04)
 
-A **CAMERAS** chip, Oʻahu and Maui County only. Off by default. It draws where the
-HDOT and City & County traffic cameras are mounted, and nothing else: the pin is a
-location, not a picture and not a reading. The popup names the camera and links out
-to `goakamai.org/Cameras/`.
+Oʻahu and Maui County only. It draws where the HDOT and City & County traffic cameras
+are mounted, and nothing else: the pin is a location, not a picture and not a reading.
+The popup names the camera and links out to `goakamai.org/Cameras/`.
+
+**Shipped 2026-09-04 as a CAMERAS chip, off by default; the chip was removed the next
+day** (see The map chip row), so the layer now draws on every Oʻahu or Maui landing and
+there is no way for a visitor to hide it. Worth knowing before judging marker density:
+the density question is permanent now rather than opt-in, and the fix if it ever
+bites is a minimum zoom in `drawCams()`, not restoring a toggle.
 
 **The imagery is deliberately absent, and this is the part to understand before
 anyone "finishes" the feature.** The snapshots are trivially embeddable: every camera

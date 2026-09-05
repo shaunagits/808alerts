@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>808 Alerts — round 4: action-first home and directories</title>
+<style>
+/* ===== board chrome (NOT part of the design; deliberately off-palette grey) ===== */
+:root{
+  --ink:#101010; --ink2:#1c1c1c; --surface:#faf8f5; --surface2:#f0ece4;
+  --accent:#ffd93b; --warn:#c22e22; --advis:#e8a317; --watch:#1c6f7d;
+  --muted3:#5c5c5c;
+  --stroke:#3a3a3a; /* shipped hero input border, an ink variant */
+}
+*{box-sizing:border-box}
+body{margin:0;background:#dcdad5;font-family:'Archivo','Archivo Narrow',system-ui,sans-serif;color:#101010}
+.turn{padding:40px 44px 34px;border-bottom:1px solid rgba(0,0,0,.12)}
+.thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.tid{font-weight:800;font-size:10px;letter-spacing:.06em;padding:4px 7px;background:#101010;color:#fff}
+.tname{font-weight:700;font-size:13px}
+.tnote{margin:0 0 24px;font-weight:500;font-size:12.5px;line-height:1.6;color:#4a4844;max-width:760px}
+.opts{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.opt{display:flex;flex-direction:column;gap:9px}
+.olabel{display:flex;align-items:baseline;gap:9px;font-weight:500;font-size:11.5px;line-height:1.4;color:#4a4844;max-width:420px}
+.oid{font-weight:800;font-size:10px;letter-spacing:.06em;padding:4px 7px;background:rgba(0,0,0,.14);flex:none}
+.frame{background:var(--surface);border:1px solid rgba(0,0,0,.18)}
+.w375{width:375px}
+.w1180{width:1180px}
+.ann{font-weight:600;font-size:10.5px;line-height:1.5;letter-spacing:.02em;color:#5f5c56;max-width:375px}
+.ann b{color:#101010}
+
+/* fold ruler chrome */
+.ruler{position:relative}
+.foldline{position:absolute;left:0;right:0;height:0;border-top:2px dashed #7a1f1f;z-index:5}
+.foldtag{position:absolute;right:0;transform:translateY(-100%);background:#7a1f1f;color:#fff;font-weight:800;font-size:9.5px;letter-spacing:.08em;padding:4px 6px;z-index:6}
+.tick{position:absolute;left:auto;right:-8px;font-weight:700;font-size:9.5px;color:#5f5c56;background:#dcdad5;padding:2px 5px;transform:translate(100%,-50%);white-space:nowrap;z-index:7}
+
+/* ===== the design ===== */
+/* brand bar */
+.bar{background:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:14px 20px}
+.bar.d{padding:20px 40px}
+.wm{font-weight:900;font-size:18px;line-height:1;letter-spacing:-.02em;color:#fff}
+.bar.d .wm{font-size:22px}
+.wm span{color:var(--accent)}
+.isl{font-weight:700;font-size:10px;line-height:1;letter-spacing:.16em;color:#8c8c8c;font-stretch:77%}
+.bar.d .isl{font-size:11px}
+
+/* FULL hero (first visit only) */
+.hero{background:var(--ink);padding:26px 20px 24px}
+.hero h1{margin:0;font-weight:800;font-size:34px;line-height:1.02;letter-spacing:-.03em;color:#fff;text-wrap:pretty}
+.hero.d{padding:56px 40px 40px;display:grid;grid-template-columns:1fr 420px;gap:64px;align-items:end}
+.hero.d h1{font-size:60px;line-height:.96;letter-spacing:-.04em}
+.hctl{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.hero.d .hctl{margin-top:0}
+.hbtn{background:var(--accent);color:var(--ink);border:0;padding:16px;font:800 12px/1 'Archivo',sans-serif;letter-spacing:.06em;text-align:center}
+.hin{border:2px solid var(--stroke);background:transparent;color:#fff;padding:14px 16px;font:600 12px/1 'Archivo',sans-serif;letter-spacing:.04em}
+.hin.ph{color:#8c8c8c}
+.hisl{display:flex;flex-wrap:wrap;gap:2px;margin-top:14px}
+.hisl b{font:800 10px/1 'Archivo',sans-serif;letter-spacing:.1em;padding:12px 11px;background:var(--ink2);color:#fff}
+.hisl b.on{background:#fff;color:var(--ink)}
+
+/* MERGED collapsed location band — the everyday face */
+.loc{background:var(--ink2);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.loc.d{padding:18px 40px}
+.loc .place{font-weight:800;font-size:17px;line-height:1.15;color:#fff}
+.loc.d .place{font-size:24px;line-height:1}
+.loc .sub{font-weight:600;font-size:10px;line-height:1.4;letter-spacing:.14em;color:#8c8c8c;font-stretch:77%;margin-top:5px}
+.loc.d .sub{font-size:11px;margin-top:7px}
+.chg{background:transparent;border:0;border-bottom:2px solid var(--accent);color:var(--accent);font:800 11px/1 'Archivo',sans-serif;letter-spacing:.1em;padding:9px 2px 7px;flex:none;min-height:44px}
+.loc.d .chg{font-size:12px}
+.locrow2{display:flex;align-items:baseline;gap:16px}
+
+/* five actions — 375 stacked rows */
+.acts{background:var(--ink);display:flex;flex-direction:column;gap:2px;padding:2px 0}
+.act{background:var(--ink);display:grid;grid-template-columns:44px 1fr 18px;align-items:center;gap:12px;padding:17px 20px;min-height:56px;text-decoration:none}
+.act .n{font-weight:800;font-size:13px;line-height:1;letter-spacing:.04em;color:var(--accent)}
+.act .l{display:block;font-weight:800;font-size:19px;line-height:1.1;letter-spacing:-.015em;color:#fff}
+.act .s{display:block;font-weight:500;font-size:12.5px;line-height:1.35;color:#8c8c8c;margin-top:5px}
+.act .a{font-weight:700;font-size:17px;line-height:1;color:#fff;text-align:right}
+.act.on{background:var(--accent)}
+.act.on .n{color:rgba(0,0,0,.55)}
+.act.on .l,.act.on .a{color:var(--ink)}
+.act.on .s{color:rgba(0,0,0,.72);font-weight:600}
+.actrule{height:2px;background:var(--ink2)}
+
+/* five actions — desktop bar */
+.actbar{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;background:var(--ink2)}
+.acell{background:var(--ink);padding:22px 20px 20px;display:flex;flex-direction:column;justify-content:space-between;min-height:104px;text-decoration:none}
+.acell .n{font-weight:800;font-size:13px;line-height:1;letter-spacing:.04em;color:var(--accent)}
+.acell .l{display:block;font-weight:800;font-size:17px;line-height:1.12;letter-spacing:-.01em;color:#fff;margin-top:16px}
+.acell .s{display:block;font-weight:600;font-size:12px;line-height:1.35;color:rgba(0,0,0,.72);margin-top:6px}
+.acell.on{background:var(--accent);grid-column:span 2}
+.acell.on .n{color:rgba(0,0,0,.55)}
+.acell.on .l{color:var(--ink);font-size:19px}
+
+/* ===== map-forward home (turn 7) ===== */
+.mapx{position:relative;background:var(--surface2);overflow:hidden}
+.mapx .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+.mapx .ph i{font-weight:800;font-size:11px;letter-spacing:.16em;color:#8f8778;font-style:normal;line-height:1.7}
+.mchips{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:2px;flex-wrap:wrap}
+.catrow{display:flex;gap:2px;flex-wrap:wrap}
+.mchip{background:rgba(16,16,16,.14);color:var(--ink);border:0;font:800 10px/1 'Archivo',sans-serif;letter-spacing:.1em;padding:10px 11px;display:flex;align-items:center;gap:7px;flex:none}
+.mchip.on{background:var(--ink);color:#fff}
+.mchip s{width:8px;height:8px;display:block;text-decoration:none}
+.mstrip{position:absolute;left:0;right:0;bottom:0;background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;min-height:44px}
+.mstrip .ct{font-weight:800;font-size:11px;letter-spacing:.1em}
+.mstrip .hint{font-weight:600;font-size:10px;letter-spacing:.12em;color:var(--muted3);font-stretch:77%}
+.mstrip .exp{background:var(--accent);color:var(--ink);border:0;font:800 10px/1 'Archivo',sans-serif;letter-spacing:.1em;padding:11px 12px;flex:none}
+.alist{display:flex;flex-direction:column;gap:2px;background:var(--surface2)}
+.arow{background:var(--surface);display:grid;grid-template-columns:1fr 18px;align-items:center;gap:12px;padding:14px 20px;min-height:56px;text-decoration:none;color:var(--ink)}
+.arow.sel{background:var(--ink);color:#fff}
+.arow .cat,.arow .ttl,.arow .sub,.drow .cat,.drow .h,.drow .b{display:block}
+.arow .cat{font-weight:700;font-size:9.5px;letter-spacing:.18em;color:var(--muted3);font-stretch:77%}
+.arow.sel .cat{color:var(--accent)}
+.arow .ttl{font-weight:800;font-size:15px;line-height:1.25;letter-spacing:-.01em;margin-top:6px}
+.arow .sub{font-weight:500;font-size:12.5px;line-height:1.4;color:var(--muted3);margin-top:3px}
+.arow.sel .sub{color:#8c8c8c}
+.arow .a{font-weight:700;font-size:16px;text-align:right}
+.stickytag{position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--accent)}
+.actsm{background:var(--ink);display:flex;flex-direction:column;gap:2px;padding:2px 0}
+.actm{background:var(--ink);display:grid;grid-template-columns:44px 1fr 18px;align-items:center;gap:12px;padding:13px 20px;min-height:48px;text-decoration:none}
+.actm .n{font-weight:800;font-size:12px;line-height:1;letter-spacing:.04em;color:var(--accent)}
+.actm .l{font-weight:800;font-size:17px;line-height:1.1;letter-spacing:-.015em;color:#fff}
+.actm .a{font-weight:700;font-size:16px;color:#fff;text-align:right}
+.snapmark{background:var(--ink2);color:#8c8c8c;font-weight:700;font-size:9.5px;letter-spacing:.14em;padding:9px 20px;font-stretch:77%}
+.dboard{display:grid;grid-template-columns:1.35fr 1fr;gap:2px;background:var(--surface)}
+.drail{display:flex;flex-direction:column;gap:2px;background:var(--surface2);max-height:640px;overflow:hidden}
+.drow{background:var(--surface);display:grid;grid-template-columns:104px 1fr auto;align-items:center;gap:20px;padding:20px 26px;text-decoration:none;color:var(--ink)}
+.drow .cat{font-weight:700;font-size:10px;letter-spacing:.2em;color:var(--muted3);font-stretch:77%}
+.drow .h{font-weight:800;font-size:22px;line-height:1.05;letter-spacing:-.02em}
+.drow .b{font-weight:500;font-size:13px;line-height:1.35;color:var(--muted3);margin-top:4px}
+.drow .a{font-weight:700;font-size:17px}
+.drow.hov{background:var(--ink);color:#fff}
+.drow.hov .cat{color:var(--accent)}
+.drow.hov .b{color:#8c8c8c}
+.drailhd{background:var(--surface2);padding:14px 26px;display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+.drailhd b{font-weight:800;font-size:11px;letter-spacing:.12em}
+.drailhd span{font-weight:600;font-size:10px;letter-spacing:.12em;color:var(--muted3);font-stretch:77%}
+
+/* board fragments (existing, unchanged) */
+.map{background:var(--surface2);height:280px;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+.map i{font-weight:800;font-size:11px;letter-spacing:.16em;color:#8f8778;font-style:normal;line-height:1.7}
+.bands{display:flex;flex-direction:column;gap:2px;background:var(--surface)}
+.band{padding:20px;min-height:96px}
+.band .c{font-weight:700;font-size:10px;line-height:1;letter-spacing:.2em;font-stretch:77%}
+.band .h{font-weight:800;font-size:27px;line-height:1.05;letter-spacing:-.02em;margin-top:8px}
+.band .b{font-weight:500;font-size:13px;line-height:1.3;margin-top:4px}
+.b-warn{background:var(--warn);color:#fff}.b-warn .c{color:rgba(255,255,255,.75)}.b-warn .b{color:rgba(255,255,255,.85)}
+.b-advis{background:var(--advis);color:var(--ink)}.b-advis .c{color:rgba(0,0,0,.7)}.b-advis .b{color:rgba(0,0,0,.7)}
+.b-watch{background:var(--watch);color:#fff}.b-watch .c{color:rgba(255,255,255,.7)}
+.b-clear{background:var(--surface2);color:var(--muted3)}.b-clear .c{color:var(--muted3)}
+.b-clear .h{font-weight:600;font-size:19px;letter-spacing:0}
+.board.d{display:grid;grid-template-columns:1.15fr 1fr;gap:2px;background:var(--surface);align-items:stretch}
+.board.d .map{height:auto;min-height:540px}
+.board.d .band{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:20px;padding:24px 30px;min-height:0}
+.board.d .band .h{font-size:25px;margin-top:0}
+.board.d .band .b{margin-top:4px}
+.board.d .band .c{align-self:center}
+
+/* detail view header */
+.dh{padding:18px 20px 22px}
+.dh.d{padding:22px 40px 26px}
+.dh .back{display:inline-block;font-weight:800;font-size:10.5px;letter-spacing:.14em;text-decoration:none;margin-bottom:20px}
+.dh .k{font-weight:700;font-size:10px;letter-spacing:.2em;font-stretch:77%}
+.dh h2{margin:10px 0 0;font-weight:800;font-size:32px;line-height:1.02;letter-spacing:-.03em}
+.dh.d h2{font-size:52px;letter-spacing:-.035em}
+.dh p{margin:8px 0 0;font-weight:500;font-size:13px;line-height:1.45}
+.dh.ink{background:var(--ink)}
+.dh.ink .back{color:var(--accent)}
+.dh.ink .k{color:#8c8c8c}
+.dh.ink h2{color:#fff}
+.dh.ink p{color:#8c8c8c}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:2px;padding:16px 20px;background:var(--surface2)}
+.chips.d{padding:18px 40px}
+.chip{background:rgba(16,16,16,.14);color:var(--ink);border:0;font:800 10px/1 'Archivo',sans-serif;letter-spacing:.1em;padding:15px 12px;min-height:44px}
+.chip.on{background:var(--ink);color:#fff}
+
+/* directory cards */
+.cards{display:flex;flex-direction:column;gap:2px;background:var(--surface2)}
+.card{background:var(--surface);padding:18px 20px 20px}
+.card.d{padding:24px 30px}
+.cmeta{font-weight:700;font-size:10px;line-height:1;letter-spacing:.18em;color:var(--muted3);font-stretch:77%}
+.card h3{margin:9px 0 0;font-weight:800;font-size:21px;line-height:1.2;letter-spacing:-.015em}
+.card .addr{font-weight:500;font-size:13px;line-height:1.45;color:var(--muted3);margin-top:5px}
+.notes{display:flex;flex-direction:column;gap:4px;margin-top:12px;padding-top:12px;border-top:2px solid var(--surface2)}
+.note{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:baseline}
+.note b{font-weight:700;font-size:10px;letter-spacing:.14em;color:var(--muted3);font-stretch:77%}
+.note span{font-weight:500;font-size:13px;line-height:1.4}
+.cact{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:14px}
+.cact a{min-height:44px;display:flex;align-items:center;justify-content:center;font:800 12px/1 'Archivo',sans-serif;letter-spacing:.1em;text-decoration:none}
+.cact .p{background:var(--ink);color:#fff}
+.cact .s{border:2px solid var(--ink);color:var(--ink)}
+.src{margin-top:14px;font-weight:600;font-size:10px;line-height:1.6;letter-spacing:.12em;color:var(--muted3);font-stretch:77%}
+.src a{color:var(--ink)}
+.vband{background:var(--advis);color:var(--ink);padding:11px 20px;font-weight:700;font-size:10px;line-height:1.5;letter-spacing:.14em;font-stretch:77%}
+.card.d + .vband,.vband.d{padding-left:30px;padding-right:30px}
+.callfirst{margin-top:12px;font-weight:800;font-size:13px;line-height:1.35}
+.empty{background:var(--surface2);padding:24px 20px}
+.empty h3{margin:0;font-weight:800;font-size:21px;line-height:1.2;letter-spacing:-.015em}
+.empty p{margin:10px 0 0;font-weight:500;font-size:13.5px;line-height:1.5;color:var(--muted3)}
+.empty a{color:var(--ink)}
+.cardgrid.d{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--surface2)}
+</style>
+</head>
+<body>
+
+<!-- ============================================================ 7 -->
+<section class="turn">
+  <div class="thd"><span class="tid">7</span><span class="tname">Map-forward home</span></div>
+  <p class="tnote">Three edits, all reversible against round 4. The map stops being a block you scroll past and becomes the thing the page is built around, with a list beside it doing the clicking. Two rules carry all three options: <b>the map never eats a vertical drag until you activate it</b> (inert on load, pan and zoom on tap or on EXPAND), and <b>every marker has a text row that reaches the same place</b>, so nothing is only reachable by pinching. Palette, radius 0, no icons; the chip colour squares are the shipped map's own pattern.</p>
+  <div class="opts">
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">7a</span>375 &mdash; map first, list under it, actions below. The map is the first screen; the nine alerts become tappable rows. Recommended.</div>
+      <div class="frame w375" style="position:relative">
+        <div class="foldline" style="top:667px"><span class="foldtag">667 FOLD</span></div>
+        <span class="tick" style="top:118px">118 band ends</span>
+        <span class="tick" style="top:458px">458 map ends</span>
+        <span class="tick" style="top:628px">628 row 2 ends</span>
+        <div class="bar"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc">
+          <div><div class="place">KAILUA ALERTS</div><div class="sub">O'AHU &middot; UPDATED 1:32 PM</div></div>
+          <button class="chg">CHANGE</button>
+        </div>
+        <div class="mapx" style="height:340px">
+          <div class="ph"><i>MAP 340px<br>INERT ON LOAD &middot; PAGE STILL SCROLLS</i></div>
+          <div class="mchips">
+            <button class="mchip">ALL ISLANDS</button>
+            <button class="mchip on">O'AHU</button>
+            <button class="mchip">MAUI NUI</button>
+            <button class="mchip">HAWAI'I ISLAND</button>
+            <button class="mchip">KAUA'I</button>
+          </div>
+          <div class="mstrip">
+            <div><div class="ct">9 ALERTS &middot; 5 MI</div><div class="hint">POWER 3 &middot; ROADS 4 &middot; WEATHER 1 &middot; OCEAN 1</div></div>
+            <button class="exp">EXPAND MAP</button>
+          </div>
+          <div class="stickytag"></div>
+        </div>
+        <div class="alist">
+          <a class="arow sel" href="#"><span><span class="cat">POWER &middot; 0.6 MI</span><span class="ttl">Enchanted Lake</span><span class="sub">742 customers out since 10:12 AM &middot; est. 3:30 PM</span></span><span class="a">&#8594;</span></a>
+          <a class="arow" href="#"><span><span class="cat">ROADS &middot; 1.1 MI</span><span class="ttl">Auloa Rd at Maunawili Stream</span><span class="sub">Stream over roadway, closed since 12:50 PM</span></span><span class="a">&#8594;</span></a>
+          <a class="arow" href="#"><span><span class="cat">WEATHER</span><span class="ttl">Flash Flood Warning</span><span class="sub">Windward O'ahu until 6:15 PM</span></span><span class="a">&#8594;</span></a>
+          <a class="arow" href="#"><span><span class="cat">POWER &middot; 1.9 MI</span><span class="ttl">Maunawili</span><span class="sub">398 customers out since 12:41 PM &middot; est. unknown</span></span><span class="a">&#8594;</span></a>
+        </div>
+        <div class="actsm">
+          <a class="actm" href="#weather"><span class="n">01</span><span class="l">WHAT'S HAPPENING NOW</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#emergency"><span class="n">02</span><span class="l">FIND A SAFE PLACE</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#help"><span class="n">03</span><span class="l">GET HELP</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#pets"><span class="n">04</span><span class="l">PETS AND ANIMALS</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#recover"><span class="n">05</span><span class="l">REPORT OR RECOVER</span><span class="a">&#8594;</span></a>
+        </div>
+      </div>
+      <p class="ann"><b>Island wayfinding.</b> ALL ISLANDS plus four chips, single select, fixed with no scroll: MAUI, MOLOKA'I and LANA'I group into MAUI NUI, the historical single-island unit they were before the channel rose, so the switcher matches how the islands actually group rather than a flat list of six. O'AHU is shown selected here. Category counts drop to a line of text in the bottom strip; tapping the strip opens the layer toggles, so the overlay stays one row on a 375 screen.<br><br><b>The map sticks.</b> The accent hairline marks where the map pins to the top of the viewport: scrolling the list slides rows under a map that stays on screen, so tapping row 6 still shows you where row 6 is. It unpins when the actions block reaches it, so the actions get a clean screen of their own.<br><br><b>Measured.</b> Bar 46, band 72, map 340, list rows 85 each. Two rows are fully visible at 667 and a third is cut, which is the right cue to keep scrolling. The five actions move to 48px rows (13px padding, the change recommended in 1c) and start at 798.<br><br><b>The cost, stated plainly.</b> The five actions are now below the fold on mobile. That is the trade this option makes: the map and the nine specific things happening near you take the first screen, and the action list becomes the second. If the actions must stay first, take 7b.</p>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">7b</span>375 &mdash; actions first, map as a full-screen second panel. Round 4's order is untouched; one flick lands the map filling the screen.</div>
+      <div class="frame w375" style="position:relative">
+        <div class="foldline" style="top:667px"><span class="foldtag">667 FOLD</span></div>
+        <span class="tick" style="top:358px">358 actions end</span>
+        <div class="bar"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc">
+          <div><div class="place">KAILUA ALERTS</div><div class="sub">O'AHU &middot; UPDATED 1:32 PM</div></div>
+          <button class="chg">CHANGE</button>
+        </div>
+        <div class="actsm">
+          <a class="actm" href="#weather"><span class="n">01</span><span class="l">WHAT'S HAPPENING NOW</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#emergency"><span class="n">02</span><span class="l">FIND A SAFE PLACE</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#help"><span class="n">03</span><span class="l">GET HELP</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#pets"><span class="n">04</span><span class="l">PETS AND ANIMALS</span><span class="a">&#8594;</span></a>
+          <a class="actm" href="#recover"><span class="n">05</span><span class="l">REPORT OR RECOVER</span><span class="a">&#8594;</span></a>
+        </div>
+        <div class="snapmark">SNAP POINT &middot; MAP PANEL BELOW FILLS THE VIEWPORT</div>
+        <div class="mapx" style="height:520px">
+          <div class="ph"><i>MAP &middot; 100VH MINUS BAND<br>SHOWN CUT AT 520px</i></div>
+          <div class="mchips">
+            <button class="mchip">ALL ISLANDS</button>
+            <button class="mchip on">O'AHU</button>
+            <button class="mchip">MAUI NUI</button>
+            <button class="mchip">HAWAI'I ISLAND</button>
+            <button class="mchip">KAUA'I</button>
+          </div>
+          <div class="mstrip">
+            <div><div class="ct">9 ALERTS &middot; 5 MI</div><div class="hint">SWIPE UP FOR THE LIST</div></div>
+            <button class="exp">LIST</button>
+          </div>
+        </div>
+        <div class="alist">
+          <a class="arow" href="#"><span><span class="cat">POWER &middot; 0.6 MI</span><span class="ttl">Enchanted Lake</span><span class="sub">742 customers out since 10:12 AM &middot; est. 3:30 PM</span></span><span class="a">&#8594;</span></a>
+          <a class="arow" href="#"><span><span class="cat">ROADS &middot; 1.1 MI</span><span class="ttl">Auloa Rd at Maunawili Stream</span><span class="sub">Stream over roadway, closed since 12:50 PM</span></span><span class="a">&#8594;</span></a>
+        </div>
+      </div>
+      <p class="ann"><b>Why a snap point.</b> A map that is 100vh tall inside a freely scrolling page always ends up half shown. <code>scroll-snap-align:start</code> on the map panel means the flick past the actions lands the map exactly filling the screen, and the flick after that lands the list. Nothing is trapped: the panel is a normal section, and the map inside it still only takes drags once tapped.<br><br><b>Trade.</b> The map is prominent but never on the first screen. This is the conservative edit if the five actions are load bearing.</p>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">7c</span>1180 &mdash; desktop. Map to full board height, bands become a scrolling rail that drives it.</div>
+      <div class="frame w1180">
+        <div class="bar d"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc d">
+          <div class="locrow2"><div class="place">KAILUA ALERTS</div><div class="sub" style="margin-top:0">O'AHU &middot; UPDATED 1:32 PM</div></div>
+          <button class="chg">CHANGE LOCATION</button>
+        </div>
+        <div class="actbar">
+          <a class="acell" href="#weather"><span class="n">01</span><span class="l">WHAT'S<br>HAPPENING NOW</span></a>
+          <a class="acell" href="#emergency"><span class="n">02</span><span class="l">FIND A<br>SAFE PLACE</span></a>
+          <a class="acell" href="#help"><span class="n">03</span><span class="l">GET HELP</span></a>
+          <a class="acell" href="#pets"><span class="n">04</span><span class="l">PETS AND<br>ANIMALS</span></a>
+          <a class="acell" href="#recover"><span class="n">05</span><span class="l">REPORT OR<br>RECOVER</span></a>
+        </div>
+        <div class="dboard">
+          <div class="mapx" style="min-height:640px">
+            <div class="ph"><i>MAP &middot; 1.35fr &times; 640px MINIMUM<br>SCROLL WHEEL ZOOM OFF UNTIL CLICK</i></div>
+            <div class="mchips" style="top:16px;left:16px;right:16px">
+              <button class="mchip">ALL ISLANDS</button>
+              <button class="mchip on">O'AHU</button>
+              <button class="mchip">MAUI NUI</button>
+              <button class="mchip">HAWAI'I ISLAND</button>
+              <button class="mchip">KAUA'I</button>
+            </div>
+            <div class="mstrip" style="padding:10px 16px">
+              <div class="catrow">
+                <button class="mchip on"><s style="background:var(--warn)"></s>POWER 3</button>
+                <button class="mchip on"><s style="background:var(--advis)"></s>ROADS 4</button>
+                <button class="mchip on"><s style="background:var(--warn)"></s>WEATHER 1</button>
+                <button class="mchip on"><s style="background:var(--watch)"></s>OCEAN 1</button>
+              </div>
+              <button class="exp">EXPAND MAP</button>
+            </div>
+          </div>
+          <div>
+            <div class="drailhd"><b>9 ALERTS ON THIS MAP</b><span>NEAREST FIRST</span></div>
+            <div class="drail">
+              <a class="drow hov" href="#"><span class="cat">POWER</span><span><span class="h">Enchanted Lake</span><span class="b">742 customers out since 10:12 AM &middot; est. 3:30 PM &middot; 0.6 mi</span></span><span class="a">&#8594;</span></a>
+              <a class="drow" href="#"><span class="cat">ROADS</span><span><span class="h">Auloa Rd at Maunawili Stream</span><span class="b">Stream over roadway, closed since 12:50 PM &middot; 1.1 mi</span></span><span class="a">&#8594;</span></a>
+              <a class="drow" href="#"><span class="cat">WEATHER</span><span><span class="h">Flash Flood Warning</span><span class="b">Windward O'ahu, Kane'ohe to Waimanalo, until 6:15 PM</span></span><span class="a">&#8594;</span></a>
+              <a class="drow" href="#"><span class="cat">POWER</span><span><span class="h">Maunawili</span><span class="b">398 customers out since 12:41 PM &middot; est. unknown &middot; 1.9 mi</span></span><span class="a">&#8594;</span></a>
+              <a class="drow" href="#"><span class="cat">ROADS</span><span><span class="h">Kalaniana'ole Hwy at Waimanalo</span><span class="b">Both directions closed for flood debris &middot; 3.4 mi</span></span><span class="a">&#8594;</span></a>
+              <a class="drow" href="#"><span class="cat">OCEAN</span><span><span class="h">High Surf Warning</span><span class="b">Faces 12 to 18 ft, east shores, until 6:00 AM Thu</span></span><span class="a">&#8594;</span></a>
+            </div>
+          </div>
+        </div>
+        <div class="bands" style="background:var(--surface2)">
+          <div class="band b-warn"><div class="c">POWER</div><div class="h">3 ACTIVE OUTAGES</div><div class="b">Not a live reading &middot; 1,284 customers</div></div>
+        </div>
+      </div>
+      <p class="ann"><b>What changed from 2a.</b> The right column stops being five coloured summary bands and becomes the map's index: one row per actual alert, nearest first, scrolling inside a fixed-height rail so the map never shortens. Hovering a row inverts it to ink and lifts the matching marker; clicking flies the map and opens the popup. The coloured category bands drop below the board as the roll-up they always were, on surface2 so they read as summary rather than as the live layer.<br><br><b>Island wayfinding.</b> The row over the map is now the view switcher: ALL ISLANDS, O'AHU, MAUI NUI, HAWAI'I ISLAND, KAUA'I &mdash; five chips, single select, fixed at every width with no side scroll. MAUI NUI groups Maui, Moloka'i and Lana'i, which is how the islands actually cluster (the strait between them is shallow, they were one landmass at low sea level, and Moloka'i and Lana'i are small enough that a dedicated map view for either is mostly empty ocean). Picking a chip fits the map to that grouping's bounds and reloads the rail for it; ALL ISLANDS fits the whole state. The category filters move into the bottom strip, where they still toggle layers but no longer compete with the view switch.<br><br><b>Wheel behaviour.</b> Scroll wheel zoom stays off until the map is clicked, matching the shipped file, so a page scroll over the map never zooms it. Clicking once arms the map, and clicking off disarms it.<br><br><b>EXPAND MAP</b> keeps its shipped job: full board width at <code>100vh - 76px</code>, rail floating over the right side.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ 1 -->
+<section class="turn">
+  <div class="thd"><span class="tid">1</span><span class="tname">Home — the everyday face (375)</span></div>
+  <p class="tnote">The collapsed row is the primary state, drawn first. The full hero and the merged band are the same element in two states, not two elements: nothing is removed. Location restores from storage, so 1a is what a repeat visitor sees on every visit after the first.</p>
+  <div class="opts">
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">1a</span>Everyday state. Hero and strip merged into one band: place, island, updated time, and CHANGE. One dark line about location, not two.</div>
+      <div class="frame w375">
+        <div class="bar"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc">
+          <div>
+            <div class="place">KAILUA ALERTS</div>
+            <div class="sub">O'AHU &middot; UPDATED 1:32 PM</div>
+          </div>
+          <button class="chg">CHANGE</button>
+        </div>
+        <div class="acts">
+          <a class="act" href="#weather"><span class="n">01</span><span><span class="l">WHAT'S HAPPENING NOW</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#emergency"><span class="n">02</span><span><span class="l">FIND A SAFE PLACE</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#help"><span class="n">03</span><span><span class="l">GET HELP</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#pets"><span class="n">04</span><span><span class="l">PETS AND ANIMALS</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#recover"><span class="n">05</span><span><span class="l">REPORT OR RECOVER</span></span><span class="a">&#8594;</span></a>
+        </div>
+        <div class="map"><i>MAP<br>280px, unchanged</i></div>
+        <div class="bands">
+          <div class="band b-warn"><div class="c">POWER</div><div class="h">3 ACTIVE OUTAGES</div><div class="b">Not a live reading &middot; 1,284 customers</div></div>
+          <div class="band b-warn"><div class="c">WEATHER</div><div class="h">FLASH FLOOD WARNING</div><div class="b">Wind Advisory</div></div>
+        </div>
+      </div>
+      <p class="ann"><b>CHANGE re-expands the hero in place</b> (1b) with the city / ZIP field focused and the island buttons visible. Setting a location, or ESC, collapses it again. The controls are never deleted, only folded, so no new input pattern is introduced.</p>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">1b</span>First visit, and the expanded state CHANGE returns to. Hero at its existing 34px mobile size, controls and island buttons in place. No merged band here: there is no location to name yet.</div>
+      <div class="frame w375">
+        <div class="bar"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="hero">
+          <h1>WHAT'S HAPPENING NEAR YOU?</h1>
+          <div class="hctl">
+            <button class="hbtn">USE MY LOCATION</button>
+            <div class="hin ph">CITY / ZIP</div>
+          </div>
+          <div class="hisl">
+            <b class="on">O'AHU</b><b>HAWAI'I ISLAND</b><b>MAUI</b><b>MOLOKA'I</b><b>LANA'I</b><b>KAUA'I</b>
+          </div>
+        </div>
+        <div class="acts">
+          <a class="act" href="#weather"><span class="n">01</span><span><span class="l">WHAT'S HAPPENING NOW</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#emergency"><span class="n">02</span><span><span class="l">FIND A SAFE PLACE</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#help"><span class="n">03</span><span><span class="l">GET HELP</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#pets"><span class="n">04</span><span><span class="l">PETS AND ANIMALS</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#recover"><span class="n">05</span><span><span class="l">REPORT OR RECOVER</span></span><span class="a">&#8594;</span></a>
+        </div>
+        <div class="map"><i>MAP</i></div>
+      </div>
+      <p class="ann"><b>Why the pair is not two lines.</b> Drawn separately they read as two adjacent dark bands both naming a place. Merged, the band carries what the strip carried and the hero's residual job (change location) becomes one 44px control on the same line.</p>
+    </div>
+
+    <div class="opt ruler">
+      <div class="olabel"><span class="oid">1c</span>First paint at 375 &times; 667, measured. The fold is drawn where it actually lands.</div>
+      <div class="frame w375" style="position:relative">
+        <div class="foldline" style="top:667px"><span class="foldtag">667 FOLD</span></div>
+        <span class="tick" style="top:46px">46 bar ends</span>
+        <span class="tick" style="top:118px">118 band ends</span>
+        <span class="tick" style="top:411px">411 actions end</span>
+        <span class="tick" style="top:691px">691 POWER</span>
+        <div class="bar"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc">
+          <div><div class="place">KAILUA ALERTS</div><div class="sub">O'AHU &middot; UPDATED 1:32 PM</div></div>
+          <button class="chg">CHANGE</button>
+        </div>
+        <div class="acts">
+          <a class="act" href="#weather"><span class="n">01</span><span><span class="l">WHAT'S HAPPENING NOW</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#emergency"><span class="n">02</span><span><span class="l">FIND A SAFE PLACE</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#help"><span class="n">03</span><span><span class="l">GET HELP</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#pets"><span class="n">04</span><span><span class="l">PETS AND ANIMALS</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#recover"><span class="n">05</span><span><span class="l">REPORT OR RECOVER</span></span><span class="a">&#8594;</span></a>
+        </div>
+        <div class="map"><i>MAP 280px</i></div>
+        <div class="bands">
+          <div class="band b-warn"><div class="c">POWER</div><div class="h">3 ACTIVE OUTAGES</div><div class="b">Not a live reading &middot; 1,284 customers</div></div>
+          <div class="band b-warn"><div class="c">WEATHER</div><div class="h">FLASH FLOOD WARNING</div><div class="b">Wind Advisory</div></div>
+        </div>
+      </div>
+      <p class="ann"><b>The POWER band starts at 691px, 24px below the fold.</b> Measured, not estimated: bar 46, merged band 72, five 56px rows plus rules 292, map 280. You were right that mobile returns almost nothing. 34px was already the mobile hero size, and the merge buys 72px against the two stacked bands it replaces.<br><br><b>The decision this forces.</b> As drawn, first paint is the actions plus the map and no band at all. Two ways to put red on screen, neither of which moves anything: take the row padding from 17 to 13, which holds the 48px tap target and lands POWER at 646 with 21px showing; or take the map from 280 to 240 and land it at 651. I would take the rows down, since the map needs height to be legible and the rows only need to be tappable. Say which and I will redraw 1a and 1c at that height.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="turn">
+  <div class="thd"><span class="tid">2</span><span class="tname">Home — desktop (1180 shown; behaviour is 1024+)</span></div>
+  <p class="tnote">The actions are one full-width bar of five equal cells, echoing the brand bar. It does not try to align with the map-plus-bands grid beneath it.</p>
+  <div class="opts">
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">2a</span>Everyday state. Merged band carries place, island and updated time on one line with CHANGE at the right.</div>
+      <div class="frame w1180">
+        <div class="bar d"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc d">
+          <div class="locrow2">
+            <div class="place">KAILUA ALERTS</div>
+            <div class="sub" style="margin-top:0">O'AHU &middot; UPDATED 1:32 PM</div>
+          </div>
+          <button class="chg">CHANGE LOCATION</button>
+        </div>
+        <div class="actbar">
+          <a class="acell" href="#weather"><span class="n">01</span><span class="l">WHAT'S<br>HAPPENING NOW</span></a>
+          <a class="acell" href="#emergency"><span class="n">02</span><span class="l">FIND A<br>SAFE PLACE</span></a>
+          <a class="acell" href="#help"><span class="n">03</span><span class="l">GET HELP</span></a>
+          <a class="acell" href="#pets"><span class="n">04</span><span class="l">PETS AND<br>ANIMALS</span></a>
+          <a class="acell" href="#recover"><span class="n">05</span><span class="l">REPORT OR<br>RECOVER</span></a>
+        </div>
+        <div class="board d">
+          <div class="map"><i>MAP<br>1.15fr, stretches to the bands column</i></div>
+          <div class="bands">
+            <div class="band b-warn"><div class="c">POWER</div><div><div class="h">3 ACTIVE OUTAGES</div><div class="b">Not a live reading &middot; 1,284 customers</div></div></div>
+            <div class="band b-warn"><div class="c">WEATHER</div><div><div class="h">FLASH FLOOD WARNING</div><div class="b">Wind Advisory</div></div></div>
+            <div class="band b-advis"><div class="c">ROADS</div><div><div class="h">4 CLOSURES</div><div class="b">7 major incidents</div></div></div>
+            <div class="band b-watch"><div class="c">OCEAN</div><div><div class="h">HIGH SURF WARNING</div><div class="b">Open ocean model, not surf height</div></div></div>
+            <div class="band b-clear"><div class="c">EMERGENCY</div><div><div class="h">No active evacuation orders</div></div></div>
+          </div>
+        </div>
+      </div>
+      <p class="ann">At 1024 each cell is about 189px, so two-line labels are the design case, not an overflow. Cells are equal height and the number sits above the label.</p>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">2b</span>First visit. Full 60px hero, controls right, island buttons under. The actions sit below it unchanged.</div>
+      <div class="frame w1180">
+        <div class="bar d"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="hero d">
+          <div>
+            <h1>WHAT'S HAPPENING NEAR YOU?</h1>
+            <div class="hisl">
+              <b class="on">O'AHU</b><b>HAWAI'I ISLAND</b><b>MAUI</b><b>MOLOKA'I</b><b>LANA'I</b><b>KAUA'I</b>
+            </div>
+          </div>
+          <div class="hctl">
+            <button class="hbtn">USE MY LOCATION</button>
+            <div class="hin ph">CITY / ZIP</div>
+          </div>
+        </div>
+        <div class="actbar">
+          <a class="acell" href="#weather"><span class="n">01</span><span class="l">WHAT'S<br>HAPPENING NOW</span></a>
+          <a class="acell" href="#emergency"><span class="n">02</span><span class="l">FIND A<br>SAFE PLACE</span></a>
+          <a class="acell" href="#help"><span class="n">03</span><span class="l">GET HELP</span></a>
+          <a class="acell" href="#pets"><span class="n">04</span><span class="l">PETS AND<br>ANIMALS</span></a>
+          <a class="acell" href="#recover"><span class="n">05</span><span class="l">REPORT OR<br>RECOVER</span></a>
+        </div>
+        <div class="board d">
+          <div class="map"><i>MAP</i></div>
+          <div class="bands">
+            <div class="band b-warn"><div class="c">POWER</div><div><div class="h">3 ACTIVE OUTAGES</div><div class="b">Not a live reading &middot; 1,284 customers</div></div></div>
+            <div class="band b-warn"><div class="c">WEATHER</div><div><div class="h">FLASH FLOOD WARNING</div><div class="b">Wind Advisory</div></div></div>
+            <div class="band b-advis"><div class="c">ROADS</div><div><div class="h">4 CLOSURES</div><div class="b">7 major incidents</div></div></div>
+            <div class="band b-watch"><div class="c">OCEAN</div><div><div class="h">HIGH SURF WARNING</div><div class="b">Open ocean model, not surf height</div></div></div>
+            <div class="band b-clear"><div class="c">EMERGENCY</div><div><div class="h">No active evacuation orders</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="turn">
+  <div class="thd"><span class="tid">3</span><span class="tname">Recovery mode</span></div>
+  <p class="tnote">Position 05 holds. Three levers only: accent inversion, added weight, and a sub-line no other action carries. Accent is the role colour for "do this," identical on a calm day and during recovery, so nothing here scales with severity.</p>
+  <div class="opts">
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">3a</span>375. The card inverts to accent and grows a sub-line. Order and numbering are untouched.</div>
+      <div class="frame w375">
+        <div class="bar"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc">
+          <div><div class="place">KAILUA ALERTS</div><div class="sub">O'AHU &middot; UPDATED 1:32 PM</div></div>
+          <button class="chg">CHANGE</button>
+        </div>
+        <div class="acts">
+          <a class="act" href="#weather"><span class="n">01</span><span><span class="l">WHAT'S HAPPENING NOW</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#emergency"><span class="n">02</span><span><span class="l">FIND A SAFE PLACE</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#help"><span class="n">03</span><span><span class="l">GET HELP</span></span><span class="a">&#8594;</span></a>
+          <a class="act" href="#pets"><span class="n">04</span><span><span class="l">PETS AND ANIMALS</span></span><span class="a">&#8594;</span></a>
+          <a class="act on" href="#recover"><span class="n">05</span><span><span class="l">REPORT OR RECOVER</span><span class="s">Damage reporting and cleanup resources are open</span></span><span class="a">&#8594;</span></a>
+        </div>
+        <div class="map"><i>MAP</i></div>
+      </div>
+      <p class="ann"><b>One accent at a time.</b> The hero's USE MY LOCATION button is folded away in the everyday state, so in recovery mode this card is the only filled accent on the page. CHANGE is accent text on a rule, not a fill, so it does not compete. If the hero is expanded via CHANGE while recovery mode is on, the location strip sits between the two.</p>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">3b</span>Desktop. The cell spans two of the five columns and takes the 19px label, so weight comes from area rather than a move.</div>
+      <div class="frame" style="width:820px">
+        <div class="bar d"><div class="wm">808<span>ALERTS</span></div><div class="isl">O'AHU</div></div>
+        <div class="loc d">
+          <div class="locrow2"><div class="place">KAILUA ALERTS</div><div class="sub" style="margin-top:0">O'AHU &middot; UPDATED 1:32 PM</div></div>
+          <button class="chg">CHANGE LOCATION</button>
+        </div>
+        <div class="actbar" style="grid-template-columns:repeat(6,1fr)">
+          <a class="acell" href="#weather"><span class="n">01</span><span class="l">WHAT'S<br>HAPPENING NOW</span></a>
+          <a class="acell" href="#emergency"><span class="n">02</span><span class="l">FIND A<br>SAFE PLACE</span></a>
+          <a class="acell" href="#help"><span class="n">03</span><span class="l">GET HELP</span></a>
+          <a class="acell" href="#pets"><span class="n">04</span><span class="l">PETS AND<br>ANIMALS</span></a>
+          <a class="acell on" href="#recover"><span class="n">05</span><span><span class="l">REPORT OR RECOVER</span><span class="s">Damage reporting and cleanup resources are open</span></span></a>
+        </div>
+      </div>
+      <p class="ann">The bar becomes six tracks with the fifth cell spanning two, so the four ink cells keep their width and only the promoted cell grows.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="turn">
+  <div class="thd"><span class="tid">4</span><span class="tname">#help — directory, 375</span></div>
+  <p class="tnote">List first. Chips are the map's pattern with the colour squares dropped and the counts kept, wrapping to a second row rather than scrolling. Cards sort by distance and unverified entries keep their place in that sort.</p>
+  <div class="opts">
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">4a</span>Normal card, and the needs-verification card directly below it in true sort position.</div>
+      <div class="frame w375">
+        <div class="dh ink">
+          <a class="back" href="#">BACK TO ALERTS</a>
+          <div class="k">DIRECTORY</div>
+          <h2>GET HELP</h2>
+          <p>Food, water, charging, medical, transport and agency referrals near Kailua. Hand curated, every entry sourced and dated.</p>
+        </div>
+        <div class="chips">
+          <button class="chip on">ALL 24</button>
+          <button class="chip">FOOD 8</button>
+          <button class="chip">WATER 4</button>
+          <button class="chip">CHARGING 3</button>
+          <button class="chip">MEDICAL 5</button>
+          <button class="chip">TRANSPORT 2</button>
+          <button class="chip">AGENCY 2</button>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="cmeta">FOOD, WATER, CHARGING &middot; 1.7 MI</div>
+            <h3>Waianae Community Resource Center</h3>
+            <div class="addr">85-670 Farrington Hwy, Waianae HI 96792</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Open to residents and visitors, no ID needed</span></div>
+              <div class="note"><b>PETS</b><span>Leashed pets allowed outside only</span></div>
+              <div class="note"><b>ACCESS</b><span>Wheelchair access, confirm with provider</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+            <div class="src">SOURCE: PARTNER UPDATE &middot; VERIFIED 6:58 PM TODAY &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+
+          <div style="background:var(--surface)">
+            <div class="vband">NEEDS VERIFICATION &middot; LAST CONFIRMED 3 DAYS AGO</div>
+            <div class="card">
+              <div class="cmeta">FOOD, WATER &middot; 2.4 MI</div>
+              <h3>Nanakuli Neighborhood Kitchen</h3>
+              <div class="addr">89-070 Farrington Hwy, Waianae HI 96792</div>
+              <div class="notes">
+                <div class="note"><b>ELIGIBILITY</b><span>Residents, as of the last confirmation</span></div>
+                <div class="note"><b>PETS</b><span>Not stated</span></div>
+                <div class="note"><b>ACCESS</b><span>Not stated</span></div>
+              </div>
+              <div class="callfirst">Call before you go.</div>
+              <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+              <div class="src">SOURCE: HONOLULU DEM &middot; CONFIRMATION EXPIRED 3 DAYS AGO &middot; <a href="#">VIEW SOURCE</a></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cmeta">AGENCY REFERRAL &middot; PHONE ONLY</div>
+            <h3>Aloha United Way 211</h3>
+            <div class="addr">Statewide community resource referral line</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Anyone in Hawai'i</span></div>
+              <div class="note"><b>HOURS</b><span>24 hours during a declared event</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">CALL 211</a><a class="s" href="#">WEBSITE</a></div>
+            <div class="src">SOURCE: ALOHA UNITED WAY &middot; VERIFIED 21 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+        </div>
+      </div>
+      <p class="ann"><b>What the unverified card does not have.</b> No status word anywhere, present or struck through. The band replaces the VERIFIED time rather than sitting next to it, unknown fields read "Not stated" rather than being hidden, and DIRECTIONS and CALL stay live because calling is how it gets reconfirmed.</p>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">4b</span>Empty state, per view and per island. Chips still show so the user can see the whole category set is empty, not just their filter.</div>
+      <div class="frame w375">
+        <div class="dh ink">
+          <a class="back" href="#">BACK TO ALERTS</a>
+          <div class="k">DIRECTORY</div>
+          <h2>GET HELP</h2>
+          <p>Food, water, charging, medical, transport and agency referrals near Kaunakakai.</p>
+        </div>
+        <div class="chips">
+          <button class="chip on">ALL 0</button>
+          <button class="chip">FOOD 0</button>
+          <button class="chip">WATER 0</button>
+          <button class="chip">CHARGING 0</button>
+          <button class="chip">MEDICAL 0</button>
+        </div>
+        <div class="cards">
+          <div class="empty">
+            <h3>No entries for Moloka'i yet.</h3>
+            <p>This means we have no vetted entries for this island, not that no resources exist. Maui County Emergency Management covers Moloka'i and publishes the current list.</p>
+            <div class="cact"><a class="p" href="#">MAUI COUNTY MEMA</a><a class="s" href="#">CALL 211</a></div>
+          </div>
+        </div>
+      </div>
+      <p class="ann">Same block serves a filtered empty result, with the category named: "No charging entries for Moloka'i yet."</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="turn">
+  <div class="thd"><span class="tid">5</span><span class="tname">#help — desktop</span></div>
+  <p class="tnote">Two card columns, chips on one row, header at the 52px step. Same card, same states.</p>
+  <div class="opts">
+    <div class="opt">
+      <div class="olabel"><span class="oid">5a</span>All three states in one view: normal, needs verification, and a filtered empty column.</div>
+      <div class="frame w1180">
+        <div class="dh ink d">
+          <a class="back" href="#">BACK TO ALERTS</a>
+          <div class="k">DIRECTORY</div>
+          <h2>GET HELP</h2>
+          <p>Food, water, charging, medical, transport and agency referrals near Kailua. Hand curated, every entry sourced and dated.</p>
+        </div>
+        <div class="chips d">
+          <button class="chip on">ALL 24</button>
+          <button class="chip">FOOD 8</button>
+          <button class="chip">WATER 4</button>
+          <button class="chip">CHARGING 3</button>
+          <button class="chip">MEDICAL 5</button>
+          <button class="chip">TRANSPORT 2</button>
+          <button class="chip">AGENCY 2</button>
+        </div>
+        <div class="cardgrid d">
+          <div class="card d">
+            <div class="cmeta">FOOD, WATER, CHARGING &middot; 1.7 MI</div>
+            <h3>Waianae Community Resource Center</h3>
+            <div class="addr">85-670 Farrington Hwy, Waianae HI 96792</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Open to residents and visitors, no ID needed</span></div>
+              <div class="note"><b>PETS</b><span>Leashed pets allowed outside only</span></div>
+              <div class="note"><b>ACCESS</b><span>Wheelchair access, confirm with provider</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+            <div class="src">SOURCE: PARTNER UPDATE &middot; VERIFIED 6:58 PM TODAY &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div style="background:var(--surface)">
+            <div class="vband d">NEEDS VERIFICATION &middot; LAST CONFIRMED 3 DAYS AGO</div>
+            <div class="card d">
+              <div class="cmeta">FOOD, WATER &middot; 2.4 MI</div>
+              <h3>Nanakuli Neighborhood Kitchen</h3>
+              <div class="addr">89-070 Farrington Hwy, Waianae HI 96792</div>
+              <div class="notes">
+                <div class="note"><b>ELIGIBILITY</b><span>Residents, as of the last confirmation</span></div>
+                <div class="note"><b>PETS</b><span>Not stated</span></div>
+                <div class="note"><b>ACCESS</b><span>Not stated</span></div>
+              </div>
+              <div class="callfirst">Call before you go.</div>
+              <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+              <div class="src">SOURCE: HONOLULU DEM &middot; CONFIRMATION EXPIRED 3 DAYS AGO &middot; <a href="#">VIEW SOURCE</a></div>
+            </div>
+          </div>
+          <div class="card d">
+            <div class="cmeta">MEDICAL &middot; 3.1 MI</div>
+            <h3>Waianae Coast Comprehensive Health Center</h3>
+            <div class="addr">86-260 Farrington Hwy, Waianae HI 96792</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Walk in urgent care, all patients</span></div>
+              <div class="note"><b>ACCESS</b><span>Wheelchair access</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+            <div class="src">SOURCE: WCCHC &middot; VERIFIED 20 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div class="empty">
+            <h3>No transport entries near Kailua yet.</h3>
+            <p>This means we have no vetted entries in this category, not that none exist. TheBus publishes service changes during an event.</p>
+            <div class="cact"><a class="p" href="#">THEBUS SERVICE ALERTS</a><a class="s" href="#">CALL 211</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="turn">
+  <div class="thd"><span class="tid">6</span><span class="tname">#pets and #recover — 375</span></div>
+  <p class="tnote">Same header, chips, card and states as #help. Only the category set and one card field change.</p>
+  <div class="opts">
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">6a</span>#pets. Adds a PET RULES note to shelter-adjacent entries, which is the field people are actually looking for.</div>
+      <div class="frame w375">
+        <div class="dh ink">
+          <a class="back" href="#">BACK TO ALERTS</a>
+          <div class="k">DIRECTORY</div>
+          <h2>PETS AND ANIMALS</h2>
+          <p>Veterinary and emergency clinics, boarding, foster and rescue contacts, supplies, and pet rules at shelters.</p>
+        </div>
+        <div class="chips">
+          <button class="chip on">ALL 11</button>
+          <button class="chip">VET 4</button>
+          <button class="chip">EMERGENCY VET 2</button>
+          <button class="chip">BOARDING 2</button>
+          <button class="chip">FOSTER 2</button>
+          <button class="chip">SUPPLIES 1</button>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="cmeta">EMERGENCY VET &middot; 4.2 MI &middot; 24 HOUR</div>
+            <h3>Veterinary Emergency and Referral Center</h3>
+            <div class="addr">1347 Kapiolani Blvd, Honolulu HI 96814</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Walk in emergencies, call ahead if you can</span></div>
+              <div class="note"><b>SPECIES</b><span>Dogs, cats, small mammals</span></div>
+              <div class="note"><b>ACCESS</b><span>Ground level entry</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+            <div class="src">SOURCE: CLINIC WEBSITE &middot; VERIFIED 20 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div class="card">
+            <div class="cmeta">SHELTER PET RULES &middot; 1.1 MI</div>
+            <h3>Kailua High School refuge area</h3>
+            <div class="addr">451 Ulumanu Dr, Kailua HI 96734</div>
+            <div class="notes">
+              <div class="note"><b>PET RULES</b><span>Crated pets only, owner supplies crate, food and water</span></div>
+              <div class="note"><b>SERVICE ANIMALS</b><span>Always admitted, no crate required</span></div>
+              <div class="note"><b>ACCESS</b><span>Wheelchair access</span></div>
+            </div>
+            <div class="callfirst">This is a report of the rules, not a report that the site is open. Confirm before you travel.</div>
+            <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">HONOLULU DEM</a></div>
+            <div class="src">SOURCE: HONOLULU DEM SHELTER PAGE &middot; VERIFIED 19 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div style="background:var(--surface)">
+            <div class="vband">NEEDS VERIFICATION &middot; LAST CONFIRMED 9 DAYS AGO</div>
+            <div class="card">
+              <div class="cmeta">FOSTER AND RESCUE &middot; 6.8 MI</div>
+              <h3>Windward Animal Foster Network</h3>
+              <div class="addr">Volunteer coordinated, no fixed address</div>
+              <div class="notes">
+                <div class="note"><b>ELIGIBILITY</b><span>Not stated</span></div>
+                <div class="note"><b>SPECIES</b><span>Not stated</span></div>
+              </div>
+              <div class="callfirst">Call before you rely on this.</div>
+              <div class="cact"><a class="p" href="#">CALL</a><a class="s" href="#">WEBSITE</a></div>
+              <div class="src">SOURCE: PARTNER SUBMISSION &middot; CONFIRMATION EXPIRED 9 DAYS AGO &middot; <a href="#">VIEW SOURCE</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="opt">
+      <div class="olabel"><span class="oid">6b</span>#recover. Same machinery. Link-only entries carry a REPORT action in place of DIRECTIONS, since there is nowhere to drive to.</div>
+      <div class="frame w375">
+        <div class="dh ink">
+          <a class="back" href="#">BACK TO ALERTS</a>
+          <div class="k">DIRECTORY</div>
+          <h2>REPORT OR RECOVER</h2>
+          <p>Damage reporting, cleanup, food and water distribution, FEMA and insurance preparation, volunteer and donation channels.</p>
+        </div>
+        <div class="chips">
+          <button class="chip on">ALL 14</button>
+          <button class="chip">DAMAGE REPORT 3</button>
+          <button class="chip">CLEANUP 4</button>
+          <button class="chip">FEMA AND INSURANCE 3</button>
+          <button class="chip">VOLUNTEER 2</button>
+          <button class="chip">DONATE 2</button>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="cmeta">DAMAGE REPORT &middot; ONLINE FORM</div>
+            <h3>Honolulu DEM damage assessment report</h3>
+            <div class="addr">Report storm damage to your home or property</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Property owners and renters in Honolulu County</span></div>
+              <div class="note"><b>BRING</b><span>Address, photos, insurance policy number if you have it</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">OPEN REPORT FORM</a><a class="s" href="#">CALL DEM</a></div>
+            <div class="src">SOURCE: HONOLULU DEM &middot; VERIFIED 21 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div class="card">
+            <div class="cmeta">CLEANUP &middot; 2.9 MI</div>
+            <h3>Green waste and debris drop off, Kapaa transfer station</h3>
+            <div class="addr">Kapaa Quarry Rd, Kailua HI 96734</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Honolulu County residents, no commercial loads</span></div>
+              <div class="note"><b>HOURS</b><span>Extended hours during declared recovery</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">DIRECTIONS</a><a class="s" href="#">CALL</a></div>
+            <div class="src">SOURCE: HONOLULU ENV SERVICES &middot; VERIFIED 21 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div class="card">
+            <div class="cmeta">FEMA AND INSURANCE &middot; ONLINE</div>
+            <h3>DisasterAssistance.gov</h3>
+            <div class="addr">Federal assistance applications, available only after a declaration</div>
+            <div class="notes">
+              <div class="note"><b>ELIGIBILITY</b><span>Depends on a federal declaration for your county</span></div>
+              <div class="note"><b>BRING</b><span>Social Security number, insurance details, bank details</span></div>
+            </div>
+            <div class="cact"><a class="p" href="#">OPEN FEMA SITE</a><a class="s" href="#">CALL FEMA</a></div>
+            <div class="src">SOURCE: FEMA &middot; VERIFIED 21 AUG 2026 &middot; <a href="#">VIEW SOURCE</a></div>
+          </div>
+          <div class="empty">
+            <h3>No volunteer entries for O'ahu yet.</h3>
+            <p>This means we have no vetted entries in this category, not that none exist. Hawai'i Emergency Management publishes vetted volunteer and donation channels during a declared recovery.</p>
+            <div class="cact"><a class="p" href="#">HI-EMA</a><a class="s" href="#">CALL 211</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ notes -->
+<section class="turn" style="border-bottom:0">
+  <div class="thd"><span class="tid">&mdash;</span><span class="tname">Notes and things needing your call</span></div>
+  <p class="tnote">
+    <b>Marks described, not drawn:</b> none added. No icons, illustrations or motifs anywhere in these mocks.<br><br>
+    <b>Glyphs:</b> basic Latin plus <code>&amp;#8594;</code> only. The back link carries no arrow: the shipped detail views use a left arrow, and U+2190 was never confirmed present in the subset the way U+2192 was, so drawing one here would risk the okina trap a second time. Confirm U+2190 against the built subset and I will add it back; the label alone works either way. The okina in these mocks renders as the left single quote exactly as the shipped subset does. Source strings keep U+02BB.<br><br>
+    <b>Font:</b> these files declare Archivo and fall back to the system stack, since nothing external may load. In the live file the inlined subset covers it; Archivo Narrow is the <code>wdth</code> 77% axis, which is what <code>font-stretch:77%</code> stands in for here.<br><br>
+    <b>Off-palette values used:</b> only <code>#3a3a3a</code>, the shipped hero input border, treated as an ink variant. Board chrome around the mocks is deliberately grey so it cannot be mistaken for the design. The needs-verification band uses <code>--advis</code> on the precedent of the existing discrepancy notes, not as a severity step.<br><br>
+    <b>Open, needs your call:</b> the 375 first paint in 1c. As drawn, no band is visible on a 667px viewport, with POWER landing at 691. I recommend taking the action row padding from 17 to 13, which holds a 48px tap target and lands POWER at 646 with 21px of red showing.<br><br>
+    <b>Second open item:</b> #recover's link-only cards replace DIRECTIONS with the primary action (OPEN REPORT FORM, OPEN FEMA SITE). That is a new action label set, not a new pattern, but it is a decision worth confirming.
+  </p>
+</section>
+
+</body>
+</html>
