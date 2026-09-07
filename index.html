@@ -281,18 +281,34 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
      toggle). Only the height changes; the board stays one full width column,
      so 7c's 1.35fr two column split is deliberately not adopted, the owner
      asked for full width on 2026-09-03. */
-  .mapwrap{min-height:640px}
+  /* A compact preview now that it sits under the cards: enough to see a storm
+     and the shape of the island, with EXPAND MAP carrying anyone who wants to
+     actually read it. The .tall state below is untouched and still wins on
+     specificity. Height, not min-height: .board is a single column, so the map
+     has no sibling column to stretch to match, which is what min-height was
+     for back when the board was a two column split. */
+  .mapwrap{height:220px}
   .mapwrap.tall{height:calc(100vh - 76px)}
   .board:has(.mapwrap.tall) #bands,
   .board:has(.mapwrap.tall) #maplegend,
   .board:has(.mapwrap.tall) #islandWx,
   .board:has(.mapwrap.tall) .islandwx-h{display:none}
-  /* Before a location is chosen #bands is empty (nothing to show yet); hide
-     it so an empty grid item does not leave a stray gap line under the map. */
-  .board:has(.mapwrap.home) #bands{display:none}
+  /* Before a location is chosen #bands is empty. .board is a 2px-gap grid, so
+     an empty grid item still costs a gap row: it used to show as a stray line
+     under the map, and with the cards on top it would be a gap above the
+     island snapshot instead. Keyed off the div actually being empty rather
+     than off where the map is, so it no longer has to be rewritten whenever
+     the board is reordered. */
+  #bands:empty{display:none}
   #bands{display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;gap:2px}
+  /* 172px, not 118px: the label column is a fixed width so every card's
+     headline starts on the same vertical line, which means it has to fit the
+     longest label rather than the average one. "SHELTERS & EVACUATION"
+     measures 162px at this size, and at 118px it and "OCEAN & BEACHES" both
+     wrapped to two lines while the three short labels sat on one, so the
+     headlines no longer lined up with each other. */
   .band,.band.feature{
-    display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:22px;
+    display:grid;grid-template-columns:172px 1fr auto;align-items:center;gap:22px;
     padding:26px 30px;min-height:0;border-top:0;
   }
   .band-top{display:contents}
@@ -1339,7 +1355,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 .map-ui{position:absolute;z-index:500;pointer-events:none}
 .map-ui>*{pointer-events:auto}
-.filters{top:14px;left:14px;right:110px;display:flex;gap:2px;flex-wrap:wrap}
+.filters{top:14px;left:14px;right:142px;display:flex;gap:2px;flex-wrap:wrap}
 .chip{
   background:var(--surface);color:var(--ink);border:0;cursor:pointer;
   font-weight:800;font-size:10px;line-height:1;letter-spacing:.1em;
@@ -1347,10 +1363,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 .chip[aria-pressed="true"]{background:var(--ink);color:#fff}
 .chip i{width:8px;height:8px;display:block;flex:none}
+/* The one control that has to be findable on a 220px preview, so it is the
+   largest thing on the map: 11px (the .d-h/.islandwx-h step, not a new one)
+   and a 44px tap target, still --accent, still no radius and no icon beyond
+   the arrows it already carried. */
 .expand{
   top:14px;right:14px;background:var(--accent);color:var(--ink);border:0;cursor:pointer;
-  font-weight:800;font-size:10px;line-height:1;letter-spacing:.1em;
-  padding:11px 13px;min-height:36px;display:flex;align-items:center;gap:8px;
+  font-weight:800;font-size:11px;line-height:1;letter-spacing:.12em;
+  padding:14px 16px;min-height:44px;display:flex;align-items:center;gap:9px;
 }
 .expand:hover{background:var(--accent-h)}
 .scalenote{
@@ -1476,7 +1496,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   /* 340px per docs/808alerts-r4-actions.html artboard 7a ("MAP 340px"), up
      from 280px. Same reason as the desktop bump: the map is the thing people
      come to read now. */
-  .mapwrap{height:340px}
+  .mapwrap{height:220px}
   /* With every layer drawing at once, Leaflet's attribution carries six
      credits and wraps to three lines on a phone, running straight through the
      scale note above it. The attribution has to stay, so the scale note goes:
@@ -1528,6 +1548,19 @@ body.detail .board,body.detail .mapnote{display:none}
 
 
 <div class="board" id="board">
+
+<!-- Cards first, map after them, at both breakpoints. The status cards are the
+     answer someone opens this page for; the map is the thing they go to next.
+     Pre-location #bands is empty and hidden (see #bands:empty below) and the
+     per-island snapshot takes the same top slot instead, so the running order
+     is the same either way: answer, then map. #maplegend follows #mapwrap so
+     the key never strands above the cards explaining marks that are not on
+     screen yet, and #radarnote sits directly under the board for the same
+     reason. -->
+<div id="bands"></div>
+<p class="islandwx-h" id="islandWxHead" hidden>TODAY, BY ISLAND</p>
+<div class="islandwx" id="islandWx" hidden></div>
+
 <section class="mapwrap" id="mapwrap" hidden aria-label="Map of active alerts near your location">
   <div id="map"></div>
   <div class="map-ui filters" id="filters"></div>
@@ -1545,9 +1578,6 @@ body.detail .board,body.detail .mapnote{display:none}
 </section>
 
   <div class="maplegend" id="maplegend" hidden></div>
-  <div id="bands"></div>
-  <p class="islandwx-h" id="islandWxHead" hidden>TODAY, BY ISLAND</p>
-  <div class="islandwx" id="islandWx" hidden></div>
 </div>
 
 <p class="mapnote" id="radarnote" hidden></p>
@@ -2370,7 +2400,15 @@ const BANDCOLOR={POWER:"warning",WEATHER:"warning",ROADS:"advisory",OCEAN:"watch
    chips (both sort against this array); it does not touch each band's own
    fixed colour (CATCOLOR/BANDCOLOR are keyed by category name, not position),
    so "band colour is fixed per category" still holds exactly as before. */
-const BANDORDER=["WEATHER","OCEAN","ROADS","EMERGENCY"];
+const BANDORDER=["WEATHER","ROADS","POWER","OCEAN","EMERGENCY"];
+/* The label a reader sees. The category KEY is what everything else is built
+   on: CATCOLOR/BANDCOLOR are keyed by it, the hash routes are it lower-cased,
+   ROUTES and the map's own layer grouping use it. So the label is a display
+   layer over the key and nothing else, and #roads / #ocean / #emergency stay
+   exactly the URLs they were. */
+const CATLABEL={WEATHER:"WEATHER",ROADS:"ROADS & TRANSIT",POWER:"POWER",
+                OCEAN:"OCEAN & BEACHES",EMERGENCY:"SHELTERS & EVACUATION",PLAN:"PLAN"};
+const catLabel=c=>CATLABEL[c]||c;
 const SEVRANK={warning:0,advisory:1,watch:2,clear:3};
 
 const UTILITY=c=>c==="HIC007"?"Kauaʻi Island Utility Cooperative":"Hawaiian Electric";
@@ -2450,17 +2488,29 @@ function buildBands(){
       : {head:powerCount(POWER.totalStatewide,POWER.statewideQualifier)+" without power statewide"+
               (POWER.percentRestored?", "+POWER.percentRestored+"% restored":""),
          sub:"Hawaiian Electric"+t+". A snapshot, not a live reading."};
-  }else if(powerQuiet()){
-    const since=powerSince();
-    c.POWER={head:"No storm outages reported for "+(POWER.countyShort||POWER.countyName),
-      sub:"Hawaiian Electric has not reported one since "+since+
-          ". This does not cover everyday outages. Check their map for your block."};
-  }else if(POWER&&POWER.utility==="KIUC"){
-    c.POWER={head:"Outages here are not tracked yet",
-      sub:"Kauaʻi is served by KIUC, not Hawaiian Electric, and KIUC publish no feed we can read. Check KIUC.",feed:false};
   }else{
-    c.POWER={head:"Outage reports are not loading",
-      sub:"We could not reach Hawaiian Electric's updates. That is not a reading either way. Check "+UTILITY(S.c)+".",feed:false};
+    /* No figure for this island. The card must not read as "no outages", and
+       an apology is no use to anyone either, so it leads with the thing that
+       is always true and always actionable: who the utility is and that you
+       can report to them. The reason there is no figure rides in the sub-line
+       and the detail page carries the number, their map and the last date they
+       spoke. Invariants 1 and 6. */
+    const u=UTILITY(S.c);
+    const where=(POWER&&(POWER.countyShort||POWER.countyName))||COUNTIES[S.c].name;
+    const head="Report an outage to "+u;
+    if(powerQuiet()){
+      const since=powerSince();
+      c.POWER={head,
+        sub:u+" have published no outage figure for "+where+
+            (since?" since "+since:" recently")+
+            ". They report on storms, not everyday outages, so that is not a reading either way."};
+    }else if(POWER&&POWER.utility==="KIUC"){
+      c.POWER={head,
+        sub:"Kauaʻi is served by KIUC, not Hawaiian Electric, and KIUC publish no outage feed this page can read. Their own map is live.",feed:false};
+    }else{
+      c.POWER={head,
+        sub:"We could not reach "+u+"'s updates, so there is no figure here either way. Their own map is live.",feed:false};
+    }
   }
   if(CLOSURES){
     c.ROADS=CLOSURES.length
@@ -2483,8 +2533,6 @@ const bandOf=cat=>BANDS.find(b=>b.cat===cat)||
 const DETAIL={
   POWER:{src:c=>UTILITY(c), map:"Outage footprints would be shaded in the warning color.",
     cta:"OPEN THE OUTAGE MAP", grp:"Power",
-    tel:c=>c==="HIC007"?["KIUC outage line","808-246-4300"]
-                       :["Hawaiian Electric trouble line","1-855-304-1212"],
     foot:"This page does not carry an outage feed yet, so it cannot tell you whether your block is out. The utility can. Reporting your own outage is what tells them where the damage is."},
   ROADS:{src:()=>CLOSURES?"Hawaiʻi County Civil Defense":"HDOT",
     layers:["CLOSURES","INCIDENTS","TRAFFIC"], radius:"5 MI RADIUS",
@@ -2550,13 +2598,12 @@ function advisoryList(cat){
 }
 
 function noFeedPanel(cat){
-  const d=DETAIL[cat], res=resFor(d.grp), tel=d.tel&&d.tel(S.c);
+  const d=DETAIL[cat], res=resFor(d.grp);
   return mapBlock(d,true)+
     `<div class="d-sec"><span class="d-h">WHY THIS IS EMPTY</span>
        <div class="d-text">${esc(d.foot)}</div></div>`+
     `<div class="d-sec"><span class="d-h">GO STRAIGHT TO THE SOURCE</span></div>`+
     (res?`<a class="act" href="${esc(res.url)}" target="_blank" rel="noopener">${esc(res.nm)}</a>`:"")+
-    (tel?`<a class="act" href="tel:${esc(tel[1].replace(/[^0-9]/g,""))}">${esc(tel[0])}: ${esc(tel[1])}</a>`:"")+
     footBlock({...d,foot:"Nothing on this panel is a live reading."},null);
 }
 
@@ -2603,10 +2650,10 @@ function powerQuietBlock(){
   const since=powerSince();
   return `<article class="sh">
       <div class="sh-top"><span class="u">HAWAIIAN ELECTRIC${since?" &middot; LAST UPDATE "+up(since):""}</span>
-        <h3>${esc("No storm outages reported for "+where)}</h3></div>
+        <h3>${esc("No outage figure published for "+where)}</h3></div>
       <p class="confirm">This is not a reading that your power is on. Hawaiian Electric have not published an outage figure for ${esc(where)} since ${esc(since)}.</p>
       <p class="guide">${esc(POWER.coverage||"Hawaiian Electric issue news releases for storms and major events, not for everyday outages. No release does not mean no outages.")}</p>
-      ${POWER.eventActive&&POWER.eventHeadline?`<p class="disc">Hawaiian Electric are currently reporting: ${esc(POWER.eventHeadline)}</p>`:""}
+      ${""/* POWER.eventActive/eventHeadline deliberately not rendered, see above */}
       <p class="attrib">${esc(up(POWER.title||"Hawaiian Electric newsroom"))} &middot; SOURCE
         <a href="${esc(POWER.sourceUrl||"https://www.hawaiianelectric.com/about-us/newsroom")}" target="_blank" rel="noopener">Hawaiian Electric</a></p>
     </article>`;
@@ -2670,20 +2717,45 @@ function hurrPop(h){
       : `<a class="pop-link" href="#weather">OPEN WEATHER DETAIL &#8594;</a>`);
 }
 
+/* This county's own outage line out of the LINES registry. One copy of those
+   numbers exists in this file and this reads it, so Maui and Hawaiʻi Island
+   cannot drift back to Oʻahu's number the way the hardcoded pair here did. */
+const powerLine=c=>LINES.find(l=>l.county===c&&/-power$/.test(l.id)&&linesOK(l))||null;
+
+/* What the page can always say, figure or no figure: who the utility is for
+   this county, the number they ask you to report an outage on, and a link to
+   their own live outage map, which their terms do not let this page
+   republish but do not stop it linking. None of it asserts whether the power
+   is on. The number carries its own source and verified date, invariant 3. */
+function powerContactBlock(){
+  const l=powerLine(S.c); if(!l) return "";
+  const since=powerSince();
+  const where=(POWER&&(POWER.countyShort||POWER.countyName))||COUNTIES[S.c].name;
+  const last=(POWER&&POWER.published&&since)
+    ? `${esc(l.org)} last published about ${esc(where)} on ${esc(since)}. They report on storms and major events, not on everyday outages, so a gap since then is not a reading either way.`
+    : `${esc(l.org)} report on storms and major events, not on everyday outages, so nothing here can tell you whether your own block is out. Reporting it is what tells them where the damage is.`;
+  return `<div class="d-sec"><span class="d-h">REPORT AN OUTAGE</span>
+      <div class="d-text">${esc(l.org)} is the utility for ${esc(COUNTIES[S.c].name)}.</div></div>
+    <a class="act" href="tel:${esc(l.tel)}">Report an outage &middot; ${esc(l.number)}</a>
+    ${l.note?`<p class="guide">${esc(up1(l.note))}.</p>`:""}
+    <a class="act" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.org)} outage map, their live view</a>
+    <p class="guide">${last}</p>
+    <p class="guide">Number from ${esc(l.srcName)}, <a href="${esc(l.srcUrl)}" target="_blank" rel="noopener">source</a>, verified ${esc(vDate(l.verifiedAt))}.</p>`;
+}
+
+/* Every state renders the same shape now. A figure, when there is one, leads;
+   the utility block below it is what makes the page useful on the quiet day
+   that used to fall through to a bare "why this is empty" panel. */
 function panelPower(){
-  /* Kauaʻi is KIUC territory and the worker never has a figure for it, and a
-     worker that did not answer is not a reading either. Both fall through to
-     the honest empty panel rather than borrowing another island's number. */
-  if(!powerLive() && !powerQuiet()) return noFeedPanel("POWER");
-  const d=DETAIL.POWER, res=resFor(d.grp), tel=d.tel&&d.tel(S.c);
+  const d=DETAIL.POWER, res=resFor(d.grp);
   return mapBlock(d,true)+
     powerLiveBlock()+
     powerQuietBlock()+
+    powerContactBlock()+
     `<div class="d-sec"><span class="d-h">GO STRAIGHT TO THE SOURCE</span>
        <div class="d-text">${esc(d.foot)}</div></div>`+
     (res?`<a class="act" href="${esc(res.url)}" target="_blank" rel="noopener">${esc(res.nm)}</a>`:"")+
-    (tel?`<a class="act" href="tel:${esc(tel[1].replace(/[^0-9]/g,""))}">${esc(tel[0])}: ${esc(tel[1])}</a>`:"")+
-    `<a class="act" href="https://www.hawaiianelectric.com/about-us/newsroom" target="_blank" rel="noopener">Hawaiian Electric newsroom, where the next update lands</a>`+
+    (S.c==="HIC007"?"":`<a class="act" href="https://www.hawaiianelectric.com/about-us/newsroom" target="_blank" rel="noopener">Hawaiian Electric newsroom, where the next update lands</a>`)+
     footBlock({...d,foot:"Nothing on this panel is a live reading."},null);
 }
 function panelRoads(){
@@ -2916,13 +2988,13 @@ function renderBands(){
     prev=b.sev;
     const cls=`band sev-${b.sev}${div}${i===0?" feature":""}`;
     const inner=
-      `<span class="band-top"><span class="band-lab">${esc(b.cat)}</span>`+
+      `<span class="band-top"><span class="band-lab">${esc(catLabel(b.cat))}</span>`+
       `<span class="band-arw" aria-hidden="true">&#8594;</span></span>`+
       `<span class="band-body"><span class="band-h">${esc(b.head)}</span>`+
       (b.sub?`<span class="band-s">${esc(b.sub)}</span>`:"")+`</span>`;
     /* State rides in the accessible name. The colour is fixed and no longer
        says anything, so a screen reader has to be told separately. */
-    const name=`${b.cat}, ${metaWord(b.cat).toLowerCase()}. ${b.head}${b.sub?". "+b.sub:""}`;
+    const name=`${catLabel(b.cat)}, ${metaWord(b.cat).toLowerCase()}. ${b.head}${b.sub?". "+b.sub:""}`;
     return `<a class="${cls}" href="#${b.cat.toLowerCase()}" aria-label="${esc(name)}">${inner}</a>`;
   }).join("");
 }
@@ -4057,12 +4129,12 @@ function drawMap(){
       const kfg=dark?"rgba(0,0,0,.62)":"rgba(255,255,255,.75)";
       const pop=
         `<div class="pop-head" style="background:${lineCol};color:${fg}">`+
-          `<span class="k" style="color:${kfg}">${esc(cat)}</span>`+
+          `<span class="k" style="color:${kfg}">${esc(catLabel(cat))}</span>`+
           `<span class="t">${esc(f.t)}</span></div>`+
         `<div class="pop-body"><span class="s">${esc(f.s||"")}</span>`+
           (f.k?`<span class="pop-kv"><span class="k">${esc(f.k)}</span><span class="v">${esc(f.v||"")}</span></span>`:"")+
         `</div>`+
-        `<a class="pop-link" href="#${cat.toLowerCase()}">OPEN ${esc(cat)} DETAIL &#8594;</a>`;
+        `<a class="pop-link" href="#${cat.toLowerCase()}">OPEN ${esc(catLabel(cat))} &#8594;</a>`;
       let lyr=null;
       /* Shape, not colour, tells the point layers apart. Band colour is fixed
          per category and the palette is fixed at five values, so neither is
@@ -4341,7 +4413,7 @@ function renderPage(cat){
     `<div class="pv-head">${back}
        <div class="pv-body">
          <div>
-           <span class="pv-lab">${esc(cat)} &middot; ${metaWord(cat)}</span>
+           <span class="pv-lab">${esc(catLabel(cat))} &middot; ${metaWord(cat)}</span>
            <h2 class="pv-h" id="pvh" tabindex="-1">${esc(b.head)}</h2>
            ${b.sub?`<p class="pv-sub">${esc(b.sub)}</p>`:""}
          </div>
