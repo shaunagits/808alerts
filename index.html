@@ -319,6 +319,28 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
 #more{background:var(--surface)}
 @media (min-width:1024px){ #more{display:grid;grid-template-columns:1fr;gap:2px} }
 
+/* The browse block. Same ground and same card markup as #more directly above
+   it, so the two read as one continuous stack of link cards. The only new
+   rules here are spacing and the muted group labels; no new type step, no new
+   palette value, radius still 0. */
+.browse{background:var(--surface)}
+.browse .browse-h{padding-top:26px;border-top:2px solid var(--surface-line)}
+.browse .browse-g{padding-top:24px;color:var(--muted3)}
+.browse .band{padding-top:16px;padding-bottom:16px}
+.browse .band.sev-clear{border-top:0}
+.browse .band.sev-clear+.band.sev-clear{border-top:2px solid var(--surface-line)}
+@media (min-width:1024px){
+  /* Desktop restyles .band into a 3 column grid on a surface2 ground whose
+     separators come from the container's own 2px gap, exactly as #more does
+     directly above. Match that, and give the two group headings the cards'
+     own 30px inset so the whole block reads as one aligned column rather
+     than headings at --pad and cards at 30px. */
+  .browse{display:grid;grid-template-columns:1fr;gap:2px}
+  .browse .band{padding-top:26px;padding-bottom:26px}
+  .browse .band.sev-clear+.band.sev-clear{border-top:0}
+  .browse .browse-h,.browse .browse-g{padding-left:30px;padding-right:30px}
+}
+
 /* ---- reported refuge areas ---- */
 .sh+.sh{border-top:10px solid var(--ink)}
 .sh-top{padding:24px var(--pad) 0}
@@ -465,6 +487,8 @@ footer p{margin:0 auto 14px;max-width:92ch}
 footer p:last-child{margin-bottom:0}
 footer b{color:#fff;font-weight:800}
 footer a{color:var(--accent)}
+footer nav{max-width:92ch;margin:0 auto 20px;padding:20px 0 0;border-top:2px solid rgba(255,255,255,.22)}
+footer nav a{display:inline-block;margin:0 7px 8px;font-size:13px;font-weight:700}
 
 
 /* ------------------------------------------------------- category detail */
@@ -475,7 +499,7 @@ footer a{color:var(--accent)}
 .page.on{display:block}
 .page a{color:var(--ink)}
 .page .attrib a{color:var(--accent)}
-body.detail .hero,body.detail #strip,body.detail #bands,body.detail #more{display:none}
+body.detail .hero,body.detail #strip,body.detail #bands,body.detail #more,body.detail #browse{display:none}
 
 .pv-head{padding:22px var(--pad) 26px}
 .pv-back{
@@ -1390,7 +1414,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
    .d-stats/.d-stat tile pattern already established in the detail pages
    rather than inventing a new one, just under its own class name so the
    column count can flex for six tiles instead of three. */
-.islandwx-h{padding:16px var(--pad) 0;font-weight:800;font-size:11px;line-height:1;letter-spacing:.12em;color:var(--ink)}
+.islandwx-h,.browse-h,.browse-g{padding:16px var(--pad) 0;font-weight:800;font-size:11px;line-height:1;letter-spacing:.12em;color:var(--ink)}
 .islandwx{
   display:grid;grid-template-columns:repeat(2,1fr);gap:2px;margin-top:12px;
   background:var(--surface-line);border-top:2px solid var(--surface-line);border-bottom:2px solid var(--surface-line);
@@ -1537,7 +1561,66 @@ body.detail .board,body.detail .mapnote{display:none}
 
 </div>
 
+<!-- Every standalone page on the site, as real <a href> markup in the served
+     HTML. Nothing here is built by script and nothing waits on a location:
+     this is the only route a crawler has into the eight content pages, and
+     the homepage is the only URL that is currently indexed. The cards reuse
+     the .band / .sev-clear markup PLAN and CHECKLIST above already use, label
+     plus one descriptive line, so this reads as a continuation of that stack
+     rather than new visual language. Kauaʻi has no page yet and is
+     deliberately absent rather than linked to something that does not exist. -->
+<nav class="browse" id="browse" aria-label="All pages on 808 Alerts">
+
+  <p class="islandwx-h browse-h">MORE FROM 808 ALERTS</p>
+
+  <p class="islandwx-h browse-g">BY ISLAND</p>
+
+  <a class="band sev-clear" href="/oahu-alerts/">
+    <span class="band-top"><span class="band-lab">OʻAHU ALERTS</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Live National Weather Service alerts for Oʻahu, with Honolulu County evacuation zone and refuge links</span></span>
+  </a>
+
+  <a class="band sev-clear" href="/maui-alerts/">
+    <span class="band-top"><span class="band-lab">MAUI COUNTY ALERTS</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Live alerts and county planning links for Maui, Molokaʻi and Lānaʻi</span></span>
+  </a>
+
+  <a class="band sev-clear" href="/hawaii-island-alerts/">
+    <span class="band-top"><span class="band-lab">HAWAIʻI ISLAND ALERTS</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Live alerts plus Hawaiʻi County Civil Defense road closures and hazard zones</span></span>
+  </a>
+
+  <p class="islandwx-h browse-g">BY TOPIC</p>
+
+  <a class="band sev-clear" href="/hurricane-tracker-hawaii/">
+    <span class="band-top"><span class="band-lab">HURRICANE TRACKER</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">The National Hurricane Center cone, track, wind field and model guidance on one map</span></span>
+  </a>
+
+  <a class="band sev-clear" href="/hawaii-tsunami-alerts/">
+    <span class="band-top"><span class="band-lab">TSUNAMI ALERTS</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Current tsunami warnings, the natural signs that mean go now, and how to find your zone</span></span>
+  </a>
+
+  <a class="band sev-clear" href="/emergency-shelters-hawaii/">
+    <span class="band-top"><span class="band-lab">EMERGENCY SHELTERS</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Where each county publishes shelter status, and what a refuge area actually is</span></span>
+  </a>
+
+  <a class="band sev-clear" href="/hurricane-preparation-hawaii/">
+    <span class="band-top"><span class="band-lab">HURRICANE PREPARATION</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">Find your zone, decide where you would go, get alerts and pack a bag</span></span>
+  </a>
+
+  <a class="band sev-clear" href="/hurricane-kit-checklist/">
+    <span class="band-top"><span class="band-lab">KIT CHECKLIST</span><span class="band-arw" aria-hidden="true">&#8594;</span></span>
+    <span class="band-body"><span class="band-h">What to pack before a watch is issued, not after</span></span>
+  </a>
+
+</nav>
+
 <footer id="about">
+<nav><a href="/oahu-alerts/">Oʻahu Alerts</a><a href="/maui-alerts/">Maui County Alerts</a><a href="/hawaii-island-alerts/">Hawaiʻi Island Alerts</a><a href="/hurricane-tracker-hawaii/">Hurricane Tracker</a><a href="/hawaii-tsunami-alerts/">Tsunami Alerts</a><a href="/emergency-shelters-hawaii/">Emergency Shelters</a><a href="/hurricane-preparation-hawaii/">Hurricane Preparation</a><a href="/hurricane-kit-checklist/">Kit Checklist</a></nav>
   <p><b>This is not an official alert system.</b> It gathers public information from the
   National Weather Service and Hawaiʻi county agencies into one place. It does not replace
   your county emergency management agency, and it never replaces 911.</p>
