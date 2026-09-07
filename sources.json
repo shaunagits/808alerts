@@ -1,7 +1,7 @@
 {
   "schemaVersion": "0.2",
-  "updatedAt": "2026-09-07",
-  "notes": "contactLines mirrors the inlined LINES array in index.html by hand, the same way reports mirrors REPORTS. Every number was read off the agency's own published page on verifiedAt, and sourceUrl is the exact page it was read from. An entry missing sourceName, sourceUrl or verifiedAt is not rendered. number is the display string, tel is the digits the href dials. note carries a menu instruction where the agency publishes one. Hawaii County Civil Defense is cited to HI-EMA's county-partners listing because hawaiicounty.gov answers 403 to every automated request; the county's own page is in url.",
+  "updatedAt": "2026-09-08",
+  "notes": "contactLines mirrors the inlined LINES array in index.html by hand, the same way reports mirrors REPORTS. Every number was read off the agency's own published page on verifiedAt, and sourceUrl is the exact page it was read from. An entry missing sourceName, sourceUrl or verifiedAt is not rendered, and neither is one with no number to dial. number is the display string, tel is the digits the href dials, and the two are checked against each other rather than kept in step by hand. note is optional prose rendered on its own line under the number: a dialling instruction where the agency publishes one, or an explanation where a number would otherwise read as a mistake. Kauai is the case that needs it: the Department of Water's after-hours emergency number is the police non-emergency number, because outside business hours the department is reached through police dispatch, so the same digits appear twice in one county's list on purpose. Hawaii County Civil Defense is cited to HI-EMA's county-partners listing because hawaiicounty.gov answers 403 to every automated request; the county's own page is in url. The sandbag number is on hawaiicounty.gov and was read there in a browser, but the county publishes it only in storm news releases rather than on a standing page, so the citation is a release. kauaiwater.org was read in a browser for the same reason. The per-county phone list that used to hang off each counties entry was retired on 2026-09-08: it carried numbers with no source name, no source URL and no verified date, and three of its four numbers were already in contactLines with all three.",
   "counties": [
     {
       "id": "HIC001",
@@ -11,16 +11,6 @@
         "Hawaiʻi"
       ],
       "emAgency": "Hawaiʻi County Civil Defense",
-      "phones": [
-        {
-          "label": "Civil Defense",
-          "number": "808-935-0031"
-        },
-        {
-          "label": "Sandbags / Public Works",
-          "number": "808-961-8349"
-        }
-      ],
       "planLinks": {
         "zone": {
           "name": "Look up your evacuation zone",
@@ -49,7 +39,6 @@
         "Oʻahu"
       ],
       "emAgency": "Honolulu Department of Emergency Management",
-      "phones": [],
       "planLinks": {
         "zone": {
           "name": "Oʻahu Hazard Explorer",
@@ -82,7 +71,6 @@
         "Niʻihau"
       ],
       "emAgency": "Kauaʻi Emergency Management Agency",
-      "phones": [],
       "planLinks": {
         "zone": {
           "name": "Look up your evacuation zone",
@@ -107,7 +95,6 @@
         "Kahoʻolawe"
       ],
       "emAgency": "Maui Emergency Management Agency (MEMA)",
-      "phones": [],
       "planLinks": {
         "zone": {
           "name": "Look up your evacuation zone",
@@ -700,6 +687,19 @@
       "verifiedAt": "2026-09-07"
     },
     {
+      "id": "haw-sandbags",
+      "countyId": "HIC001",
+      "label": "Sandbags, Public Works",
+      "org": "Hawaiʻi County Department of Public Works",
+      "number": "(808) 961-8349",
+      "tel": "8089618349",
+      "note": "for after-hours sandbag requests the county directs you to Civil Defense, above",
+      "url": "https://www.hawaiicounty.gov/departments/public-works",
+      "sourceName": "County of Hawaiʻi storm release, Aug 22 2026",
+      "sourceUrl": "https://www.hawaiicounty.gov/Home/Components/News/News/4655/720",
+      "verifiedAt": "2026-09-08"
+    },
+    {
       "id": "kau-police",
       "countyId": "HIC007",
       "label": "Police, non-emergency",
@@ -713,9 +713,9 @@
       "verifiedAt": "2026-09-07"
     },
     {
-      "id": "kau-water",
+      "id": "kau-water-main",
       "countyId": "HIC007",
-      "label": "Department of Water",
+      "label": "Department of Water, main line",
       "org": "Kauaʻi County Department of Water",
       "number": "(808) 245-5400",
       "tel": "8082455400",
@@ -723,7 +723,33 @@
       "url": "https://www.kauaiwater.org/contact-us",
       "sourceName": "Kauaʻi County Department of Water",
       "sourceUrl": "https://www.kauaiwater.org/contact-us",
-      "verifiedAt": "2026-09-07"
+      "verifiedAt": "2026-09-08"
+    },
+    {
+      "id": "kau-water-day",
+      "countyId": "HIC007",
+      "label": "Water emergencies, business hours",
+      "org": "Kauaʻi County Department of Water",
+      "number": "(808) 245-5444",
+      "tel": "8082455444",
+      "note": "",
+      "url": "https://www.kauaiwater.org/contact-us",
+      "sourceName": "Kauaʻi County Department of Water",
+      "sourceUrl": "https://www.kauaiwater.org/contact-us",
+      "verifiedAt": "2026-09-08"
+    },
+    {
+      "id": "kau-water-night",
+      "countyId": "HIC007",
+      "label": "Water emergencies, nights, weekends and holidays",
+      "org": "Kauaʻi County Department of Water",
+      "number": "(808) 241-1711",
+      "tel": "8082411711",
+      "note": "the same number as the police non-emergency line above. Outside business hours the Department of Water is reached through police dispatch, so this is not a mistake",
+      "url": "https://www.kauaiwater.org/contact-us",
+      "sourceName": "Kauaʻi County Department of Water",
+      "sourceUrl": "https://www.kauaiwater.org/contact-us",
+      "verifiedAt": "2026-09-08"
     },
     {
       "id": "kau-power",

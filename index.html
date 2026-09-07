@@ -448,6 +448,7 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
    carries the organisation and the citation; the only rules here are spacing,
    since both classes are already styled above. */
 #lines .act{margin:14px var(--pad) 0}
+#lines .guide.note{padding-top:7px;padding-bottom:0}
 #lines .guide.src{padding-top:7px;padding-bottom:0}
 #lines .guide.call911{padding-top:22px}
 .page>.act:last-of-type{margin-bottom:4px}
@@ -1659,24 +1660,20 @@ const COUNTIES={
       url:"https://www.arcgis.com/apps/dashboards/5865229bcba74020992b372ef18b6f17"},
      {nm:"Look up your lava hazard zone",
       url:"https://hawaiicountygis.maps.arcgis.com/apps/instant/lookup/index.html?appid=165b51f91ca74763ad21304aeb887f8c"}
-   ],
-   phones:[["Civil Defense","808-935-0031"],["Sandbags / Public Works","808-961-8349"]]},
+   ]},
  HIC003:{name:"Honolulu County",
    zone:{nm:"Oʻahu Hazard Explorer",url:"https://www.honolulu.gov/dem/oahu-hazard-explorer/"},
    sites:{nm:"Potential hurricane refuge sites",url:"http://www.honolulu.gov/hurricaneevac"},
    alerts:{nm:"Sign up for HNL Alert",url:"https://www.honolulu.gov/dem/hnl-alert/"},
-   kit:{nm:"Build a kit",url:"https://www.honolulu.gov/dem/build-a-kit/"},
-   phones:[["Emergency Management","808-723-8960"]]},
+   kit:{nm:"Build a kit",url:"https://www.honolulu.gov/dem/build-a-kit/"}},
  HIC007:{name:"Kauaʻi County",
    zone:{nm:"Look up your evacuation zone",url:"https://tsunami.coast.noaa.gov/"},
    sites:{nm:"Refuge area status",
-     url:"https://kauaigis.maps.arcgis.com/apps/webappviewer/index.html?id=10e03a2de60b4d3ba620bbeb570b4ade"},
-   phones:[["KIUC outages","808-246-4300"]]},
+     url:"https://kauaigis.maps.arcgis.com/apps/webappviewer/index.html?id=10e03a2de60b4d3ba620bbeb570b4ade"}},
  HIC009:{name:"Maui County",
    zone:{nm:"Look up your evacuation zone",url:"https://tsunami.coast.noaa.gov/"},
    more:[{nm:"Tsunami maps from Maui County",
-     url:"https://www.mauicounty.gov/261/Tsunami-Awareness-and-Preparedness"}],
-   phones:[]}
+     url:"https://www.mauicounty.gov/261/Tsunami-Awareness-and-Preparedness"}]}
 };
 
 /* z is the NWS public forecast zone containing that point, verified against
@@ -1962,17 +1959,44 @@ const LINES=[
   url:"https://www.hawaiicounty.gov/departments/civil-defense",
   srcName:"Hawaiʻi Emergency Management Agency, county partners",
   srcUrl:"https://dod.hawaii.gov/hiema/contact-us/",verifiedAt:"2026-09-07"},
+ /* Migrated out of the county phone tiles, which carried it with no source and
+    no verified date. hawaiicounty.gov answers 403 to automated requests but
+    does load in a browser, and the county publishes this number in its own
+    storm releases; the Department of Public Works' own site (an ArcGIS hub)
+    does not carry it at all, so a county release is the county page cited. */
+ {id:"haw-sandbags",county:"HIC001",label:"Sandbags, Public Works",
+  org:"Hawaiʻi County Department of Public Works",number:"(808) 961-8349",tel:"8089618349",
+  note:"for after-hours sandbag requests the county directs you to Civil Defense, above",
+  url:"https://www.hawaiicounty.gov/departments/public-works",
+  srcName:"County of Hawaiʻi storm release, Aug 22 2026",
+  srcUrl:"https://www.hawaiicounty.gov/Home/Components/News/News/4655/720",verifiedAt:"2026-09-08"},
  /* Kauaʻi County */
  {id:"kau-police",county:"HIC007",label:"Police, non-emergency",
   org:"Kauaʻi Police Department",number:"(808) 241-1711",tel:"8082411711",note:"",
   url:"https://www.kauai.gov/Government/Departments-Agencies/Police-Department",
   srcName:"Kauaʻi Police Department",
   srcUrl:"https://www.kauai.gov/Government/Departments-Agencies/Police-Department",verifiedAt:"2026-09-07"},
- {id:"kau-water",county:"HIC007",label:"Department of Water",
+ {id:"kau-water-main",county:"HIC007",label:"Department of Water, main line",
   org:"Kauaʻi County Department of Water",number:"(808) 245-5400",tel:"8082455400",note:"",
   url:"https://www.kauaiwater.org/contact-us",
   srcName:"Kauaʻi County Department of Water",
-  srcUrl:"https://www.kauaiwater.org/contact-us",verifiedAt:"2026-09-07"},
+  srcUrl:"https://www.kauaiwater.org/contact-us",verifiedAt:"2026-09-08"},
+ {id:"kau-water-day",county:"HIC007",label:"Water emergencies, business hours",
+  org:"Kauaʻi County Department of Water",number:"(808) 245-5444",tel:"8082455444",note:"",
+  url:"https://www.kauaiwater.org/contact-us",
+  srcName:"Kauaʻi County Department of Water",
+  srcUrl:"https://www.kauaiwater.org/contact-us",verifiedAt:"2026-09-08"},
+ /* Deliberately the same number as kau-police above. The Department of Water
+    publishes it themselves for after-hours water emergencies, so a reader who
+    spots the repeat has to be told it is intended, or they will read the page
+    as broken. The note is the whole point of this entry, and it depends on
+    kau-police being rendered above it: keep the police line first. */
+ {id:"kau-water-night",county:"HIC007",label:"Water emergencies, nights, weekends and holidays",
+  org:"Kauaʻi County Department of Water",number:"(808) 241-1711",tel:"8082411711",
+  note:"the same number as the police non-emergency line above. Outside business hours the Department of Water is reached through police dispatch, so this is not a mistake",
+  url:"https://www.kauaiwater.org/contact-us",
+  srcName:"Kauaʻi County Department of Water",
+  srcUrl:"https://www.kauaiwater.org/contact-us",verifiedAt:"2026-09-08"},
  {id:"kau-power",county:"HIC007",label:"Power outages, 24 hours",
   org:"Kauaʻi Island Utility Cooperative",number:"(808) 246-4300",tel:"8082464300",note:"press option 5",
   url:"https://website.kiuc.coop/outage-center",
@@ -1997,6 +2021,9 @@ const LINES=[
 ];
 
 const linesOK=l=>!!(l&&l.srcName&&l.srcUrl&&l.verifiedAt&&l.number&&l.tel);
+/* Notes are stored lower case so they can also read as a clause; sentence-case
+   them where they are rendered as their own line. */
+const up1=t=>{t=String(t||"");return t.charAt(0).toUpperCase()+t.slice(1);};
 /* "2026-09-07" -> "Sep 7, 2026". Built from the string, not Date(), because
    Date("2026-09-07") parses as UTC and renders as the 6th west of Greenwich. */
 const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -4628,13 +4655,14 @@ function renderLines(){
     return;
   }
   el.innerHTML=rows.map(l=>{
-    const main=esc(l.label)+" &middot; "+esc(l.number)+(l.note?", "+esc(l.note):"");
+    const main=esc(l.label)+" &middot; "+esc(l.number);
     /* Link the organisation only where its own page differs from the page
        the number was read off, so a row never carries the same link twice. */
     const org=(l.url&&l.url!==l.srcUrl)
       ? '<a href="'+esc(l.url)+'" target="_blank" rel="noopener">'+esc(l.org)+'</a>'
       : esc(l.org);
     return '<a class="act" href="tel:'+esc(l.tel)+'">'+main+'</a>'+
+      (l.note?'<p class="guide note">'+esc(up1(l.note))+'.</p>':"")+
       '<p class="guide src">'+org+'. Source: '+
       '<a href="'+esc(l.srcUrl)+'" target="_blank" rel="noopener">'+esc(l.srcName)+'</a>'+
       ', verified '+esc(vDate(l.verifiedAt))+'.</p>';
@@ -4716,14 +4744,14 @@ function grouped(list,el){
 
 function renderRes(){ grouped(RES,$("resources")); }
 
-function renderSources(){
-  grouped(SOURCES,$("sources"));
-  const ph=COUNTIES[S.c].phones;
-  if(ph.length) $("sources").insertAdjacentHTML("beforeend",
-    `<div class="grp"><span class="u">CALL</span><div class="tiles">`+
-    ph.map(p=>`<a class="tile" href="tel:${esc(p[1].replace(/-/g,""))}"><span><b>${esc(p[0])}</b><small>${esc(p[1])}</small></span><span class="tile-go">CALL &#8594;</span></a>`).join("")+
-    `</div></div>`);
-}
+/* The CALL tiles that used to be appended here are gone. They carried a
+   county's phone numbers with no source name, no source URL and no verified
+   date, and three of the four also appear in LINES with all three, so the
+   PLAN page showed the same number twice with two different provenance
+   stories. Every number on the page now comes from LINES and is sourced.
+   The .grp/.tiles/.tile/.tile-go styling is deliberately untouched: grouped()
+   still uses all of it for SOURCES and RES, so none of it became unused. */
+function renderSources(){ grouped(SOURCES,$("sources")); }
 
 /* ============================ restore ============================ */
 
