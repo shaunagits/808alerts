@@ -444,6 +444,12 @@ a.sev-advisory:hover::after,a.sev-clear:hover::after{background:rgba(0,0,0,.05)}
 .act:hover{background:var(--accent)}
 .act::after{content:"\2192";font-weight:700;font-size:17px}
 .page>.act{margin-left:var(--pad);margin-right:var(--pad)}
+/* Non-emergency numbers on the PLAN page. .act carries the number and .guide
+   carries the organisation and the citation; the only rules here are spacing,
+   since both classes are already styled above. */
+#lines .act{margin:14px var(--pad) 0}
+#lines .guide.src{padding-top:7px;padding-bottom:0}
+#lines .guide.call911{padding-top:22px}
 .page>.act:last-of-type{margin-bottom:4px}
 
 /* ---- kit ---- */
@@ -1870,6 +1876,135 @@ const up=s=>String(s).toUpperCase();
    a source URL or a reported-at time is not rendered at all. */
 const reportOK=r=>!!(r&&r.srcName&&r.srcUrl&&r.at&&Array.isArray(r.locs)&&r.locs.length);
 
+/* ===================== non-emergency contact lines =====================
+   Every number here was read off the agency's own published page on the
+   date in verifiedAt; srcUrl is the exact page it was read from. Mirrored
+   by hand into sources.json, which is the schema of record.
+
+   linesOK gates rendering the same way reportOK does: an entry missing a
+   source name, a source URL or a verified date does not render, and neither
+   does one with no number to dial (invariant 3). Where a county has no
+   verified number for a category the line is simply absent rather than
+   shown as a placeholder (invariant 6).
+
+   `number` is what a reader sees, `tel` is the digits the href dials, and
+   the two are checked against each other rather than kept in step by hand.
+   `note` carries a menu instruction where the agency publishes one.
+
+   These age. A phone number is not a live reading, so there is no staleness
+   flag here the way the shelter layer has one, but the verified date is on
+   every rendered line so a reader can judge it. Re-check them rather than
+   trusting the date. hawaiicounty.gov answers 403 to every automated
+   request, so Hawaiʻi County Civil Defense is cited to HI-EMA's own
+   county-partners listing instead of the county's page; the county page is
+   still in `url`. */
+const LINES=[
+ /* Honolulu County */
+ {id:"hnl-police",county:"HIC003",label:"Police, non-emergency",
+  org:"Honolulu Police Department",number:"(808) 529-3111",tel:"8085293111",note:"",
+  url:"https://www.honolulupd.org/contact/",
+  srcName:"Honolulu Police Department",
+  srcUrl:"https://www.honolulupd.org/contact/",verifiedAt:"2026-09-07"},
+ {id:"hnl-water",county:"HIC003",label:"Water trouble and main breaks, day or night",
+  org:"Honolulu Board of Water Supply",number:"(808) 748-5000",tel:"8087485000",note:"press 1",
+  url:"https://www.boardofwatersupply.com/mainbreaks/about",
+  srcName:"Honolulu Board of Water Supply",
+  srcUrl:"https://www.boardofwatersupply.com/mainbreaks/about",verifiedAt:"2026-09-07"},
+ {id:"hnl-power",county:"HIC003",label:"Power outages",
+  org:"Hawaiian Electric",number:"1-855-304-1212",tel:"18553041212",note:"",
+  url:"https://www.hawaiianelectric.com/safety-and-outages/power-outages",
+  srcName:"Hawaiian Electric",
+  srcUrl:"https://www.hawaiianelectric.com/safety-and-outages/power-outages",verifiedAt:"2026-09-07"},
+ {id:"hnl-em",county:"HIC003",label:"Emergency management",
+  org:"Honolulu Department of Emergency Management",number:"(808) 723-8960",tel:"8087238960",note:"",
+  url:"https://www.honolulu.gov/dem/",
+  srcName:"Honolulu Department of Emergency Management",
+  srcUrl:"https://www.honolulu.gov/dem/",verifiedAt:"2026-09-07"},
+ /* Maui County */
+ {id:"mau-police",county:"HIC009",label:"Police, non-emergency",
+  org:"Maui Police Department",number:"(808) 244-6400",tel:"8082446400",note:"",
+  url:"https://www.mauipolice.com/",
+  srcName:"Maui Police Department",
+  srcUrl:"https://www.mauipolice.com/",verifiedAt:"2026-09-07"},
+ {id:"mau-water",county:"HIC009",label:"Water emergencies, 24 hours",
+  org:"Maui County Department of Water Supply",number:"(808) 270-7633",tel:"8082707633",note:"",
+  url:"https://www.mauicounty.gov/2036/DWS-Contact-Information",
+  srcName:"Maui County Department of Water Supply",
+  srcUrl:"https://www.mauicounty.gov/2036/DWS-Contact-Information",verifiedAt:"2026-09-07"},
+ {id:"mau-power",county:"HIC009",label:"Power outages",
+  org:"Hawaiian Electric",number:"1-855-304-8181",tel:"18553048181",note:"",
+  url:"https://www.hawaiianelectric.com/safety-and-outages/power-outages",
+  srcName:"Hawaiian Electric",
+  srcUrl:"https://www.hawaiianelectric.com/safety-and-outages/power-outages",verifiedAt:"2026-09-07"},
+ {id:"mau-em",county:"HIC009",label:"Emergency management",
+  org:"Maui Emergency Management Agency",number:"(808) 270-7285",tel:"8082707285",note:"",
+  url:"https://www.mauicounty.gov/2921/Emergency-Management-Agency",
+  srcName:"Maui Emergency Management Agency",
+  srcUrl:"https://www.mauicounty.gov/2921/Emergency-Management-Agency",verifiedAt:"2026-09-07"},
+ /* Hawaiʻi County */
+ {id:"haw-police",county:"HIC001",label:"Police, non-emergency",
+  org:"Hawaiʻi Police Department",number:"(808) 935-3311",tel:"8089353311",note:"",
+  url:"https://www.hawaiipolice.gov/",
+  srcName:"Hawaiʻi Police Department",
+  srcUrl:"https://www.hawaiipolice.gov/",verifiedAt:"2026-09-07"},
+ {id:"haw-water",county:"HIC001",label:"Water emergencies, 24 hours",
+  org:"Hawaiʻi County Department of Water Supply",number:"(808) 961-8790",tel:"8089618790",note:"",
+  url:"https://www.hawaiidws.org/",
+  srcName:"Hawaiʻi County Department of Water Supply",
+  srcUrl:"https://www.hawaiidws.org/",verifiedAt:"2026-09-07"},
+ {id:"haw-power",county:"HIC001",label:"Power outages",
+  org:"Hawaiian Electric",number:"1-855-304-9191",tel:"18553049191",note:"",
+  url:"https://www.hawaiianelectric.com/safety-and-outages/power-outages",
+  srcName:"Hawaiian Electric",
+  srcUrl:"https://www.hawaiianelectric.com/safety-and-outages/power-outages",verifiedAt:"2026-09-07"},
+ {id:"haw-cd",county:"HIC001",label:"Civil defense",
+  org:"Hawaiʻi County Civil Defense Agency",number:"(808) 935-0031",tel:"8089350031",note:"",
+  url:"https://www.hawaiicounty.gov/departments/civil-defense",
+  srcName:"Hawaiʻi Emergency Management Agency, county partners",
+  srcUrl:"https://dod.hawaii.gov/hiema/contact-us/",verifiedAt:"2026-09-07"},
+ /* Kauaʻi County */
+ {id:"kau-police",county:"HIC007",label:"Police, non-emergency",
+  org:"Kauaʻi Police Department",number:"(808) 241-1711",tel:"8082411711",note:"",
+  url:"https://www.kauai.gov/Government/Departments-Agencies/Police-Department",
+  srcName:"Kauaʻi Police Department",
+  srcUrl:"https://www.kauai.gov/Government/Departments-Agencies/Police-Department",verifiedAt:"2026-09-07"},
+ {id:"kau-water",county:"HIC007",label:"Department of Water",
+  org:"Kauaʻi County Department of Water",number:"(808) 245-5400",tel:"8082455400",note:"",
+  url:"https://www.kauaiwater.org/contact-us",
+  srcName:"Kauaʻi County Department of Water",
+  srcUrl:"https://www.kauaiwater.org/contact-us",verifiedAt:"2026-09-07"},
+ {id:"kau-power",county:"HIC007",label:"Power outages, 24 hours",
+  org:"Kauaʻi Island Utility Cooperative",number:"(808) 246-4300",tel:"8082464300",note:"press option 5",
+  url:"https://website.kiuc.coop/outage-center",
+  srcName:"Kauaʻi Island Utility Cooperative",
+  srcUrl:"https://website.kiuc.coop/outage-center",verifiedAt:"2026-09-07"},
+ {id:"kau-em",county:"HIC007",label:"Emergency management",
+  org:"Kauaʻi Emergency Management Agency",number:"(808) 241-1800",tel:"8082411800",note:"",
+  url:"https://www.kauai.gov/Government/Departments-Agencies/Emergency-Management-Agency",
+  srcName:"Kauaʻi Emergency Management Agency",
+  srcUrl:"https://www.kauai.gov/Government/Departments-Agencies/Emergency-Management-Agency",verifiedAt:"2026-09-07"},
+ /* Statewide */
+ {id:"st-211",county:"STATE",label:"Help finding services",
+  org:"Aloha United Way 211",number:"211",tel:"211",note:"",
+  url:"https://www.auw.org/auw-211",
+  srcName:"Aloha United Way",
+  srcUrl:"https://www.auw.org/auw-211",verifiedAt:"2026-09-07"},
+ {id:"st-hiema",county:"STATE",label:"State emergency management",
+  org:"Hawaiʻi Emergency Management Agency",number:"(808) 733-4300",tel:"8087334300",note:"",
+  url:"https://dod.hawaii.gov/hiema/contact-us/",
+  srcName:"Hawaiʻi Emergency Management Agency",
+  srcUrl:"https://dod.hawaii.gov/hiema/contact-us/",verifiedAt:"2026-09-07"}
+];
+
+const linesOK=l=>!!(l&&l.srcName&&l.srcUrl&&l.verifiedAt&&l.number&&l.tel);
+/* "2026-09-07" -> "Sep 7, 2026". Built from the string, not Date(), because
+   Date("2026-09-07") parses as UTC and renders as the 6th west of Greenwich. */
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function vDate(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||"")); if(!m) return "";
+  return MON[+m[2]-1]+" "+(+m[3])+", "+m[1];
+}
+
 /* The same rule for a power update is enforced in the worker, which will not
    report a count without the release it came from, its date and its URL. */
 
@@ -2735,6 +2870,8 @@ function panelEmergency(){
 function panelPlan(){
   return `<div class="d-sec"><span class="d-h">YOUR PLAN</span></div>
     <div id="plan"></div>
+    <div class="d-sec"><span class="d-h">NON-EMERGENCY NUMBERS</span></div>
+    <div id="lines"></div>
     <div class="d-sec"><span class="d-h">KIT</span></div>
     <div id="kit"></div>
     <div class="d-sec"><span class="d-h">SOURCES</span></div>
@@ -4190,7 +4327,7 @@ function renderPage(cat){
   $("pages").innerHTML=
     `<section class="page on" data-sev="${esc(b.sev)}">${head}${PANEL[cat]()}</section>`;
   if(cat==="EMERGENCY") renderShelters();
-  if(cat==="PLAN"){ renderPlan(); renderKit(); renderRes(); renderSources(); }
+  if(cat==="PLAN"){ renderPlan(); renderLines(); renderKit(); renderRes(); renderSources(); }
 }
 
 /* Routable categories: the four live hazard bands plus PLAN, which is a
@@ -4469,6 +4606,39 @@ function renderPlan(){
     <p>Official alerts reach you when the power and the TV do not. Pack before conditions turn.</p>
     ${s3||`<a class="act" href="https://dod.hawaii.gov/hiema/" target="_blank" rel="noopener">Hawaiʻi Emergency Management</a>`}
   </div></div>`;
+}
+
+/* ============================ contact lines ============================ */
+
+/* The located county's lines, then the statewide ones, which apply
+   everywhere. Reuses .act for the tappable number and .guide for the
+   organisation and the invariant 3 citation, so no new visual language and
+   no new type step. The 911 line is deliberately plain text: it carries no
+   tel: href and no button, so it can never be tapped by accident while
+   someone is reading. */
+function renderLines(){
+  const el=$("lines"); if(!el) return;
+  const rows=LINES.filter(l=>(l.county===S.c||l.county==="STATE")&&linesOK(l));
+  const call911='<p class="guide call911">For a life-threatening emergency, call 911.</p>';
+  if(!rows.length){
+    /* Invariant 6. No verified number is not the same as no agency. */
+    el.innerHTML='<p class="guide">No verified non-emergency numbers for '+
+      esc(COUNTIES[S.c].name)+' yet. That does not mean there are none. '+
+      'Use the county links in step 1 above.</p>'+call911;
+    return;
+  }
+  el.innerHTML=rows.map(l=>{
+    const main=esc(l.label)+" &middot; "+esc(l.number)+(l.note?", "+esc(l.note):"");
+    /* Link the organisation only where its own page differs from the page
+       the number was read off, so a row never carries the same link twice. */
+    const org=(l.url&&l.url!==l.srcUrl)
+      ? '<a href="'+esc(l.url)+'" target="_blank" rel="noopener">'+esc(l.org)+'</a>'
+      : esc(l.org);
+    return '<a class="act" href="tel:'+esc(l.tel)+'">'+main+'</a>'+
+      '<p class="guide src">'+org+'. Source: '+
+      '<a href="'+esc(l.srcUrl)+'" target="_blank" rel="noopener">'+esc(l.srcName)+'</a>'+
+      ', verified '+esc(vDate(l.verifiedAt))+'.</p>';
+  }).join("")+call911;
 }
 
 /* ============================ shelter reports ============================ */
