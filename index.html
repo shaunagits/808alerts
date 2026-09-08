@@ -215,6 +215,42 @@ body.located .hero{display:none}
   .loc-up{font-size:11px;letter-spacing:.14em}
 }
 
+/* --------------------------------------------------------- local summary */
+/* Continues the location strip's dark ground so strip and summary read as one
+   header sitting above the light cards. Every value here already exists in
+   the file: --ink2, #fff, --muted2 and the .band-h / .band-s type steps the
+   cards use. No sixth palette value, no new type step, radius 0, no icon
+   beyond the arrow the cards already carry, and deliberately no severity
+   colour: the block says how serious it is in words. */
+.sum{background:var(--ink2)}
+.sum-in{
+  display:block;position:relative;padding:4px var(--pad) 20px;
+  color:inherit;text-decoration:none;
+}
+a.sum-in{padding-right:calc(var(--pad) + 22px)}
+a.sum-in:hover{background:var(--ink)}
+.sum-k{
+  display:block;font-weight:600;font-stretch:77%;font-size:10.5px;line-height:1;
+  letter-spacing:.12em;color:var(--muted2);
+}
+/* The .band-h step, on the dark ground. */
+.sum-h{
+  display:block;margin-top:9px;font-weight:800;font-size:27px;line-height:1.05;
+  letter-spacing:-.02em;color:#fff;
+}
+/* The .band-s step. */
+.sum-s{display:block;margin-top:8px;font-weight:500;font-size:13px;line-height:1.45;color:rgba(255,255,255,.82)}
+.sum-m{display:block;margin-top:8px;font-weight:500;font-size:13px;line-height:1.45;color:var(--muted2)}
+.sum-go{position:absolute;top:4px;right:var(--pad);font-weight:700;font-size:16px;line-height:1;color:var(--muted2)}
+@media (min-width:1024px){
+  .sum-in{padding:6px var(--pad) 26px}
+  a.sum-in{padding-right:calc(var(--pad) + 26px)}
+  .sum-k{font-size:11px;letter-spacing:.14em}
+  .sum-h{margin-top:11px;font-size:33px;line-height:1.02;letter-spacing:-.03em}
+  .sum-s,.sum-m{font-size:14px;max-width:70ch}
+  .sum-go{top:6px;font-size:19px}
+}
+
 /* ------------------------------------------------------------------ bands */
 #bands{background:var(--surface)}
 .band{display:block;position:relative;padding:20px var(--pad);text-decoration:none;color:inherit}
@@ -522,7 +558,7 @@ footer nav a{display:inline-block;margin:0 7px 8px;font-size:13px;font-weight:70
 .page.on{display:block}
 .page a{color:var(--ink)}
 .page .attrib a{color:var(--accent)}
-body.detail .hero,body.detail #strip,body.detail #bands,body.detail #more,body.detail #browse{display:none}
+body.detail .hero,body.detail #strip,body.detail #summary,body.detail #bands,body.detail #more,body.detail #browse{display:none}
 
 .pv-head{padding:22px var(--pad) 26px}
 .pv-back{
@@ -1546,6 +1582,12 @@ body.detail .board,body.detail .mapnote{display:none}
   <span class="loc-ctl" id="stripCtl"></span>
 </section>
 
+<!-- Answers "does this affect me" before the cards answer "what is happening
+     in each category". Located state only: before a location is picked the
+     per-island snapshot tiles under the map already do this job, and there is
+     no "me" to answer for. Filled by renderSummary(). -->
+<section class="sum" id="summary" hidden aria-live="polite"></section>
+
 
 <div class="board" id="board">
 
@@ -2431,6 +2473,86 @@ const CATLABEL={WEATHER:"WEATHER",ROADS:"ROADS & TRANSIT",POWER:"POWER",
 const catLabel=c=>CATLABEL[c]||c;
 const SEVRANK={warning:0,advisory:1,watch:2,clear:3};
 
+/* How serious one product is against another. This is the National Weather
+   Service's own escalation, not a scale invented here: a Watch means these
+   conditions are POSSIBLE and you should prepare, a Warning means they are
+   EXPECTED and you should already be where you intend to stay, and an
+   Advisory is below warning criteria. So warning outranks watch outranks
+   advisory. Ranking an advisory above a watch, as the older within-category
+   sort did, would let a wind advisory outrank a hurricane watch.
+
+   Three keys, in order. First that escalation. Then the product's own NWS
+   severity, because levelOf() collapses everything Extreme or Severe into
+   one "warning" bucket and without this a Tsunami Warning (Extreme) and a
+   Tropical Storm Warning (Severe) would come out equal, to be settled by
+   category order rather than by which is worse. Only then BANDORDER, so it
+   breaks genuine ties and nothing else.
+
+   BANDORDER is the right tiebreaker because that array is already this
+   page's statement of which category leads: it is the order the cards are
+   read in. Breaking a tie any other way would let the summary name one
+   hazard while the first card the eye lands on names another, and the
+   summary exists to agree with the stack below it, not to compete with it. */
+const URGENCY={warning:0,watch:1,advisory:2,clear:3};
+/* Shared by the within-category sort and the cross-category ranking, so a
+   card and the summary can never order the same two products differently. */
+const cmpAlert=(a,b)=>
+  (URGENCY[levelOf(a)]-URGENCY[levelOf(b)]) ||
+  ((RANK[a.severity]??9)-(RANK[b.severity]??9));
+
+/* The single most serious thing in effect for this location, across every
+   category, and the one place that decision is made. The summary block
+   renders it; the recommended actions coming next will rank from the same
+   call rather than reimplementing this, which is why it returns the product
+   and its category rather than a finished sentence.
+
+   Only NWS products carry a severity, so they are the only candidates. ROADS
+   and POWER contribute nothing to rank; they still matter to BANDORDER,
+   which is what breaks ties. POWER's eventActive/eventHeadline are
+   deliberately NOT read here: the worker's banner parse is being fixed
+   separately and nothing should rank on it until it is trustworthy.
+
+   Three states, matching the three the loaders now distinguish:
+     down    the alerts fetch itself failed. Says so. Never summarises an
+             empty list as if the emptiness were a reading.
+     active  a product is in effect. Names it as the agency names it.
+     quiet   the agencies are publishing nothing here right now. */
+function topHazard(){
+  if(NWSDOWN) return {state:"down"};
+  const cands=[];
+  /* BANDORDER order, so the sort below is already tie-broken by category
+     before it starts and a stable sort cannot undo it. */
+  BANDORDER.forEach(cat=>(BYCAT[cat]||[]).forEach(f=>cands.push({cat,p:f.properties})));
+  if(!cands.length) return {state:"quiet"};
+  cands.sort((a,b)=>
+    cmpAlert(a.p,b.p) ||
+    (BANDORDER.indexOf(a.cat)-BANDORDER.indexOf(b.cat)));
+  const t=cands[0];
+  return {state:"active", cat:t.cat, p:t.p,
+          event:t.p.event||"Alert", level:levelOf(t.p),
+          at:t.p.sent||t.p.effective||t.p.onset||null,
+          more:cands.length-1};
+}
+
+/* What the product means for a person standing here, in the agency's own
+   terms. The same definitions the standalone alert pages already give, so the
+   site says one thing about them.
+
+   Keyed off the product's own NAME, via level(), not off levelOf(). Those
+   two disagree on purpose: levelOf() promotes anything NWS marked Extreme or
+   Severe to the "warning" bucket, which is right for ranking how serious a
+   product is, and wrong for a sentence that starts "A warning means...".
+   NWS marks a Flood Watch Severe, and this block was calling it a warning
+   and telling people conditions were expected when the agency had only said
+   they were possible. Rank on severity, describe on the name. */
+const LEVELMEANS={
+  WARNING:"A warning means these conditions are expected, not just possible. Be where you intend to stay before they arrive.",
+  WATCH:"A watch means these conditions are possible. This is the window to prepare and decide where you would go.",
+  ADVISORY:"An advisory means conditions are expected to be hazardous but below warning level. Take care and keep checking.",
+  EMERGENCY:"An emergency is the most serious product the National Weather Service issues. Act on the instructions in it now.",
+  STATEMENT:"A statement updates or follows an alert already issued. Read it in full for what has changed."
+};
+
 const UTILITY=c=>c==="HIC007"?"Kauaʻi Island Utility Cooperative":"Hawaiian Electric";
 const ROADSRC=c=>(c==="HIC003"||c==="HIC009")?"GoAkamai":"the Hawaiʻi DOT";
 const resFor=g=>RES.find(x=>x.g===g&&x.c===S.c)||RES.find(x=>x.g===g&&x.c==="*")||null;
@@ -2439,7 +2561,9 @@ function buildBands(){
   BYCAT={WEATHER:[],OCEAN:[],EMERGENCY:[]};
   NWS.forEach(f=>BYCAT[catOf(f.properties)].push(f));
   Object.keys(BYCAT).forEach(k=>BYCAT[k].sort(
-    (a,b)=>SEVRANK[levelOf(a.properties)]-SEVRANK[levelOf(b.properties)]));
+    /* cmpAlert, the same comparison the summary ranks with, so the card and
+       the summary can never name different products for one category. */
+    (a,b)=>cmpAlert(a.properties,b.properties)));
 
   const nws=cat=>{
     const l=BYCAT[cat]; if(!l.length) return null;
@@ -3083,7 +3207,60 @@ function panelPlan(){
 const PANEL={POWER:panelPower,ROADS:panelRoads,WEATHER:panelWeather,
              OCEAN:panelOcean,EMERGENCY:panelEmergency,PLAN:panelPlan};
 
+/* The summary block. No severity colour: it was built once, rejected and
+   removed, and a block whose whole job is "how bad is it" is the most
+   tempting place to put it back. Hierarchy is weight, size, position and
+   wording only, on the location strip's own dark ground so the strip and the
+   summary read as one header above the cards. */
+function renderSummary(){
+  const el=$("summary"); if(!el) return;
+  if(!S.c){ el.hidden=true; el.innerHTML=""; return; }
+  el.hidden=false;
+  const t=topHazard();
+  const place=up(S.label||"");
+  const wrap=(kicker,head,line,meta,href)=>{
+    const inner=
+      `<span class="sum-k">${esc(kicker)}</span>`+
+      `<span class="sum-h">${esc(head)}</span>`+
+      `<span class="sum-s">${esc(line)}</span>`+
+      (meta?`<span class="sum-m">${esc(meta)}</span>`:"");
+    /* A link only where there is something to open. The down and quiet
+       states have no product to route to, so they are not dressed as
+       something you can tap. */
+    return href
+      ? `<a class="sum-in" href="${esc(href)}">${inner}<span class="sum-go" aria-hidden="true">&#8594;</span></a>`
+      : `<div class="sum-in">${inner}</div>`;
+  };
+
+  if(t.state==="down"){
+    /* Built and tested first. An empty NWS list here is not evidence of
+       calm, it is evidence of a failed request, and saying "nothing in
+       effect" from it would be the worst sentence on the page. */
+    el.innerHTML=wrap(place,
+      "Alerts could not be read",
+      "This is a problem reaching the National Weather Service, not a reading either way. It does not mean nothing is in effect.",
+      "Check weather.gov/hfo, or your county agency, directly.");
+    return;
+  }
+  if(t.state==="quiet"){
+    el.innerHTML=wrap(place,
+      "Nothing in effect right now",
+      "That is what the National Weather Service is publishing for here at this moment. It is not an all clear.",
+      "It does not cover county announcements, road closures or shelter openings. Those are on the cards below.");
+    return;
+  }
+  const meansLine=LEVELMEANS[level(t.event)]||"Read the full text before acting on it.";
+  const also=t.more?" · "+t.more+" other "+(t.more===1?"product":"products")+" in effect":"";
+  el.innerHTML=wrap(
+    place+" · "+catLabel(t.cat)+also,
+    t.event,
+    meansLine,
+    "National Weather Service Honolulu"+(t.at?", issued "+clock(t.at):"")+". Tap to read it in full.",
+    "#"+t.cat.toLowerCase());
+}
+
 function renderBands(){
+  renderSummary();
   let prev=null;
   $("bands").innerHTML=BANDS.map((b,i)=>{
     const div=(prev===b.sev&&b.sev!=="clear")?" div":"";
@@ -4708,6 +4885,7 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   store.set("loc",S);
   moveLocateControls();
   $("strip").hidden=false;
+  $("summary").hidden=false;
   $("more").hidden=false;
   $("locName").textContent=up(label)+" ALERTS";
   $("locIsle").textContent=up(isle);
