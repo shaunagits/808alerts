@@ -251,6 +251,35 @@ a.sum-in:hover{background:var(--ink)}
   .sum-go{top:6px;font-size:19px}
 }
 
+/* ---------------------------------------------------- recommended actions */
+/* Sits on the light ground between the dark summary above it and the cards
+   below, so the dark header reads as one block and this reads as the first
+   thing on the board. Reuses .step/.step-n/.step-b and .keymsg from the PLAN
+   page, and .act and .guide from the detail pages: no new type step, no new
+   palette value, radius 0, no icon. --accent on the step number is the
+   palette's own listed use for step numbers. Deliberately no severity
+   colour; how bad it is was already said in words above. */
+.acts{background:var(--surface);border-top:2px solid var(--surface-line)}
+.acts-k{
+  margin:0;padding:18px var(--pad) 0;font-weight:800;font-size:11px;line-height:1;
+  letter-spacing:.12em;color:var(--ink);
+}
+.acts-h{margin:0;padding:8px var(--pad) 0;font-weight:500;font-size:13px;line-height:1.45;color:var(--muted3)}
+.acts .step{padding-top:18px;padding-bottom:18px}
+.acts .step:first-of-type{border-top:0}
+.acts .step p{margin:0}
+.acts>.act{margin-left:var(--pad);margin-right:var(--pad)}
+.acts .guide{padding-top:12px;padding-bottom:0}
+.acts>.keymsg{margin:14px var(--pad) 0}
+.acts-src{
+  margin:0;padding:16px var(--pad) 20px;font-weight:500;font-size:12px;line-height:1.5;color:var(--muted3);
+}
+@media (min-width:1024px){
+  .acts-k{padding-top:26px;font-size:11px;letter-spacing:.14em}
+  .acts-h{font-size:14px}
+  .acts .step p,.acts-src{max-width:70ch}
+}
+
 /* ------------------------------------------------------------------ bands */
 #bands{background:var(--surface)}
 .band{display:block;position:relative;padding:20px var(--pad);text-decoration:none;color:inherit}
@@ -558,7 +587,7 @@ footer nav a{display:inline-block;margin:0 7px 8px;font-size:13px;font-weight:70
 .page.on{display:block}
 .page a{color:var(--ink)}
 .page .attrib a{color:var(--accent)}
-body.detail .hero,body.detail #strip,body.detail #summary,body.detail #bands,body.detail #more,body.detail #browse{display:none}
+body.detail .hero,body.detail #strip,body.detail #summary,body.detail #actions,body.detail #bands,body.detail #more,body.detail #browse{display:none}
 
 .pv-head{padding:22px var(--pad) 26px}
 .pv-back{
@@ -1588,6 +1617,11 @@ body.detail .board,body.detail .mapnote{display:none}
      no "me" to answer for. Filled by renderSummary(). -->
 <section class="sum" id="summary" hidden aria-live="polite"></section>
 
+<!-- Two or three things to do now, from the same product the summary names.
+     Every item is an agency's own words or a link to them; see
+     hazardActions(). Located state only, filled by renderActions(). -->
+<section class="acts" id="actions" hidden></section>
+
 
 <div class="board" id="board">
 
@@ -2496,9 +2530,18 @@ const SEVRANK={warning:0,advisory:1,watch:2,clear:3};
 const URGENCY={warning:0,watch:1,advisory:2,clear:3};
 /* Shared by the within-category sort and the cross-category ranking, so a
    card and the summary can never order the same two products differently. */
+const NAMERANK={WARNING:0,EMERGENCY:0,WATCH:1,ADVISORY:2,STATEMENT:3,ALERT:4};
 const cmpAlert=(a,b)=>
   (URGENCY[levelOf(a)]-URGENCY[levelOf(b)]) ||
-  ((RANK[a.severity]??9)-(RANK[b.severity]??9));
+  ((RANK[a.severity]??9)-(RANK[b.severity]??9)) ||
+  /* Last key, and it is what keeps the stated rule true in the case that
+     actually occurs. NWS marks a Flood Watch Severe, so levelOf promotes it
+     into the same "warning" bucket as a Tropical Storm Warning and the
+     severities tie too; without this the pick fell to whatever order the API
+     happened to return, and on 2026-09-07 that named Oʻahu's Flood Watch
+     while a Tropical Storm Warning was in effect beside it. The product's own
+     name is the tiebreak, so warning really does outrank watch. */
+  ((NAMERANK[level(a.event)]??9)-(NAMERANK[level(b.event)]??9));
 
 /* The single most serious thing in effect for this location, across every
    category, and the one place that decision is made. The summary block
@@ -2532,6 +2575,74 @@ function topHazard(){
           event:t.p.event||"Alert", level:levelOf(t.p),
           at:t.p.sent||t.p.effective||t.p.onset||null,
           more:cands.length-1};
+}
+
+/* Step 2 of the plan, the county's own guidance and the most useful sentence
+   on the page (invariant 8). Lifted out of renderPlan() into a constant
+   because the recommended actions fall back to it, and two copies of safety
+   guidance is exactly how they drift apart. */
+const REFUGE_GUIDANCE="A refuge area is a last resort, not a first choice. Your own home, a friend or family member's home, or even your workplace may be safer, because refuge areas are ordinary buildings that were never built or retrofitted to a storm shelter standard.";
+
+/* An NWS alert's own instruction text, split into things to do.
+
+   The worker's parseAdvisoryText() was the obvious thing to reuse and it does
+   not fit: it parses an NHC public advisory, so it expects a storm name
+   header, an issued-time line, "...KEY MESSAGE..." spans and named sections,
+   none of which an NWS instruction has, and it runs in the worker while this
+   field arrives straight from api.weather.gov into the page. What does carry
+   over is its paragraph rule, and that is reproduced here exactly: split on
+   blank lines, collapse each paragraph's own word wrap into one line. The
+   source is wrapped for a fixed-width bulletin and this page sets
+   proportional Archivo, so the wrap has to go.
+
+   Verified against live Hawaii products on 2026-09-07: a Flood Watch is one
+   wrapped paragraph, a Flash Flood Warning is two separated by a blank line.
+
+   Where the whole instruction is a single paragraph of several sentences,
+   which is the common case, it is split again on sentence boundaries so it
+   reads as separate actions instead of one block. That is still the agency's
+   words verbatim, only re-broken: nothing is reworded, and the abbreviation
+   guard keeps "a.m.", "U.S." and the like from splitting mid-sentence. */
+const SENTENCE_SAFE=/\b(?:[A-Z]|[ap]\.m|a\.m|p\.m|U\.S|Mr|Mrs|Ms|Dr|St|Ave|Rd|Hwy|Mt|approx|est|no|vs|etc|Fig|Sgt|Lt|Capt)\.$/i;
+function instructionItems(raw){
+  if(!raw||!String(raw).trim()) return [];
+  const paras=String(raw).split(/\n\s*\n/)
+    .map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
+  if(!paras.length) return [];
+  if(paras.length>1) return paras;
+  /* one paragraph: break it into its own sentences, conservatively */
+  const words=paras[0].split(" ");
+  const out=[]; let cur=[];
+  words.forEach((w,i)=>{
+    cur.push(w);
+    const ends=/[.!?]["')\]]?$/.test(w) && !SENTENCE_SAFE.test(w);
+    const next=words[i+1];
+    if(ends && next && /^["'(\[]?[A-Z0-9]/.test(next)){ out.push(cur.join(" ")); cur=[]; }
+  });
+  if(cur.length) out.push(cur.join(" "));
+  return out.filter(Boolean);
+}
+
+/* What to do right now, derived from the SAME product topHazard() named, so
+   the actions and the summary can never describe different hazards. Nothing
+   here is safety guidance this page wrote: every item is either an agency's
+   own instruction text reproduced verbatim, or the county guidance already
+   on the PLAN page, or a link to one of those. A hazard with no sourced
+   action falls through to the county rather than having advice invented for
+   it. */
+function hazardActions(){
+  const t=topHazard();
+  if(t.state==="down")  return {kind:"down"};
+  if(t.state==="quiet") return {kind:"prepare"};
+  const items=instructionItems(t.p.instruction);
+  if(items.length)
+    return {kind:"instruction", items:items.slice(0,3), total:items.length,
+            cat:t.cat, event:t.event, office:t.p.senderName||"the National Weather Service",
+            at:t.p.sent||t.at||null};
+  /* The product carries no instruction. Live example, 2026-09-07: Honolulu's
+     Tropical Storm Warning has none at all while the Flood Watch beside it
+     does. So this is the ordinary case, not an edge case. */
+  return {kind:"county", cat:t.cat, event:t.event};
 }
 
 /* What the product means for a person standing here, in the agency's own
@@ -3259,8 +3370,73 @@ function renderSummary(){
     "#"+t.cat.toLowerCase());
 }
 
+/* Numbered steps, the pattern the PLAN page already uses for "do these
+   things", so no new visual language: --accent on the step number is the
+   palette's own listed use for exactly that. No severity colour, no icon,
+   radius 0. */
+function renderActions(){
+  const el=$("actions"); if(!el) return;
+  if(!S.c){ el.hidden=true; el.innerHTML=""; return; }
+  el.hidden=false;
+  const a=hazardActions();
+  const C=COUNTIES[S.c];
+  const head=(k,h)=>`<p class="acts-k">${esc(k)}</p>`+(h?`<p class="acts-h">${esc(h)}</p>`:"");
+  const dot=" \u00b7 ";
+  const step=(n,body)=>`<div class="step"><span class="step-n">${n}</span><div class="step-b">${body}</div></div>`;
+  const src=t=>`<p class="acts-src">${esc(t)}</p>`;
+
+  if(a.kind==="down"){
+    /* Nothing derived from data, because there is no data. */
+    el.innerHTML=head("WHAT TO DO","The alerts could not be read")+
+      `<p class="guide">This page could not reach the National Weather Service, so it has no instruction to show you and no reading either way. Go to the source directly.</p>`+
+      `<a class="act" href="https://www.weather.gov/hfo" target="_blank" rel="noopener">National Weather Service Honolulu</a>`+
+      (C.zone?`<a class="act" href="${esc(C.zone.url)}" target="_blank" rel="noopener">${esc(C.zone.nm)}</a>`:"")+
+      src("No agency instruction was retrieved.");
+    return;
+  }
+
+  if(a.kind==="prepare"){
+    /* Everyday state. These are links to the plan and the kit that already
+       ship on this site, labelled with those pages' own headings; nothing
+       here is new safety guidance. */
+    el.innerHTML=head("WITH NOTHING IN EFFECT","This is the time to get ready")+
+      step(1,`<h3>Find out if you are in an evacuation zone</h3>`)+
+      step(2,`<h3>Decide where you would go</h3>`)+
+      step(3,`<h3>Get alerts and pack a bag</h3>`)+
+      `<a class="act" href="#plan">Open the full plan for ${esc(C.name)}</a>`+
+      `<a class="act" href="/hurricane-kit-checklist/">Hurricane kit checklist</a>`+
+      src("The three steps and the county's own planning links are on the plan page.");
+    return;
+  }
+
+  if(a.kind==="county"){
+    /* The product named no instruction, so the county's guidance stands in
+       rather than this page inventing one for the hazard type. */
+    el.innerHTML=head("WHAT TO DO"+dot+up(a.event),
+        a.event+" published no instruction, so this is "+C.name+"'s own guidance")+
+      `<div class="keymsg">${esc(REFUGE_GUIDANCE)}</div>`+
+      `<a class="act" href="#${esc(a.cat.toLowerCase())}">Read the full ${esc(a.event)} text</a>`+
+      `<a class="act" href="#plan">Open the full plan for ${esc(C.name)}</a>`+
+      src("Guidance from "+C.name+". Nothing here is written by this page.");
+    return;
+  }
+
+  /* The agency's own instruction, verbatim. */
+  const shown=a.items.map((x,i)=>step(i+1,`<p>${esc(x)}</p>`)).join("");
+  const rest=a.total-a.items.length;
+  el.innerHTML=head("WHAT TO DO"+dot+up(a.event), a.office+" says")+
+    shown+
+    /* Never truncate mid-sentence: the overflow is a link to the whole thing,
+       not an ellipsis. */
+    (rest>0?`<a class="act" href="#${esc(a.cat.toLowerCase())}">Read all ${a.total} instructions in full</a>`
+           :`<a class="act" href="#${esc(a.cat.toLowerCase())}">Read the full ${esc(a.event)} text</a>`)+
+    src("Instruction issued verbatim by "+a.office+
+        (a.at?", "+up(clock(a.at)):"")+". Reproduced unedited.");
+}
+
 function renderBands(){
   renderSummary();
+  renderActions();
   let prev=null;
   $("bands").innerHTML=BANDS.map((b,i)=>{
     const div=(prev===b.sev&&b.sev!=="clear")?" div":"";
@@ -4886,6 +5062,7 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   moveLocateControls();
   $("strip").hidden=false;
   $("summary").hidden=false;
+  $("actions").hidden=false;
   $("more").hidden=false;
   $("locName").textContent=up(label)+" ALERTS";
   $("locIsle").textContent=up(isle);
@@ -4980,9 +5157,7 @@ function renderPlan(){
   </div></div>
   <div class="step"><span class="step-n">2</span><div class="step-b">
     <h3>Decide where you would go</h3>
-    <div class="keymsg">A refuge area is a last resort, not a first choice. Your own home, a friend
-      or family member's home, or even your workplace may be safer, because refuge areas are ordinary
-      buildings that were never built or retrofitted to a storm shelter standard.</div>
+    <div class="keymsg">${esc(REFUGE_GUIDANCE)}</div>
     <p>Pick two places outside your zone now. Go to a public site only if you have no safer option.</p>${s2}
   </div></div>
   <div class="step"><span class="step-n">3</span><div class="step-b">
