@@ -2094,7 +2094,27 @@ let lastOK=null, poll=null;
 let BANDS=[], NWS=[], BYCAT={WEATHER:[],OCEAN:[],EMERGENCY:[]};
 /* null means not loaded, or not published for this county. An empty array means
    loaded and genuinely nothing active. The two must never render the same. */
+/* Three states, not two. A feed can be absent because this county has none
+   (a fact about coverage), or empty because it answered and had nothing to
+   report, or unreachable because we could not get to it. The first and the
+   third used to share `null`, which is how a failed HCCDA fetch on Hawaiʻi
+   Island rendered "Closures are not tracked here yet": false there, since
+   that feed exists and is the best data on the site. The POWER band has kept
+   its four states apart from the start; DOWN is that same discipline for
+   every other loader.
+
+   A frozen object rather than null/false/[]: it can never be mistaken for
+   real data, has no length or properties a renderer might read by accident,
+   and identity is the only way to test it. */
+const DOWN=Object.freeze({feedDown:true});
+const isDown=v=>v===DOWN;
+/* Feeds that hand back arrays: real rows, or nothing to draw. */
+const rows=v=>Array.isArray(v)?v:[];
+
 let CLOSURES=null, GAUGES=null, SHELTERS=null, WAVES=null, WX=null;
+/* The alerts fetch is the one that must never fail quietly: "no active
+   products" and "we could not ask" look identical on the board otherwise. */
+let NWSDOWN=false;
 /* Per-island forecast snapshot for the home (pre-location) state. Loaded
    once at boot, independent of S, so it does not get cleared by setLoc. */
 let WXHOME=null;
@@ -2129,7 +2149,7 @@ async function loadShelters(){
       total:all.length,
       at:meta.editingInfo?.dataLastEditDate||null
     };
-  }catch(_){ SHELTERS=null; }
+  }catch(_){ SHELTERS=DOWN; }
 }
 
 async function loadClosures(){
@@ -2142,7 +2162,7 @@ async function loadClosures(){
     const r=await fetch(u); if(!r.ok) throw 0;
     const j=await r.json(); if(j.error) throw 0;
     CLOSURES=(j.features||[]).map(f=>({...f.properties,geom:f.geometry}));
-  }catch(_){ CLOSURES=null; }
+  }catch(_){ CLOSURES=DOWN; }
 }
 
 /* USGS gage height. Real time, keyless, CORS open. A reading is not a flood
@@ -2176,7 +2196,7 @@ async function loadHurricane(){
         dist:haveLoc?miles(S.lat,S.lon,h.position[0],h.position[1]):null,
         dir:haveLoc?compass(bearingTo(h.position[0],h.position[1])):null}))
       .sort((a,b)=>(a.dist??0)-(b.dist??0));
-  }catch(_){ HURRICANES=[]; }
+  }catch(_){ HURRICANES=DOWN; }
 }
 
 /* County outage count parsed from Hawaiian Electric's newsroom, via the worker. */
@@ -2243,7 +2263,7 @@ async function loadGauges(){
               lat:g.latitude, lon:g.longitude,
               mi:miles(S.lat,S.lon,g.latitude,g.longitude)};
     }).filter(Boolean).sort((a,b)=>a.mi-b.mi).slice(0,6);
-  }catch(_){ GAUGES=[]; }
+  }catch(_){ GAUGES=DOWN; }
 }
 
 /* Open-ocean significant wave height from the PacIOOS WaveWatch III Hawaiʻi
@@ -2270,7 +2290,7 @@ async function loadWaves(){
       if(!best||mi<best.mi) best={ft:row[hi]*3.28084, per:row[pi], at:row[ti], mi};
     });
     WAVES=best||false;
-  }catch(_){ WAVES=false; }
+  }catch(_){ WAVES=DOWN; }
 }
 
 const WX_UA={headers:{"User-Agent":"808alerts.com storm information (contact: shauna.coy@gmail.com)"}};
@@ -2337,7 +2357,7 @@ async function loadWeather(){
     let current=null;
     try{ current=await currentConditions(g.gx,g.gy); }catch(_){ /* bonus, not required */ }
     WX={periods:periods.slice(0,14),hourly:hourly.slice(0,12),current};
-  }catch(_){ WX=false; }
+  }catch(_){ WX=DOWN; }
 }
 
 /* Lightweight per-island snapshot for the home (pre-location) state: just
@@ -2356,7 +2376,7 @@ async function loadHomeWeather(){
       const p=periods.find(x=>x.isDaytime)||periods[0];
       if(!p) throw 0;
       return {label:i.label,temp:p.temperature,unit:p.temperatureUnit,short:p.shortForecast};
-    }catch(_){ return {label:i.label,temp:null,unit:null,short:null}; }
+    }catch(_){ return {label:i.label,temp:null,unit:null,short:null,down:true}; }
   }));
 }
 
@@ -2371,7 +2391,7 @@ function renderIslandWx(){
     `<div><b>${esc(up(w.label))}</b>
        ${w.temp!=null
          ?`<span>${w.temp}&deg;${esc(w.unit||"F")}</span><small>${esc(w.short||"")}</small>`
-         :`<span class="unk">${WXHOME?"&mdash;":"Loading…"}</span>`}
+         :`<span class="unk">${WXHOME?(w.down?"Not loading":"&mdash;"):"Loading…"}</span>`}
      </div>`).join("");
 }
 
@@ -2429,22 +2449,53 @@ function buildBands(){
   };
 
   const c={};
-  const wx=nws("WEATHER"), storm=(HURRICANES&&HURRICANES.length)?HURRICANES[0]:null;
+  const storm=rows(HURRICANES).length?HURRICANES[0]:null;
+
+  /* The unreachable state, worded the way the POWER band already words its
+     own: name what did not load and who publishes it, say plainly that this
+     is a problem reaching them and not a reading either way, and point at the
+     source so the reader can check directly. It must never shade into
+     "nothing here", which would be a claim about the hazard rather than
+     about the fetch. Invariant 6. */
+  const downBand=(head,who,where)=>({head,
+    sub:"We could not reach "+who+", so this is not a reading either way. Check "+where+".",
+    feed:false, down:true});
+
+  /* An alerts fetch that failed makes every "nothing in effect" line below a
+     claim we cannot support, so it is answered first and for all three
+     alert-driven bands. */
+  const wx=nws("WEATHER");
   c.WEATHER=wx
     ? {head:wx.head, sub:storm?stormLine(storm)+" (NHC). "+wx.sub:wx.sub}
     : storm
       ? {head:storm.category+" "+storm.name, sub:stormLine(storm)+" (NHC)."}
-      : {head:"Nothing in effect right now",
-         sub:"The National Weather Service has no active products here."};
-  c.OCEAN=nws("OCEAN")||{head:"No coastal or marine alerts",
-    sub:(WAVES?"Open-ocean waves near "+Math.round(WAVES.ft)+" ft (model). ":"")+
-        "Surf and marine products appear here when they are issued."};
+      : NWSDOWN
+        ? downBand("Alerts are not loading","the National Weather Service","weather.gov/hfo")
+        : isDown(HURRICANES)
+          ? downBand("Tropical systems are not loading","the National Hurricane Center","nhc.noaa.gov")
+          : {head:"Nothing in effect right now",
+             sub:"The National Weather Service has no active products here."};
+
+  c.OCEAN=nws("OCEAN")||(NWSDOWN
+    ? downBand("Marine alerts are not loading","the National Weather Service","weather.gov/hfo")
+    : {head:"No coastal or marine alerts",
+       sub:(isDown(WAVES)?"The PacIOOS wave model is not loading. ":
+            (WAVES?"Open-ocean waves near "+Math.round(WAVES.ft)+" ft (model). ":""))+
+           "Surf and marine products appear here when they are issued."});
 
   const em=nws("EMERGENCY");
   if(em) c.EMERGENCY=em;
+  else if(NWSDOWN)
+    c.EMERGENCY=downBand("Evacuation alerts are not loading","the National Weather Service","weather.gov/hfo");
   else{
     const rs=REPORTS.filter(r=>r.c===S.c&&reportOK(r));
-    if(SHELTERS){
+    if(isDown(SHELTERS)){
+      /* Hawaiʻi County only: the roster exists here, so "none listed open"
+         and "we could not read the roster" are different statements. */
+      c.EMERGENCY=downBand("The shelter roster is not loading",
+        "Hawaiʻi County Civil Defense","their announcements");
+    }
+    else if(SHELTERS){
       const n=SHELTERS.open.length;
       /* "listed open" not "open". The county's roster is a statement by the
          county at a point in time, not a live reading. Invariant 1. */
@@ -2512,18 +2563,26 @@ function buildBands(){
         sub:"We could not reach "+u+"'s updates, so there is no figure here either way. Their own map is live.",feed:false};
     }
   }
-  if(CLOSURES){
+  /* Three states, and the first two used to be one. A failed HCCDA fetch on
+     Hawaiʻi Island is not the same statement as Oʻahu having no closure feed
+     at all: the first says we could not read it, the second says it does not
+     exist. Only the second may say closures are not tracked. */
+  if(isDown(CLOSURES)){
+    c.ROADS=downBand("Road closures are not loading",
+      "Hawaiʻi County Civil Defense","their announcements");
+  }else if(CLOSURES){
     c.ROADS=CLOSURES.length
       ? {head:CLOSURES.length+(CLOSURES.length===1?" CLOSURE":" CLOSURES"),
          sub:"Reported by Hawaiʻi County Civil Defense."}
       : {head:"No closures reported",sub:"Hawaiʻi County Civil Defense lists none active."};
   }else{
+    /* Unchanged: this county genuinely has no closure feed. */
     c.ROADS={head:"Closures are not tracked here yet",
       sub:"No closure feed. Check "+ROADSRC(S.c)+".",feed:false};
   }
 
   BANDS=BANDORDER.map(cat=>({cat,sev:BANDCOLOR[cat],feed:c[cat].feed!==false,
-                             head:c[cat].head,sub:c[cat].sub}));
+                             down:!!c[cat].down,head:c[cat].head,sub:c[cat].sub}));
 }
 
 const bandOf=cat=>BANDS.find(b=>b.cat===cat)||
@@ -2534,7 +2593,7 @@ const DETAIL={
   POWER:{src:c=>UTILITY(c), map:"Outage footprints would be shaded in the warning color.",
     cta:"OPEN THE OUTAGE MAP", grp:"Power",
     foot:"This page does not carry an outage feed yet, so it cannot tell you whether your block is out. The utility can. Reporting your own outage is what tells them where the damage is."},
-  ROADS:{src:()=>CLOSURES?"Hawaiʻi County Civil Defense":"HDOT",
+  ROADS:{src:()=>S.c==="HIC001"?"Hawaiʻi County Civil Defense":"HDOT",
     layers:["CLOSURES","INCIDENTS","TRAFFIC"], radius:"5 MI RADIUS",
     map:"Closures would be drawn as thick lines in the advisory color on a single-tone basemap.",
     cta:"OPEN LIVE ROAD CONDITIONS", grp:"Roads",
@@ -2546,7 +2605,7 @@ const DETAIL={
     foot:"The advisory above is republished unedited and in full, so this page never contradicts the official warning."},
   OCEAN:{src:()=>"NWS Honolulu", cta:"GET TEXT ALERTS",
     foot:"Marine and surf products are republished unedited and in full. Never turn your back on the ocean."},
-  EMERGENCY:{src:()=>SHELTERS?"Hawaiʻi County Civil Defense":"County emergency management", cta:"COUNTY ALERT SIGNUP",
+  EMERGENCY:{src:()=>S.c==="HIC001"?"Hawaiʻi County Civil Defense":"County emergency management", cta:"COUNTY ALERT SIGNUP",
     foot:"Evacuation orders come from your county, not from this page. Confirm any location before you travel."},
   PLAN:{src:()=>"County & state emergency management",
     foot:"Three things worth doing before conditions turn: know your zone, know where you would go, and have a kit ready."}
@@ -2559,11 +2618,14 @@ let openCat=null;
 function metaWord(cat){
   if(cat==="PLAN") return "REFERENCE";
   const b=bandOf(cat);
+  /* Checked before feed, because a down band also carries feed:false and
+     "NO FEED" would restate the exact confusion this change removes. */
+  if(b.down) return "NOT LOADING";
   if(b.feed===false) return "NO FEED";
   const top=(BYCAT[cat]||[])[0];
   if(top) return level(top.properties.event);
-  if(cat==="ROADS"&&CLOSURES) return CLOSURES.length?"ACTIVE":"NONE ACTIVE";
-  if(cat==="EMERGENCY"&&SHELTERS) return SHELTERS.open.length?"SHELTERS LISTED OPEN":"NONE LISTED OPEN";
+  if(cat==="ROADS"&&Array.isArray(CLOSURES)) return CLOSURES.length?"ACTIVE":"NONE ACTIVE";
+  if(cat==="EMERGENCY"&&SHELTERS&&!isDown(SHELTERS)) return SHELTERS.open.length?"SHELTERS LISTED OPEN":"NONE LISTED OPEN";
   /* "REPORTED" only when Hawaiian Electric actually gave a figure. The quiet
      state is not a report of anything, so it must not claim to be one. */
   if(cat==="POWER"&&powerLive()) return "REPORTED";
@@ -2595,6 +2657,23 @@ function advisoryList(cat){
       <div class="d-text">${esc(body||p.headline||"No text supplied with this product.")}</div>
       <p class="d-src">Source: NWS Honolulu &middot; Issued ${esc(up(new Date(p.sent).toLocaleString()))}</p></div>`;
   }).join("");
+}
+
+/* The counterpart to noFeedPanel. That panel explains a feed that does not
+   exist; this one explains a feed that does exist and did not answer, which
+   is a different thing to tell someone standing in a storm. Same shape and
+   same classes, so no new visual language, and the source link is the same
+   one noFeedPanel offers. */
+function downPanel(cat,what,who){
+  const d=DETAIL[cat], res=resFor(d.grp);
+  return mapBlock(d,true)+
+    `<div class="d-sec"><span class="d-h">THIS IS NOT LOADING</span>
+       <div class="d-text">We could not reach ${esc(what)}. That is a problem loading their
+       data, not a report that there is nothing to show, and it is not a reading either way.
+       ${esc(who)} publish it themselves, so check them directly.</div></div>`+
+    `<div class="d-sec"><span class="d-h">GO STRAIGHT TO THE SOURCE</span></div>`+
+    (res?`<a class="act" href="${esc(res.url)}" target="_blank" rel="noopener">${esc(res.nm)}</a>`:"")+
+    footBlock({...d,foot:"Nothing on this panel is a live reading."},null);
 }
 
 function noFeedPanel(cat){
@@ -2686,7 +2765,9 @@ function advisoryBlock(h){
 }
 
 function tropicalBlock(){
-  if(!(HURRICANES&&HURRICANES.length)) return "";
+  if(isDown(HURRICANES)) return downSec("TROPICAL SYSTEMS","National Hurricane Center tracking",
+    "the National Hurricane Center at nhc.noaa.gov");
+  if(!rows(HURRICANES).length) return "";
   return `<div class="d-sec"><span class="d-h">TROPICAL SYSTEMS</span></div>`+
     HURRICANES.map(h=>`<div class="d-area">
       <div><b>${esc(h.category)} ${esc(h.name)}</b>
@@ -2759,6 +2840,7 @@ function panelPower(){
     footBlock({...d,foot:"Nothing on this panel is a live reading."},null);
 }
 function panelRoads(){
+  if(isDown(CLOSURES)) return downPanel("ROADS","Hawaiʻi County Civil Defense's road closure layer","Hawaiʻi County Civil Defense");
   if(!CLOSURES) return noFeedPanel("ROADS");
   const d=DETAIL.ROADS, res=resFor("Roads");
   const since=t=>t?"SINCE "+up(new Date(t).toLocaleString([],{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"Pacific/Honolulu"})):"";
@@ -2821,11 +2903,21 @@ function panelWeather(){
    the three pieces is independently optional (a station can be silent, the
    forecast fetch can fail outright) and renders nothing when absent, same
    honest-empty-state rule as everything else on this page. */
+/* One shape for "this section's feed did not answer", used by the forecast,
+   gauge, wave and tropical blocks. Reuses .d-sec/.d-text like every other
+   block here; the distinction is copy, not colour. */
+function downSec(title,what,who){
+  return `<div class="d-sec"><span class="d-h">${esc(title)}</span>
+    <div class="d-text">${esc(what)} is not loading. That is a problem reaching
+    ${esc(who)}, not a reading either way, and it does not mean there is nothing
+    to report. Check ${esc(who)} directly.</div></div>`;
+}
+
 function forecastBlock(){
   if(WX===null) return `<div class="d-sec"><span class="d-h">FORECAST</span>
     <div class="d-text">Loading the National Weather Service forecast…</div></div>`;
-  if(!WX) return `<div class="d-sec"><span class="d-h">FORECAST</span>
-    <div class="d-text">Forecast is not loading right now. Check weather.gov for your area.</div></div>`;
+  if(isDown(WX)||!WX) return downSec("FORECAST","The National Weather Service forecast",
+    "the National Weather Service at weather.gov/hfo");
   const cur=WX.current;
   const hourClock=t=>new Date(t).toLocaleTimeString([],{hour:"numeric",timeZone:"Pacific/Honolulu"});
   return (cur?`<div class="d-sec"><span class="d-h">CURRENT CONDITIONS</span></div>
@@ -2863,6 +2955,10 @@ function forecastBlock(){
 function gaugeBlock(){
   if(GAUGES===null) return `<div class="d-sec"><span class="d-h">NEARBY STREAM GAUGES</span>
     <div class="d-text">Loading United States Geological Survey gauges…</div></div>`;
+  if(isDown(GAUGES)) return downSec("NEARBY STREAM GAUGES","The USGS gauge network",
+    "the United States Geological Survey at waterdata.usgs.gov");
+  /* An empty list is an honest empty: USGS answered and there is no gauge in
+     the box around this location. That is not a failure and says nothing. */
   if(!GAUGES.length) return "";
   const trend=g=>Math.abs(g.delta)<0.05?"Steady":(g.delta>0?"Rising":"Falling");
   return `<div class="d-sec"><span class="d-h">NEARBY STREAM GAUGES</span></div>`+
@@ -2881,6 +2977,10 @@ function gaugeBlock(){
 function waveBlock(){
   if(WAVES===null) return `<div class="d-sec"><span class="d-h">OPEN-OCEAN WAVES</span>
     <div class="d-text">Loading the PacIOOS wave model…</div></div>`;
+  if(isDown(WAVES)) return downSec("OPEN-OCEAN WAVES","The PacIOOS wave model",
+    "PacIOOS at pacioos.hawaii.edu");
+  /* false here means the model answered and had no value for any cell near
+     this location, which is normal close inshore where cells are masked. */
   if(!WAVES) return "";
   return `<div class="d-sec"><span class="d-h">OPEN-OCEAN WAVES</span></div>`+
     `<div class="d-area">
@@ -2908,6 +3008,8 @@ function panelOcean(){
    confirm band, and a staleness flag when the layer has not been touched in a
    while. Invariants 1, 2, 3 and 6 all land here. */
 function countyShelterBlock(){
+  if(isDown(SHELTERS)) return downSec("COUNTY SHELTER ROSTER","The Hawaiʻi County shelter roster",
+    "Hawaiʻi County Civil Defense");
   if(!SHELTERS) return "";
   const ageH=SHELTERS.at?(Date.now()-SHELTERS.at)/36e5:null;
   const stale=ageH!==null&&ageH>6;
@@ -3082,7 +3184,10 @@ async function radarStatus(){
     const blob=await r.blob();
     if(!RADAR_ON) return;
     badge.textContent = blob.size>1400 ? "RAIN ON MAP" : "NO RAIN HERE";
-  }catch(_){ if(RADAR_ON) badge.textContent="RADAR ON"; }
+  /* Short on purpose: this badge sits over a 220px map beside the filter
+     chips. "NO ANSWER" is the same length class as "RAIN ON MAP" and does not
+     claim a clear sky the way falling back to a status word would. */
+  }catch(_){ if(RADAR_ON) badge.textContent="NO ANSWER"; }
 }
 
 function hookRadarMove(){
@@ -3852,7 +3957,7 @@ function setCams(on){
 function mapFeatures(){
   const out=[];
   const since=t=>t?up(new Date(t).toLocaleString([],{hour:"numeric",minute:"2-digit",timeZone:"Pacific/Honolulu"})):"Unknown";
-  (CLOSURES||[]).forEach(a=>{
+  rows(CLOSURES).forEach(a=>{
     if(!a.geom) return;
     const full=/both|full/i.test(a.Road_Closure_Type||"");
     out.push({cat:"ROADS",kind:"line",geom:a.geom,full,
@@ -3860,13 +3965,13 @@ function mapFeatures(){
       s:[a.Reason,a.Alternate_Route?"Alternate route: "+a.Alternate_Route:""].filter(Boolean).join(" "),
       k:"CLOSED SINCE",v:since(a.Start_Date)});
   });
-  (SHELTERS?SHELTERS.open:[]).forEach(a=>{
+  (SHELTERS&&!isDown(SHELTERS)?SHELTERS.open:[]).forEach(a=>{
     if(!a.Latitude||!a.Longitude) return;
     out.push({cat:"EMERGENCY",kind:"pin",ll:[a.Latitude,a.Longitude],glyph:"S",
       t:a.Name||"Shelter", s:a.Notes||"Listed open by the county. Confirm before you travel.",
       k:"DISTANCE",v:miles(S.lat,S.lon,a.Latitude,a.Longitude).toFixed(1)+" mi"});
   });
-  (GAUGES||[]).forEach(g=>{
+  rows(GAUGES).forEach(g=>{
     if(!g.lat||!g.lon) return;
     const tr=Math.abs(g.delta)<0.05?"Steady":(g.delta>0?"Rising":"Falling");
     out.push({cat:"WEATHER",kind:"dot",ll:[g.lat,g.lon],
@@ -3911,7 +4016,7 @@ function stormNearHawaii(h){
 
 function fitStormView(){
   const b=L.latLngBounds(HI_BOUNDS.getSouthWest(),HI_BOUNDS.getNorthEast());
-  (HURRICANES||[]).filter(stormNearHawaii).forEach(h=>{
+  rows(HURRICANES).filter(stormNearHawaii).forEach(h=>{
     try{
       if(h.cone) b.extend(L.geoJSON(h.cone).getBounds());
       else if(h.position) b.extend(h.position);
@@ -3930,7 +4035,7 @@ function fitStormView(){
    keep it in frame instead of staying pinned to a local view that no
    longer shows the thing that matters. */
 function fitLocalView(){
-  const near=(HURRICANES||[]).filter(stormNearHawaii);
+  const near=rows(HURRICANES).filter(stormNearHawaii);
   if(!near.length){ MAP.setView([S.lat,S.lon],11); return; }
   const pad=.12; // roughly the neighbourhood a zoom-11 view already covers
   const b=L.latLngBounds([S.lat-pad,S.lon-pad],[S.lat+pad,S.lon+pad]);
@@ -3949,9 +4054,9 @@ function fitLocalView(){
    home state and the located state can call it without duplicating it. */
 function drawStorms(){
   if(HURRLAYER){ MAP.removeLayer(HURRLAYER); HURRLAYER=null; }
-  if(HURRICANES&&HURRICANES.length){
+  if(rows(HURRICANES).length){
     HURRLAYER=L.layerGroup();
-    HURRICANES.forEach(h=>{
+    rows(HURRICANES).forEach(h=>{
       /* Where the storm has actually been, drawn first so everything else
          sits on top of it: a lighter, thinner line than the forecast track,
          and filled (not hollow) points, so past reads as settled fact and
@@ -4609,7 +4714,7 @@ function setLoc(c,label,isle,lat,lon,precise,z){
   $("isleLab").textContent=up(isle);
   const al=COUNTIES[c].alerts;
   if(al) $("navAlerts").href=al.url;
-  NWS=[]; CLOSURES=null; GAUGES=null; SHELTERS=null; WAVES=null; WX=null; HURRICANES=null; POWER=null;
+  NWS=[]; NWSDOWN=false; CLOSURES=null; GAUGES=null; SHELTERS=null; WAVES=null; WX=null; HURRICANES=null; POWER=null;
   buildBands(); renderBands(); route();
   /* The map only used to need this from the async loads below: before the
      home map (see The home map), it sat hidden until then anyway, so a beat
@@ -4668,11 +4773,13 @@ async function loadAlerts(){
       merged.push(x);
     }));
     const f=merged.sort((a,b)=>(RANK[a.properties.severity]??9)-(RANK[b.properties.severity]??9));
-    NWS=f; lastOK=Date.now(); stamp(true);
+    NWS=f; NWSDOWN=false; lastOK=Date.now(); stamp(true);
     await Promise.all([loadClosures(),loadShelters()]);
     buildBands(); renderBands(); if(openCat) renderPage(openCat); drawMap();
   }catch(_){
-    NWS=[]; stamp(false);
+    /* NWS=[] keeps every renderer safe to iterate; NWSDOWN is what stops the
+       board reading that empty list as "nothing is in effect". */
+    NWS=[]; NWSDOWN=true; stamp(false);
     buildBands(); renderBands(); if(openCat) renderPage(openCat);
   }
 }
