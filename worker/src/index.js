@@ -728,14 +728,102 @@ function newestRelease(listHtml) {
   return items[0];
 }
 
+/* HTML entities, decoded. HECO's own banner text carries them literally
+ * (&#187; for the trailing chevron), and a raw &#187; reaching the page is
+ * how the last one surfaced. &amp; is unwound last so &amp;#187; cannot
+ * double-decode into a chevron that was never there. */
+function decodeEntities(str) {
+  return String(str == null ? "" : str)
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lsquo;/g, "‘").replace(/&rsquo;/g, "’")
+    .replace(/&ldquo;/g, "“").replace(/&rdquo;/g, "”")
+    .replace(/&laquo;/g, "«").replace(/&raquo;/g, "»")
+    .replace(/&ndash;/g, "–").replace(/&mdash;/g, "—")
+    .replace(/&hellip;/g, "…")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+/* A press release link: one root-level slug and nothing nested under it. This
+ * is deliberately the same shape newestRelease() already accepts, so "is that
+ * a release?" has one definition in this file rather than two. */
+const RELEASE_PATH = /^\/[a-z0-9][a-z0-9-]{14,}$/;
+
+/* Words that make a headline about a disruption rather than about the company.
+ * Bare "power" is deliberately NOT in here: it appears in ordinary corporate
+ * releases (rooftop solar, rate cases) and would let them through. */
+const OUTAGE_WORDS =
+  /\b(outage|outages|without power|restore|restored|restoration|shutoff|shut-?off|psps|storm|hurricane|tropical|damage|damaged|crews|emergency)\b/i;
+
 /* HECO raise a site-wide alert banner during an event and drop it afterwards.
  * It is their own "something is happening" flag, so it answers the statewide
- * question without us inferring anything from silence. */
+ * question without us inferring anything from silence.
+ *
+ * The trap: the SAME <div class="alert"> in the site header also carries
+ * routine promotion. Captured live on 2026-09-07 it held
+ *
+ *   <div class="alert a1"><img src="/images/alert_icon.png" alt="Alert" />
+ *    In observance of Labor Day, our offices will be closed on Monday,
+ *    Sept. 7, 2026. <a href="https://www.hawaiianelectric.com/customer-service/
+ *    2026-holiday-schedule">View our holiday schedule &#187;</a></div>
+ *
+ * and the old selector, "first href within 400 chars of alert_icon.png", read
+ * that as an active event whose headline was "View our holiday schedule
+ * &#187;". So the icon, the class and the position are all useless as
+ * discriminators: the promo and a real event share every one of them. Two
+ * real event banners, recovered from archived copies of the site:
+ *
+ *   2026-08-01  <a href="/9-am-update-public-safety-power-shutoff-still-
+ *                 possible-for-parts-of-maui-hawaii-island">
+ *   2026-08-22  <a href="/restoration-work-focused-on-hawaii-island-more-
+ *                 areas-will-get-power-today-heavily-damaged-sites-will-
+ *                 take-longer">
+ *
+ * What separates them from the promo is the link TARGET and the SHAPE OF THE
+ * TEXT, and the promo fails both independently:
+ *
+ *   1. The link must be a press release path, one root-level slug. Both real
+ *      banners are. The promo points at /customer-service/2026-holiday-
+ *      schedule, nested, which RELEASE_PATH cannot match.
+ *   2. The text must name a disruption. Both real banners do ("Power
+ *      Shutoff", "Restoration ... damaged"). The promo says "In observance of
+ *      Labor Day ... View our holiday schedule", which contains no such word.
+ *
+ * Test 2 is what stops an ordinary release slipping through test 1: HECO's
+ * newest Oʻahu-tagged release on 2026-09-07 was "Registration now open for
+ * 2026 Astronaut Lacy Veach Day of Discovery", a root-level slug that passes
+ * test 1 and fails test 2.
+ *
+ * This errs toward false negatives on purpose. On 2026-08-22 a second banner
+ * read "See restoration maps for estimates on when power may be restored" and
+ * linked to /safety-and-outages/power-outages/restoration-maps, a section
+ * page: it is a real event signal and it is still rejected, because the
+ * release-linked banner beside it is the better headline and no rule here is
+ * allowed to guess. Nothing qualifying means eventActive false, the same
+ * "null rather than a guess" the scope resolution follows.
+ */
 function alertBanner(listHtml) {
-  const m = listHtml.match(/alert_icon\.png[\s\S]{0,400}?href="([^"]+)"[^>]*>\s*([^<]{10,200})</i);
-  if (!m) return null;
-  return { url: m[1].startsWith("http") ? m[1] : "https://www.hawaiianelectric.com" + m[1],
-           headline: m[2].replace(/\s+/g, " ").trim() };
+  const div = /<div[^>]*\bclass="[^"]*\balert\b[^"]*"[^>]*>([\s\S]{0,1200}?)<\/div>/gi;
+  let m;
+  while ((m = div.exec(listHtml))) {
+    const inner = m[1];
+    const a = inner.match(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([\s\S]{0,300}?)<\/a>/i);
+    if (!a) continue;
+    const path = a[1].replace(/^https?:\/\/[^/]+/i, "");
+    if (!RELEASE_PATH.test(path)) continue;
+    /* The whole banner's text, not just the link's, so a banner that leads
+       with a sentence and links on from it still reads correctly. On both
+       real event banners the two are the same string. */
+    const text = decodeEntities(inner.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    if (text.length < 10) continue;
+    if (!OUTAGE_WORDS.test(text)) continue;
+    return { url: "https://www.hawaiianelectric.com" + path, headline: text };
+  }
+  return null;
 }
 
 const HECO_UA = {
@@ -895,6 +983,7 @@ export const __test = {
   percentRestored,
   newestRelease,
   alertBanner,
+  decodeEntities,
   strip,
   releaseBody,
   coordBlocks,

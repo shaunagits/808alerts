@@ -2653,7 +2653,7 @@ function powerQuietBlock(){
         <h3>${esc("No outage figure published for "+where)}</h3></div>
       <p class="confirm">This is not a reading that your power is on. Hawaiian Electric have not published an outage figure for ${esc(where)} since ${esc(since)}.</p>
       <p class="guide">${esc(POWER.coverage||"Hawaiian Electric issue news releases for storms and major events, not for everyday outages. No release does not mean no outages.")}</p>
-      ${""/* POWER.eventActive/eventHeadline deliberately not rendered, see above */}
+      ${POWER.eventActive&&POWER.eventHeadline?`<p class="disc">Hawaiian Electric are currently reporting: ${esc(POWER.eventHeadline)}</p>`:""}
       <p class="attrib">${esc(up(POWER.title||"Hawaiian Electric newsroom"))} &middot; SOURCE
         <a href="${esc(POWER.sourceUrl||"https://www.hawaiianelectric.com/about-us/newsroom")}" target="_blank" rel="noopener">Hawaiian Electric</a></p>
     </article>`;

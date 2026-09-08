@@ -14,6 +14,7 @@ const {
   percentRestored,
   newestRelease,
   alertBanner,
+  decodeEntities,
   coordBlocks,
   placemarks,
   decimate,
@@ -115,14 +116,80 @@ const nr = newestRelease(listing);
 eq("skips the featured promo sitting above the list",
   nr && nr.path, "/hawaiian-electric-working-to-resolve-remaining-pocket-outages");
 
-/* ---- event banner ---- */
+/* ---- event banner ----
+ * Every fixture below is the real <div class="alert"> as hawaiianelectric.com
+ * served it, not a synthetic shape. The two event banners were recovered from
+ * archived copies of the site (web.archive.org snapshots 20260801202024 and
+ * 20260822103801); the promo was captured live on 2026-09-07, and it is the
+ * one that used to produce eventActive true with the headline "View our
+ * holiday schedule &#187;". The header markup is byte identical on the
+ * homepage and the newsroom listing, which is the page the worker actually
+ * parses. */
 console.log("\nalertBanner");
-const withBanner =
-  '<img src="/images/alert_icon.png" /> <a href="/hawaiian-electric-working-to-resolve-remaining-pocket-outages">We are working to resolve remaining pocket outages on Hawaii Island</a>';
-eq("reads HECO's site-wide event banner",
-  alertBanner(withBanner) && alertBanner(withBanner).headline,
-  "We are working to resolve remaining pocket outages on Hawaii Island");
+
+// 2026-08-01, a Public Safety Power Shutoff. One banner, links to the release.
+const BANNER_PSPS =
+  '<div class="alert a1" style=""> <img src="/images/alert_icon.png" alt="" /> ' +
+  '<a href="/9-am-update-public-safety-power-shutoff-still-possible-for-parts-of-maui-hawaii-island">' +
+  '9 a.m. Update: Public Safety Power Shutoff still possible for parts of Maui, Hawaii Island</a> </div>';
+
+// 2026-08-22, Hurricane Lala recovery. TWO banners: a section-page call to
+// action first, then the release. Document order would take the wrong one.
+const BANNER_LALA =
+  '<div class="alert a1" style=""> <img src="/images/alert_icon.png" alt="" /> ' +
+  '<a href="/safety-and-outages/power-outages/restoration-maps">' +
+  'See restoration maps for estimates on when power may be restored &#187;</a> </div>' +
+  '<div class="alert a2" style=""> <img src="/images/alert_icon.png" alt="" /> ' +
+  '<a pamwr="2" href="/restoration-work-focused-on-hawaii-island-more-areas-will-get-power-today-heavily-damaged-sites-will-take-longer">' +
+  'Restoration work focused on Hawaii Island, heavily damaged sites will take longer</a> </div>';
+
+// 2026-09-07 live. Same div, same class, same icon. Not an event.
+const BANNER_PROMO =
+  '<div class="alert a1" style=""> <img src="/images/alert_icon.png" alt="Alert" /> ' +
+  'In observance of Labor Day, our offices will be closed on Monday, Sept. 7, 2026. ' +
+  '<a href="https://www.hawaiianelectric.com/customer-service/2026-holiday-schedule">' +
+  'View our holiday schedule &#187;</a> </div>';
+
+eq("real event banner (PSPS, 08-01): headline is the release headline",
+  alertBanner(BANNER_PSPS) && alertBanner(BANNER_PSPS).headline,
+  "9 a.m. Update: Public Safety Power Shutoff still possible for parts of Maui, Hawaii Island");
+eq("real event banner (PSPS, 08-01): url is absolute",
+  alertBanner(BANNER_PSPS) && alertBanner(BANNER_PSPS).url,
+  "https://www.hawaiianelectric.com/9-am-update-public-safety-power-shutoff-still-possible-for-parts-of-maui-hawaii-island");
+
+eq("two banners (Lala, 08-22): takes the release, not the section-page CTA above it",
+  alertBanner(BANNER_LALA) && alertBanner(BANNER_LALA).headline,
+  "Restoration work focused on Hawaii Island, heavily damaged sites will take longer");
+eq("two banners (Lala, 08-22): url is the release, not /safety-and-outages/",
+  alertBanner(BANNER_LALA) && alertBanner(BANNER_LALA).url,
+  "https://www.hawaiianelectric.com/restoration-work-focused-on-hawaii-island-more-areas-will-get-power-today-heavily-damaged-sites-will-take-longer");
+
+// The regression this whole rewrite exists for.
+eq("the Labor Day promo is NOT an event", alertBanner(BANNER_PROMO), null);
+eq("promo alone in the page still yields no event",
+  alertBanner("<header>" + BANNER_PROMO + "</header>"), null);
+
 eq("absent banner returns null", alertBanner("<p>Newsroom</p>"), null);
+eq("no div.alert anywhere returns null",
+  alertBanner('<div class="container"><a href="/hawaiian-electric-restoration-update">Restoration update</a></div>'), null);
+
+// A real release slug that is not about a disruption must not become an event.
+// This is HECO's own newest Oʻahu-tagged release on 2026-09-07.
+eq("an ordinary release in the banner is not an event",
+  alertBanner('<div class="alert a1"><img src="/images/alert_icon.png" alt="" /> ' +
+    '<a href="/registration-now-open-for-2026-astronaut-lacy-veach-day-of-discovery">' +
+    'Registration now open for 2026 Astronaut Lacy Veach Day of Discovery</a></div>'), null);
+
+/* ---- HTML entities ---- */
+console.log("\ndecodeEntities");
+eq("numeric entity, the one that reached the page", decodeEntities("View our holiday schedule &#187;"),
+  "View our holiday schedule »");
+eq("hex entity", decodeEntities("caf&#xe9;"), "café");
+eq("named entities", decodeEntities("Ka&#699;&uuml; &amp; Puna &ndash; crews &hellip;").includes(" & "), true);
+eq("&amp; is unwound last, so &amp;#187; is not a chevron",
+  decodeEntities("A&amp;#187;B"), "A&#187;B");
+eq("plain text is untouched", decodeEntities("Restoration work focused on Hawaii Island"),
+  "Restoration work focused on Hawaii Island");
 
 /* NHC KML structural fixture, not a captured real file: it mirrors the shape
  * NHC's public GIS KMZ have used for years (multiple Placemark/Polygon rings
