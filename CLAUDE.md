@@ -6,6 +6,56 @@ and never replaces county emergency management or 911.
 
 Live at **https://808alerts.com**. See Deployment below before changing anything.
 
+## Direction change: the home page is an alert feed (decided 2026-09-23, plan of record)
+
+**This supersedes the board, map, bands, hero and located strip described further down.**
+Those sections now describe `index.html.pre-feed.bak` and the git history, not the live
+home page. The design lives on the "808 Alerts Feed Home" design canvas (mobile feed,
+Kauaʻi empty state, desktop, alert detail, quiet day, warning pinned, source unreachable).
+
+The home page is one chronological feed of official alerts for every island, newest
+first, grouped by day. Each card: level tag, event, time and age, an island locator map
+(every island drawn, the ones the alert covers shaded), headline, summary, area line,
+agency, update thread, how long it lasts, and an OFFICIAL SOURCE link. One island
+dropdown in the header is the only control. Prepare, Shelters and Kit checklist are a
+GET READY block at the end of the feed, and tiles in the middle of the quiet state.
+
+Sources, and only these (each earns its place in a storm):
+- NWS `api.weather.gov/alerts/active?area=HI` on every refresh (60s), plus
+  `/alerts?area=HI&start=<7 days ago>` every 10 minutes for the ended list and history.
+- HCCDA road closures, **only closures started or created in the last 7 days**. The
+  layer carries long-term closures back to 2024; those stay on the county map.
+- HCCDA shelters, `Status='Open'`, as one "listed open" card with the confirm band and
+  a may-be-out-of-date band past 6 hours since the layer was edited (invariants 1, 2).
+- Hawaiian Electric releases via the worker's `/api/power` for HIC003, HIC009, HIC001,
+  deduplicated by release URL, last 7 days only.
+Removed from the home page on purpose: map, radar, satellite, hazard zones, USGS gauges,
+PacIOOS waves, 311, cameras, forecast widget. They are readings or layers, not alerts.
+
+Rules the feed depends on:
+- **Threading.** NWS messages are joined into threads through `references`. Tropical
+  Cyclone Local Statements carry no references, so each new one replaces the last.
+- **Grouping.** Threads with the same event whose latest message went out in the same
+  minute become one card (a Hurricane Watch arrives as one alert per zone, 8 on the
+  Big Island). The detail page splits them back out as "Find your area".
+- **Level colour is back, per alert level, not per category**: WARNING red, WATCH teal,
+  ADVISORY amber, STATEMENT outlined, NOTICE black and yellow, ENDED grey. The owner
+  approved this for the feed on 2026-09-23. The old band rule below no longer applies.
+- **Warnings pin** above the chronological flow until they end, so newer road closures
+  and statements cannot bury them.
+- **A failed source is never an empty source.** NWS failure shows the amber banner, the
+  last good data from localStorage, and an AS OF tag on each NWS card; with no cache it
+  says alerts could not load. The quiet state only shows when NWS answered.
+- Zone and county codes to islands are hardcoded in `Z` in the script (verified against
+  `api.weather.gov/zones` 2026-09-23), including the PHZ marine zones.
+- Detail pages are `#alert/<NWS id>`, shareable (Web Share API, clipboard fallback).
+  Only NWS alerts get one; county and utility cards link straight to the agency.
+
+Not yet done: the island SEO pages (`oahu-alerts/` and siblings) and
+`hawaii-tsunami-alerts/` should become this feed with the island preset
+(`<html data-island="OAH">` is already read by the script). HI-EMA and Governor
+proclamations are wanted but have no feed yet.
+
 ## Who it is for
 
 Someone preparing for an approaching storm who may not have TV or news access. They are
