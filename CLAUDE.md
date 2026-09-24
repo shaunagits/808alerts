@@ -77,10 +77,20 @@ proclamations are wanted but have no feed yet.
   quiet line in the footer's existing style, and add the same line to the
   hand-written pages (map, tracker, tsunami, shelters, preparation, kit) so every
   page carries it.
-- Search Console was set up 2026-09-24 (Domain property, sitemap reading as
-  Success, indexing requested for the home, island and road closure pages). Bing
-  Webmaster Tools was in progress. Check Search Console's Performance and Pages
-  reports after a few days.
+- Search Console set up 2026-09-24: Domain property, sitemap reading Success,
+  indexing requested for the home, island, road closure and map pages. Bing
+  Webmaster Tools added the same day. After a few days, review Search Console's
+  Performance (queries) and Pages (indexing) reports with the owner.
+- **AI search pass, proposed 2026-09-24, not started.** Waiting on two things from
+  the owner: (1) whether Cloudflare's AI crawler blocking (AI Crawl Control /
+  "Block AI bots") is on for 808alerts.com, which would stop ChatGPT, Perplexity
+  and Claude reading the site at all; (2) whether to allow AI *training* crawlers
+  (GPTBot, ClaudeBot, Google-Extended) or only the *search* ones (OAI-SearchBot,
+  ChatGPT-User, PerplexityBot, Claude-SearchBot). Then: name the allowed crawlers
+  in robots.txt, and add a short live Q&A block per page ("Is there a hurricane
+  warning in Hawaii right now?", "Are any Big Island roads closed right now?")
+  answered from current data with a timestamp, rendered by the same core code.
+  llms.txt was judged optional and low value.
 
 ## How the pages are built and served (2026-09-24, plan of record)
 
@@ -1675,6 +1685,8 @@ rather than left to 404, since it was live and may already be crawled.
 `_redirects` is consumed by Pages at deploy time and never served as a file;
 the local `python -m http.server` used for review ignores it, so that one rule
 can only be verified against a real deploy.
+
+**Resolved 2026-09-24, see "How the pages are built and served" at the top: pages are server-rendered by a Pages Function and alerts have real /alert/ paths. The paragraph below is history.**
 
 **Still open: hash routing blocks per-section indexing of the app itself.** The board
 uses `#weather`/`#power`/`#roads`/`#ocean`/`#emergency` client-side routing with no real
