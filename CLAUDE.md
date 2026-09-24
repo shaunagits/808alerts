@@ -51,6 +51,18 @@ Rules the feed depends on:
 - Detail pages are `#alert/<NWS id>`, shareable (Web Share API, clipboard fallback).
   Only NWS alerts get one; county and utility cards link straight to the agency.
 
+The full map lives at `/map/` (`map/index.html`, added 2026-09-23). It is the
+pre-feed home page with everything but the map hidden by CSS: the old script still
+reads the hero, bands and strip, so they stay in the DOM. A small script at the end
+opens the map full height, turns wheel zoom on, and frames `?island=KAU|OAH|MOL|LAN|MAU|HAW`.
+It wraps `fitStormView()` so the automatic refit on each storm load does not undo that
+island view or a pan the person made; the ALL ISLANDS chip still refits on purpose.
+The feed links to it from a MAP button in the header (follows the island dropdown),
+from each card's island locator, and from "See on map" on the detail page. When the
+map code changes, change `map/index.html`; `index.html.pre-feed.bak` is only a record.
+The feed's footer carries plain links to every content page again, since those links
+are how crawlers reach them.
+
 Not yet done: the island SEO pages (`oahu-alerts/` and siblings) and
 `hawaii-tsunami-alerts/` should become this feed with the island preset
 (`<html data-island="OAH">` is already read by the script). HI-EMA and Governor
