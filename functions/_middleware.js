@@ -18,17 +18,26 @@ const ROADS = '/big-island-road-closures/';
 const FRESH_MS = 60e3;
 
 let loadedAt = 0;
-let loading = null;
-function freshData(withHistory) {
-  if (Date.now() - loadedAt < FRESH_MS && (!withHistory || C.S.nws.historyAt)) return Promise.resolve();
-  if (!loading) {
-    C.setFetchHeaders({ 'User-Agent': UA });
-    loading = C.loadAll()
-      .then(() => (withHistory ? C.loadNWSHistory().then(() => C.assemble()) : null))
-      .then(() => { loadedAt = Date.now(); })
-      .finally(() => { loading = null; });
-  }
-  return loading;
+const BUDGET_MS = 5000;
+// Data is kept for a minute between requests in the same isolate. Each request
+// that finds it stale loads it itself: Workers do not let one request wait on
+// another request's fetch.
+async function load(withHistory) {
+  C.setFetchHeaders({ 'User-Agent': UA });
+  await C.loadAll();
+  if (withHistory) { await C.loadNWSHistory(); C.assemble(); }
+  loadedAt = Date.now();
+}
+// Never keep a visitor waiting on a slow feed. If fresh data is not in within
+// BUDGET_MS, answer with what this isolate already has, or with the plain page
+// (the browser then loads the alerts itself). The load carries on in the
+// background via waitUntil so the next request is fast.
+async function freshData(ctx, withHistory) {
+  if (Date.now() - loadedAt < FRESH_MS && (!withHistory || C.S.nws.historyAt)) return true;
+  const job = load(withHistory).then(() => true, () => false);
+  ctx.waitUntil(job);
+  const inTime = await Promise.race([job, new Promise((r) => setTimeout(() => r(false), BUDGET_MS))]);
+  return inTime || loadedAt > 0;
 }
 
 function attr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
@@ -67,8 +76,8 @@ function send(html, status) {
   });
 }
 
-async function feedPage(res, island) {
-  await freshData(false);
+async function feedPage(ctx, res, island) {
+  if (!(await freshData(ctx, false)) || C.S.nws.status === 'loading') return res;
   let html = await res.text();
   html = html.replace('<main id="feed">', '<main id="feed" data-ssr="1">');
   html = between(html, 'BANNERS', C.bannerHTML(island));
@@ -77,8 +86,8 @@ async function feedPage(res, island) {
   return send(stamp(html));
 }
 
-async function roadsPage(res) {
-  await freshData(false);
+async function roadsPage(ctx, res) {
+  if (!(await freshData(ctx, false)) || C.S.roads.status === 'loading') return res;
   let html = await res.text();
   html = between(html, 'ROADS', C.roadsHTML());
   return send(stamp(html));
@@ -87,9 +96,9 @@ async function roadsPage(res) {
 async function alertPage(ctx, url, key) {
   const shell = await ctx.env.ASSETS.fetch(new URL('/', url));
   let html = await shell.text();
-  await freshData(false);
+  if (!(await freshData(ctx, false)) || C.S.nws.status === 'loading') return send(html);
   let c = C.findCard(key);
-  if (!c) { await freshData(true); c = C.findCard(key); }
+  if (!c && (await freshData(ctx, true))) c = C.findCard(key);
   html = html.replace('<body>', '<body class="detail">')
     .replace('<div id="feedwrap">', '<div id="feedwrap" hidden>')
     .replace('<a class="back n" id="back" href="/" hidden>', '<a class="back n" id="back" href="/">')
@@ -123,7 +132,7 @@ export async function onRequest(ctx) {
     const res = await ctx.next();
     const type = res.headers.get('content-type') || '';
     if (!res.ok || type.indexOf('text/html') < 0) return res;
-    return p === ROADS ? await roadsPage(res) : await feedPage(res, island);
+    return p === ROADS ? await roadsPage(ctx, res) : await feedPage(ctx, res, island);
   } catch (e) {
     // Never let a feed or render problem take the page down: send it as a plain
     // static page and let the browser load the alerts itself.

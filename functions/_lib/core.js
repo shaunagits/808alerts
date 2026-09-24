@@ -127,8 +127,14 @@ function fetchJSON(url, ms) {
   var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   var timer = setTimeout(function () { if (ctl) ctl.abort(); }, ms || 15000);
   var hd = { Accept: 'application/geo+json, application/json' }; for (var k in FETCH_HEADERS) hd[k] = FETCH_HEADERS[k];
-  return fetch(url, { signal: ctl ? ctl.signal : undefined, headers: hd })
-    .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  // The time limit covers the whole response, body included, and a hard race
+  // backs up the abort: a feed that answers and then stalls must not hold a
+  // page (or Cloudflare's server render) open.
+  var limit = ms || 15000;
+  var work = fetch(url, { signal: ctl ? ctl.signal : undefined, headers: hd })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  var cap = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, limit + 500); });
+  return Promise.race([work, cap]).then(function (v) { clearTimeout(timer); return v; }, function (e) { clearTimeout(timer); throw e; });
 }
 function uniq(a) { return a.filter(function (v, i) { return a.indexOf(v) === i; }); }
 function clip(s, n) {

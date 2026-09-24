@@ -114,7 +114,11 @@ hand-written files.
   `/alert/<slug>` it fetches the live data (cached 60s per isolate), runs the same
   core code the browser runs, and writes the result into the HTML before sending
   it, so crawlers and link previews see real alerts. `_routes.json` limits it to
-  those paths. On any error it sends the static page unchanged. Wrangler compiles
+  those paths. On any error it sends the static page unchanged. **It never waits
+  more than 5 seconds on the feeds** (BUDGET_MS): past that it answers with the
+  data it already has, or the plain page, and finishes loading via waitUntil.
+  Added 2026-09-24 after a 524 (Cloudflare's 100s timeout) seen from Hawaiʻi when
+  a feed stalled mid-response; fetchJSON's time limit now covers the body too. Wrangler compiles
   `functions/` from the repo root at deploy; the rsync in deploy.yml excludes it
   from the static files.
 - **Alert addresses are real paths**: `/alert/<event>-<islands>-<token>`, token from
