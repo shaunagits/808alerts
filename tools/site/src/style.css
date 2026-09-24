@@ -241,3 +241,5 @@ footer.site{background:var(--ink);color:var(--muted);padding:24px 20px 32px}
   .page>h1{font-size:40px}
   .roads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 }
+.road .onmap{font-size:13px;font-weight:700;color:var(--ink)}
+.threats .zt span a{color:var(--muted3)}

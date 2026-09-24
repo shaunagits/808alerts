@@ -273,6 +273,8 @@ footer.site{background:var(--ink);color:var(--muted);padding:24px 20px 32px}
   .page>h1{font-size:40px}
   .roads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 }
+.road .onmap{font-size:13px;font-weight:700;color:var(--ink)}
+.threats .zt span a{color:var(--muted3)}
 
 </style>
 </head>
@@ -397,6 +399,26 @@ var WORKER = 'https://808alerts-api.shauna-coy.workers.dev';
 var HCCDA = 'https://services1.arcgis.com/C2LPusZs5OXNGFDn/arcgis/rest/services';
 var HCCDA_DASH = 'https://www.arcgis.com/apps/dashboards/5865229bcba74020992b372ef18b6f17';
 var HCCDA_PAGE = 'https://www.hawaiicounty.gov/departments/civil-defense';
+/* The county's public Hazard Impact Map (the web map behind the dashboard above),
+   opened in ArcGIS Map Viewer at a given spot: the closest official view of one
+   closure or shelter, since the county publishes no page per item. */
+var HCCDA_WEBMAP = '5a3b24e3f64c4ababdeecfadb9bdb9f8';
+function countyMapAt(lon, lat, level) {
+  return 'https://www.arcgis.com/apps/mapviewer/index.html?webmap=' + HCCDA_WEBMAP + '&center=' + (+lon).toFixed(5) + ',' + (+lat).toFixed(5) + '&level=' + (level || 15);
+}
+/* NWS publishes the text of every product it issues. The alert names its product
+   (AWIPS id, e.g. TCVHFO for a hurricane watch), which gives a page with exactly
+   what NWS issued. It shows the latest issuance of that product, so it is only
+   used while the alert is still in effect. */
+function nwsProductURL(awips) {
+  var m = /^([A-Z0-9]{3})(HFO)$/.exec(awips || '');
+  return m ? 'https://forecast.weather.gov/product.php?site=HFO&issuedby=HFO&product=' + m[1] : '';
+}
+var ZONE_COUNTY = { HAW: 'HIC001', OAH: 'HIC003', KAU: 'HIC007', NII: 'HIC007', MAU: 'HIC009', MOL: 'HIC009', LAN: 'HIC009', KAH: 'HIC009' };
+function nwsZoneURL(zone) {
+  var isl = (Z[zone] || [])[0];
+  return /^HIZ/.test(zone) && isl ? 'https://forecast.weather.gov/showsigwx.php?warnzone=' + zone + '&warncounty=' + ZONE_COUNTY[isl] : '';
+}
 var WEEK = 7 * 864e5;
 var REFRESH = 60e3;
 var HISTORY_REFRESH = 10 * 60e3;
@@ -526,6 +548,7 @@ function trimFeature(f) {
     event: p.event, type: p.messageType, status: p.status, area: p.areaDesc, ugc: (p.geocode && p.geocode.UGC) || [],
     refs: (p.references || []).map(function (r) { return r.identifier; }),
     nhead: (p.parameters && p.parameters.NWSheadline && p.parameters.NWSheadline[0]) || '',
+    awips: (p.parameters && p.parameters.AWIPSidentifier && p.parameters.AWIPSidentifier[0]) || '',
     headline: p.headline || '', desc: p.description || '', instr: p.instruction || ''
   };
 }
@@ -681,7 +704,7 @@ function buildNWSCards() {
       threads: g, level: ended ? 'ENDED' : levelOf(L.event), baseLevel: levelOf(L.event), event: L.event,
       agency: 'NWS HONOLULU', t: L.sent, timed: true, isl: isl, where: whereLabel(isl), area: area,
       head: head, body: L.type === 'Cancel' ? 'This alert is no longer in effect.' : summary(L),
-      thread: thread, until: until, active: active, url: NWS_PAGE, detail: true, stale: S.nws.status === 'fail'
+      thread: thread, until: until, active: active, url: (active && nwsProductURL(L.awips)) || NWS_PAGE, detail: true, stale: S.nws.status === 'fail'
     };
   });
 }
@@ -689,10 +712,17 @@ function buildNWSCards() {
 /* ---------- Hawaiʻi County Civil Defense ---------- */
 function loadRoads() {
   var q = HCCDA + '/Road_Closures_(HCCDA)_Public/FeatureServer/0/query?where=' + encodeURIComponent("Active='Active'") +
-    '&outFields=OBJECTID,Name,District,Location,Mile_Marker,Road_Closure_Type,Reason,Notes,Alternate_Route,Start_Date,CreationDate&returnGeometry=false&f=json';
+    '&outFields=OBJECTID,Name,District,Location,Mile_Marker,Road_Closure_Type,Reason,Notes,Alternate_Route,Start_Date,CreationDate&returnGeometry=true&outSR=4326&geometryPrecision=5&f=json';
   return fetchJSON(q).then(function (d) {
     if (d.error) throw new Error('arcgis');
-    S.roads.items = (d.features || []).map(function (f) { return f.attributes; });
+    S.roads.items = (d.features || []).map(function (f) {
+      var a = f.attributes, g = f.geometry, pt = null;
+      var path = g && g.paths && g.paths[0];
+      if (path && path.length) pt = path[Math.floor(path.length / 2)];
+      else if (g && g.x != null) pt = [g.x, g.y];
+      if (pt) { a._lon = pt[0]; a._lat = pt[1]; }
+      return a;
+    });
     S.roads.status = 'ok'; S.roads.at = Date.now();
   }).catch(function () { S.roads.status = 'fail'; });
 }
@@ -712,7 +742,7 @@ function roadCards() {
       src: 'roads', id: 'road-' + r.OBJECTID, level: 'NOTICE', event: lane ? 'Lane Closure' : 'Road Closed', agency: 'HAWAIʻI COUNTY CIVIL DEFENSE',
       t: t, timed: true, isl: ['HAW'], where: 'HAWAIʻI ISLAND', area: r.District ? place(r.District) + ' district' : '',
       head: place(r.Name) + ': ' + type.toLowerCase() + loc, body: body,
-      thread: 'From the county road closure map', until: 'Until reopened', active: true, url: HCCDA_DASH, more: ['All Big Island road closures', '/big-island-road-closures/']
+      thread: 'From the county road closure map', until: 'Until reopened', active: true, url: r._lon != null ? countyMapAt(r._lon, r._lat, 16) : HCCDA_DASH, more: ['All Big Island road closures', '/big-island-road-closures/']
     };
   });
 }
@@ -744,7 +774,7 @@ function shelterCards() {
     head: s.length + (s.length === 1 ? ' shelter listed open' : ' shelters listed open'),
     body: list.join('; ') + '.', confirm: true,
     staleNote: staleFlag ? 'County list last edited ' + ago(t) + '.' : '',
-    thread: 'Shelter list from the county map, checked ' + tm(S.shelters.at), until: '', active: true, url: HCCDA_PAGE
+    thread: 'Shelter list from the county map, checked ' + tm(S.shelters.at), until: '', active: true, url: countyMapAt(-155.5, 19.6, 9)
   }];
 }
 
@@ -959,7 +989,7 @@ function parseZone(a) {
       act: act ? unwrap(act[1]) : ''
     });
   }
-  return { name: place(a.area), towns: towns, sections: sections };
+  return { name: place(a.area), towns: towns, sections: sections, url: nwsZoneURL((a.ugc || [])[0]) };
 }
 var DZ = { key: null, zone: 0 };
 function missingHTML() {
@@ -984,7 +1014,7 @@ function detailHTML(c) {
     '<p>' + esc(c.body) + '</p></div>' +
     '<div class="acts"><button type="button" class="share" id="share"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 10V2M4.5 5.5L8 2l3.5 3.5M3 9v5h10V9"/></svg><span>SHARE</span></button>' +
     '<a class="mapl" href="' + mapHref(c.isl) + '">' + MAPICON + '<span>SEE ON MAP</span></a>' +
-    '<a class="src" href="' + NWS_PAGE + '" target="_blank" rel="noopener">OFFICIAL SOURCE' + ARROW + '</a></div></section>';
+    '<a class="src" href="' + esc(c.url) + '" target="_blank" rel="noopener">OFFICIAL SOURCE' + ARROW + '</a></div></section>';
 
   if (zones.length) {
     var z = zones[Math.min(DZ.zone, zones.length - 1)];
@@ -995,7 +1025,7 @@ function detailHTML(c) {
           return '<button type="button" data-z="' + i + '" aria-pressed="' + (x === z) + '"><b>' + esc(x.towns.length ? x.towns.join(' · ') : x.name) + '</b><span class="n">' + esc(x.name.toUpperCase()) + '</span></button>';
         }).join('') + '</div>';
     }
-    h += '<div class="threats"><div class="zt"><b>' + esc(z.towns.length ? z.towns.join(' · ') : z.name) + '</b><span>' + esc(z.name) + ' forecast zone</span></div>' +
+    h += '<div class="threats"><div class="zt"><b>' + esc(z.towns.length ? z.towns.join(' · ') : z.name) + '</b><span>' + esc(z.name) + ' forecast zone' + (z.url ? ' · <a href="' + esc(z.url) + '" target="_blank" rel="noopener">NWS text for this area</a>' : '') + '</span></div>' +
       z.sections.map(function (s) {
         var n = IMPACT[s.rating] != null ? IMPACT[s.rating] : 0;
         var bars = [1, 2, 3, 4].map(function (i) { return '<i' + (i <= n ? ' class="on"' : '') + '></i>'; }).join('');
@@ -1056,7 +1086,8 @@ function roadRows() {
     return {
       t: t, fresh: t && Date.now() - t < WEEK, lane: lane, type: type,
       name: place(r.Name || 'Unnamed road'), loc: clean(r.Location), district: clean(r.District),
-      mm: clean(r.Mile_Marker), reason: clean(r.Reason), notes: clean(r.Notes), alt: clean(r.Alternate_Route)
+      mm: clean(r.Mile_Marker), reason: clean(r.Reason), notes: clean(r.Notes), alt: clean(r.Alternate_Route),
+      map: r._lon != null ? countyMapAt(r._lon, r._lat, 16) : ''
     };
   });
 }
@@ -1081,6 +1112,7 @@ function roadsHTML() {
       (r.reason ? '<p>' + esc(r.reason.replace(/\.?$/, '.')) + '</p>' : '') +
       (r.notes ? '<p>' + esc(r.notes.replace(/\.?$/, '.')) + '</p>' : '') +
       '<p class="alt">' + (r.alt ? 'Alternate route: ' + esc(r.alt) : 'No alternate route listed.') + '</p>' +
+      (r.map ? '<a class="onmap" href="' + esc(r.map) + '" target="_blank" rel="noopener">See it on the county map ↗</a>' : '') +
       '<div class="since">' + (r.t ? 'Listed since ' + esc(fmtDay.format(new Date(r.t))) + (Date.now() - r.t < 864e5 * 2 ? ', ' + esc(tm(r.t)) : '') : '') + '</div></article>';
   }).join('') + '</div>';
   return h;

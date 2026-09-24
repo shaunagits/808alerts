@@ -1,14 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The app itself is one static page with client-side hash routing
-     (#weather, #power, #roads, #ocean, #emergency), so there is only one URL
-     Google can crawl and index for it right now. If the routing question in
-     CLAUDE.md's SEO section is ever resolved in favor of real per-section
-     URLs, add those as their own <url> entries here. Standalone content
-     pages are real separate pages and are listed below: the kit checklist,
-     three per-island alert pages, and four topic pages. Each carries its own
-     title, description, canonical and JSON-LD. The per-island and tracker
-     pages hold no live claim in their static HTML; anything live on them is
-     fetched client-side at view time, which is why they are safe to index. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://808alerts.com/</loc>

@@ -21,7 +21,8 @@ function roadRows() {
     return {
       t: t, fresh: t && Date.now() - t < WEEK, lane: lane, type: type,
       name: place(r.Name || 'Unnamed road'), loc: clean(r.Location), district: clean(r.District),
-      mm: clean(r.Mile_Marker), reason: clean(r.Reason), notes: clean(r.Notes), alt: clean(r.Alternate_Route)
+      mm: clean(r.Mile_Marker), reason: clean(r.Reason), notes: clean(r.Notes), alt: clean(r.Alternate_Route),
+      map: r._lon != null ? countyMapAt(r._lon, r._lat, 16) : ''
     };
   });
 }
@@ -46,6 +47,7 @@ function roadsHTML() {
       (r.reason ? '<p>' + esc(r.reason.replace(/\.?$/, '.')) + '</p>' : '') +
       (r.notes ? '<p>' + esc(r.notes.replace(/\.?$/, '.')) + '</p>' : '') +
       '<p class="alt">' + (r.alt ? 'Alternate route: ' + esc(r.alt) : 'No alternate route listed.') + '</p>' +
+      (r.map ? '<a class="onmap" href="' + esc(r.map) + '" target="_blank" rel="noopener">See it on the county map ↗</a>' : '') +
       '<div class="since">' + (r.t ? 'Listed since ' + esc(fmtDay.format(new Date(r.t))) + (Date.now() - r.t < 864e5 * 2 ? ', ' + esc(tm(r.t)) : '') : '') + '</div></article>';
   }).join('') + '</div>';
   return h;
