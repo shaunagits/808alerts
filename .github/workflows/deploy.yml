@@ -45,6 +45,10 @@ jobs:
       #     rollback: that is what git history is for.
       #   - tools/, .claude/, .gitignore and friends are dev files with no
       #     reason to be reachable over HTTP.
+      #   - functions/ is the Pages Functions source. Wrangler compiles it from
+      #     the repo root (the working directory) on deploy; it must not also be
+      #     served as static files. _routes.json does get published: it tells
+      #     Pages which paths run the function.
       # This is a denylist, not an allowlist, on purpose: a new content page
       # should go live by existing, not by also remembering to edit this file.
       - name: Stage the public files
@@ -67,6 +71,7 @@ jobs:
             --exclude='*.bak' \
             --exclude='archive/' \
             --exclude='tools/' \
+            --exclude='functions/' \
             --exclude='index-v5.html' \
             ./ .cf-publish/
           echo "Staged for publication:"

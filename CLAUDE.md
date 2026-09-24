@@ -68,6 +68,45 @@ Not yet done: the island SEO pages (`oahu-alerts/` and siblings) and
 (`<html data-island="OAH">` is already read by the script). HI-EMA and Governor
 proclamations are wanted but have no feed yet.
 
+## How the pages are built and served (2026-09-24, plan of record)
+
+**The feed pages are generated. Edit `tools/site/src/`, then run
+`python3 tools/site/build.py`, and commit the source and the output together.**
+It writes `index.html`, `oahu-alerts/`, `maui-alerts/`, `hawaii-island-alerts/`,
+`kauai-alerts/`, `big-island-road-closures/`, `functions/` and `_routes.json`.
+Never hand-edit those outputs; the next build overwrites them. `map/index.html`
+and the topic pages (tracker, tsunami, shelters, preparation, kit) are still
+hand-written files.
+
+- `src/core.js` + `src/core-extra.js`: data loading, alert threading and grouping,
+  and every HTML string (cards, feed, detail, road list). No DOM access.
+- `src/ui.js`: the browser part (routing, buttons, refresh every 60s).
+- `src/page.html`: the one page template; `build.py` holds each page's title,
+  description, heading and about text; `src/guides/*.html` are the island pages'
+  planning links and verified numbers (moved verbatim from the old island pages;
+  Kauaʻi's was written from `sources.json` contactLines on 2026-09-24).
+- `src/middleware.js` becomes `functions/_middleware.js`, a **Cloudflare Pages
+  Function**. For `/`, the island pages, `/big-island-road-closures/` and
+  `/alert/<slug>` it fetches the live data (cached 60s per isolate), runs the same
+  core code the browser runs, and writes the result into the HTML before sending
+  it, so crawlers and link previews see real alerts. `_routes.json` limits it to
+  those paths. On any error it sends the static page unchanged. Wrangler compiles
+  `functions/` from the repo root at deploy; the rsync in deploy.yml excludes it
+  from the static files.
+- **Alert addresses are real paths**: `/alert/<event>-<islands>-<token>`, token from
+  an NWS message id. Any message in the alert's thread resolves, so a link shared
+  before an update still works and gets the current canonical. Ended alerts are
+  `noindex`; unknown ones return 404. Old `#alert/<id>` links still open.
+- The island dropdown now navigates between the county pages (All, Kauaʻi, Oʻahu,
+  Maui County, Hawaiʻi Island). Molokaʻi and Lānaʻi are part of Maui County.
+- To run it locally with the server part: `npx wrangler pages dev . --port 8808`
+  from the repo root, then open http://localhost:8808. Port 8808 on `localhost`
+  matters: the worker only allows that origin for the Hawaiian Electric feed.
+
+SEO targets chosen 2026-09-24 from Google autocomplete: "hawaii alerts today",
+"[island] alerts today", "big island road closures today". Titles carry the plain
+spelling people type (Oahu, Kauai, Big Island) next to the Hawaiian one.
+
 ## Who it is for
 
 Someone preparing for an approaching storm who may not have TV or news access. They are
