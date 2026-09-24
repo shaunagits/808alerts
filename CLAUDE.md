@@ -68,6 +68,20 @@ Not yet done: the island SEO pages (`oahu-alerts/` and siblings) and
 (`<html data-island="OAH">` is already read by the script). HI-EMA and Governor
 proclamations are wanted but have no feed yet.
 
+## Open to-dos for the next session
+
+- **Add a credit link to the owner's agency website** (requested 2026-09-24). A small
+  "Site by <agency>" line in the footer of `tools/site/src/page.html`, then rebuild
+  with `python3 tools/site/build.py`. The agency name and URL are not recorded
+  anywhere in this repo yet: ask the owner for both before adding it. Keep it one
+  quiet line in the footer's existing style, and add the same line to the
+  hand-written pages (map, tracker, tsunami, shelters, preparation, kit) so every
+  page carries it.
+- Search Console was set up 2026-09-24 (Domain property, sitemap reading as
+  Success, indexing requested for the home, island and road closure pages). Bing
+  Webmaster Tools was in progress. Check Search Console's Performance and Pages
+  reports after a few days.
+
 ## How the pages are built and served (2026-09-24, plan of record)
 
 **The feed pages are generated. Edit `tools/site/src/`, then run
