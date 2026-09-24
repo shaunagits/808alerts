@@ -81,6 +81,12 @@ proclamations are wanted but have no feed yet.
   indexing requested for the home, island, road closure and map pages. Bing
   Webmaster Tools added the same day. After a few days, review Search Console's
   Performance (queries) and Pages (indexing) reports with the owner.
+- **Confirm the 524 fix from Hawaiʻi.** Deployed 2026-09-24 (commit f9c28bb): the
+  server render now waits at most 5s for feeds. Ask the owner whether the site loads
+  reliably for her, and whether pages ever arrive as "Loading alerts…" instead of
+  pre-filled (that means the 5s fallback fired). If it does, find which feed is slow
+  from the Honolulu Cloudflare colo (the Pages Functions logs in the Cloudflare
+  dashboard, or time each source separately) before changing anything else.
 - **AI search pass, proposed 2026-09-24, not started.** Waiting on two things from
   the owner: (1) whether Cloudflare's AI crawler blocking (AI Crawl Control /
   "Block AI bots") is on for 808alerts.com, which would stop ChatGPT, Perplexity
