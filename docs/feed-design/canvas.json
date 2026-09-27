@@ -1,0 +1,112 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-09-24T04:39:24Z"
+ },
+ "title": "808 Alerts Feed Home",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 3900,
+   "title": "Mobile · All islands",
+   "is_interactive": true
+  },
+  "Desktop.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 1440,
+   "h": 3100,
+   "title": "Desktop · All islands",
+   "is_interactive": true
+  },
+  "Mobile-Kauai.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 1800,
+   "title": "Mobile · Filtered to Kauaʻi (nothing in effect)",
+   "is_interactive": true
+  },
+  "Detail.dc.html": {
+   "x": 0,
+   "y": 4500,
+   "w": 390,
+   "h": 2600,
+   "title": "Alert detail · Hurricane Watch",
+   "is_interactive": true
+  },
+  "Quiet.dc.html": {
+   "x": 470,
+   "y": 4500,
+   "w": 390,
+   "h": 1900,
+   "title": "State · Nothing in effect (quiet day)",
+   "is_interactive": true
+  },
+  "Warning.dc.html": {
+   "x": 940,
+   "y": 4500,
+   "w": 390,
+   "h": 4200,
+   "title": "State · Warning pinned (scenario)",
+   "is_interactive": true
+  },
+  "Stale.dc.html": {
+   "x": 1410,
+   "y": 4500,
+   "w": 390,
+   "h": 4000,
+   "title": "State · Can't reach NWS",
+   "is_interactive": true
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Mobile-Kauai.dc.html",
+  "Desktop.dc.html",
+  "Detail.dc.html",
+  "Quiet.dc.html",
+  "Warning.dc.html",
+  "Stale.dc.html"
+ ],
+ "notes": {
+  "t": {
+   "x": 0,
+   "y": -300,
+   "text": "808 Alerts: one feed of every official alert",
+   "kind": "title1",
+   "maxW": 2380
+  },
+  "t2": {
+   "x": 0,
+   "y": 4200,
+   "text": "Detail page and home page states (mobile)",
+   "kind": "title1",
+   "maxW": 1800
+  },
+  "warnnote": {
+   "x": 1880,
+   "y": 4500,
+   "text": "Warning pinned is a scenario. No warning is in effect today, so the pinned card and the two Thursday cards are sample content showing the behavior: a warning stays on top until it ends, while newer items keep flowing in below it.",
+   "w": 320,
+   "fill": "orange",
+   "size": "m"
+  },
+  "quietnote": {
+   "x": 1880,
+   "y": 5020,
+   "text": "Quiet day uses Mon Sep 21, when nothing was in effect between the Sep 18 cancellation and the Sep 22 Flood Watch.",
+   "w": 320,
+   "fill": "teal",
+   "size": "m"
+  }
+ },
+ "designSystems": []
+}

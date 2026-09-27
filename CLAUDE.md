@@ -87,6 +87,23 @@ proclamations are wanted but have no feed yet.
   pre-filled (that means the 5s fallback fired). If it does, find which feed is slow
   from the Honolulu Cloudflare colo (the Pages Functions logs in the Cloudflare
   dashboard, or time each source separately) before changing anything else.
+- **Add Maui County alerts (MEMA), proposed 2026-09-26, owner to approve.** Not
+  pulled today; only linked. On 2026-09-26 a MEMA evacuation order for a brush fire
+  at Olowalu was in effect and missing from the site, which is the case for it.
+  Source: the county's CivicPlus Alert Center RSS,
+  `https://www.mauicounty.gov/RSSFeed.aspx?ModID=63&CID=All-0` (MEMA alerts, titles
+  only, links like `AlertCenter.aspx?AID=3119`), plus the News Flash RSS
+  `RSSFeed.aspx?ModID=1&CID=All-newsflash.xml` (press releases with more detail).
+  Constraints found: no CORS header, so it must go through the Pages Function (or
+  the worker), not the browser; the Alert Center reposts every NWS product ("Flood
+  Watch issued ... by NWS Honolulu"), which must be filtered out as duplicates;
+  mauicounty.gov sits behind Cloudflare bot protection and answered 429 "Just a
+  moment..." after about six requests in a few minutes, so fetch at most every few
+  minutes server-side, keep the last good copy, show an honest "can't reach Maui
+  County" state, and confirm it answers requests from Cloudflare's network before
+  relying on it. Plan: MEMA items become NOTICE cards on the home and Maui County
+  pages; evacuation orders pin at the top with warnings. The same CivicPlus
+  pattern may exist for Kauaʻi (kauai.gov) and should be checked in the same pass.
 - **AI search pass, proposed 2026-09-24, not started.** Waiting on two things from
   the owner: (1) whether Cloudflare's AI crawler blocking (AI Crawl Control /
   "Block AI bots") is on for 808alerts.com, which would stop ChatGPT, Perplexity
@@ -131,6 +148,10 @@ hand-written files.
   an NWS message id. Any message in the alert's thread resolves, so a link shared
   before an update still works and gets the current canonical. Ended alerts are
   `noindex`; unknown ones return 404. Old `#alert/<id>` links still open.
+- County agency links live in `COUNTY_AGENCY` in `src/core.js`. Maui's moved from
+  `/2208/Maui-Emergency-Management-Agency` (404 since at least 2026-09-26) to
+  `/2921/Emergency-Management-Agency`. hawaiicounty.gov and kauai.gov answer 403 to
+  scripted link checks but load in a browser; check those by hand.
 - The island dropdown now navigates between the county pages (All, Kauaʻi, Oʻahu,
   Maui County, Hawaiʻi Island). Molokaʻi and Lānaʻi are part of Maui County.
 - To run it locally with the server part: `npx wrangler pages dev . --port 8808`
@@ -279,6 +300,11 @@ Four handoffs, all in `docs/`, each superseding part of the last:
   `640px` min-height that immediately preceded this handoff, because the bands
   right below it are meant to be the primary above-the-fold content, not the map.
   See The located strip's relocate controls and The map for the implementation.
+
+- `feed-design/`, added 2026-09-23. **Supersedes all of the above for the home
+  page**: the alert feed that replaced the board. A copy of the design canvas
+  (7 artboards plus `canvas.json`) with its own README listing what shipped
+  differently. Everything above describes the pre-feed site.
 
 Where they conflict, the newest wins.
 

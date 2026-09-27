@@ -1,3 +1,6 @@
+> **Superseded for the home page (2026-09-23).** The current design is in
+> `docs/feed-design/`. This file describes the original board and stays as history.
+
 # Handoff: 808 Alerts — Home / Location + Alert Summary
 
 Approved directions: **1c** (mobile, "Hazard bands") and **2b** (desktop, "Board").

@@ -41,7 +41,7 @@ var FILTER_ISL = { KAU: ['KAU', 'NII'], OAH: ['OAH'], MAUCO: ['MAU', 'MOL', 'LAN
 var COUNTY_AGENCY = {
   KAU: ['Kauaʻi Emergency Management Agency', 'https://www.kauai.gov/Government/Departments-Agencies/Emergency-Management-Agency'],
   OAH: ['Honolulu Department of Emergency Management', 'https://www.honolulu.gov/dem/'],
-  MAUCO: ['Maui Emergency Management Agency', 'https://www.mauicounty.gov/2208/Maui-Emergency-Management-Agency'],
+  MAUCO: ['Maui Emergency Management Agency', 'https://www.mauicounty.gov/2921/Emergency-Management-Agency'],
   HAW: ['Hawaiʻi County Civil Defense', HCCDA_PAGE]
 };
 

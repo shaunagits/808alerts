@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>808 Alerts, quiet day</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&amp;family=Archivo+Narrow:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'Archivo',system-ui,sans-serif;background:#f0ece4;color:#101010}
+a{color:#101010}a:hover{color:#1c6f7d}
+button,select{font-family:inherit;cursor:pointer}
+select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #ffd93b;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 390px; height: 1900px; background: #f0ece4; display: flex; flex-direction: column; overflow: hidden">
+<header style="background: #101010; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="font-weight: 900; font-size: 20px; letter-spacing: -0.02em; line-height: 1"><span style="color: #ffffff">808</span><span style="color: #ffd93b">ALERTS</span></div>
+<div style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.14em; color: #9a9a9a; line-height: 1">UPDATED 9:40 AM HST</div>
+</div>
+<div style="position: relative">
+<select aria-label="Show alerts for" value="{{isl}}" onChange="{{onIsland}}" style="appearance: none; -webkit-appearance: none; width: 158px; min-height: 44px; padding: 0 34px 0 12px; background: #1c1c1c; color: #ffffff; border: 2px solid #3a3a3a; border-radius: 0; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.1em"><option value="ALL">ALL ISLANDS</option><option value="KAU">KAUAʻI</option><option value="OAH">OʻAHU</option><option value="MOL">MOLOKAʻI</option><option value="LAN">LĀNAʻI</option><option value="MAU">MAUI</option><option value="HAW">HAWAIʻI ISLAND</option></select>
+<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#ffd93b" stroke-width="2" aria-hidden="true" style="position: absolute; right: 12px; top: 50%; margin-top: -6px; pointer-events: none"><path d="M2 4l4 4 4-4"></path></svg>
+</div>
+</header>
+
+<main style="padding: 12px 12px 28px; display: flex; flex-direction: column; gap: 10px">
+<section style="background: #faf8f5; padding: 22px 18px 20px; display: flex; flex-direction: column; gap: 14px">
+<svg width="354" height="232" viewBox="-2 -2 156 104" aria-hidden="true" style="display: block"><path d="M1.5 13.3L1.9 12.2L3.1 11.1L4.9 9.9L5.1 9.0L6.2 8.7L6.4 9.5L5.9 11.0L6.1 11.9L4.2 12.6L2.6 15.0L1.4 14.3L1.5 13.3Z" fill="#d6cfc2"></path><path d="M14.1 7.9L14.2 6.9L15.3 6.0L15.7 4.7L19.0 2.9L19.8 2.2L22.0 2.7L22.3 2.1L23.9 2.3L24.7 2.0L26.2 2.5L27.2 3.4L27.7 4.6L27.7 5.7L26.6 7.3L26.7 10.0L26.3 10.7L23.5 12.7L22.7 12.3L19.2 12.0L17.4 10.2L15.0 9.5L14.1 7.9Z" fill="#d6cfc2"></path><path d="M55.6 21.2L59.9 21.0L61.2 19.8L61.6 18.9L62.8 17.7L64.2 17.3L64.8 18.0L65.4 19.7L67.4 21.8L67.8 23.2L67.4 23.5L67.7 24.7L69.5 26.1L69.8 24.7L71.0 24.7L70.6 26.3L71.3 27.0L71.2 27.7L72.9 29.5L71.7 30.4L70.7 29.9L68.6 30.7L68.0 30.0L66.3 29.2L63.8 28.9L60.9 29.5L60.2 29.4L59.5 27.2L58.4 26.4L58.3 25.6L56.9 23.9L56.9 22.4L55.6 21.2Z" fill="#d6cfc2"></path><path d="M82.3 35.2L82.9 33.9L83.8 33.2L83.6 31.7L85.3 31.8L85.6 32.1L90.9 32.9L91.9 32.0L92.3 33.1L94.5 33.4L97.1 32.9L98.8 33.6L98.0 35.0L96.2 36.2L94.3 36.8L90.8 36.0L88.2 35.2L86.8 35.5L83.9 35.7L82.3 35.2Z" fill="#d6cfc2"></path><path d="M89.1 41.1L89.8 40.4L91.1 40.2L93.7 40.7L95.4 42.2L96.2 43.5L95.3 45.2L93.4 45.9L91.7 46.0L91.0 44.5L90.7 42.7L89.3 41.9L89.1 41.1Z" fill="#d6cfc2"></path><path d="M99.1 40.6L99.6 38.8L100.7 37.4L102.1 37.3L103.4 38.1L104.4 40.1L105.3 41.3L107.7 40.6L109.5 39.7L112.1 40.2L112.1 40.6L113.7 41.9L114.7 42.3L115.2 43.3L118.3 44.3L118.8 45.1L118.8 46.4L118.0 47.5L116.7 48.5L116.1 48.4L114.4 49.3L113.0 49.1L110.1 50.4L108.0 50.6L106.3 50.0L105.6 44.7L104.9 44.2L103.6 44.8L101.0 43.5L99.7 42.0L99.1 40.6Z" fill="#d6cfc2"></path><path d="M99.0 52.0L99.7 51.3L102.5 49.8L103.5 50.6L103.1 51.7L103.6 52.1L102.3 52.6L101.8 52.2L100.0 52.8L99.0 52.0Z" fill="#d6cfc2"></path><path d="M116.8 75.2L117.0 74.1L118.9 72.2L120.1 72.0L121.3 69.7L122.9 68.3L123.2 66.9L121.5 64.5L121.2 63.4L121.1 60.7L121.8 59.8L123.6 60.0L125.4 60.8L125.7 61.6L127.9 62.7L129.4 63.9L130.5 63.8L133.0 64.6L136.9 66.5L138.1 67.0L140.3 68.5L141.9 70.0L143.6 71.9L143.3 73.1L143.4 75.4L144.2 75.6L145.8 75.3L146.4 76.8L146.3 78.2L148.5 80.3L150.7 81.2L151.2 81.8L150.8 82.9L149.5 84.2L147.8 85.4L146.4 86.8L144.2 87.7L142.2 88.9L140.2 89.4L138.6 89.0L137.8 89.2L136.0 90.9L134.4 91.5L133.1 92.7L131.7 93.2L130.5 94.6L130.6 95.5L129.8 96.4L129.4 97.9L127.4 99.5L125.9 98.0L123.7 96.6L121.5 95.9L120.6 93.5L121.1 90.6L121.4 86.8L120.5 84.2L120.6 83.0L119.7 82.7L119.2 79.8L118.5 78.1L117.6 77.9L116.8 75.2Z" fill="#d6cfc2"></path></svg>
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; background: #1c6f7d; display: block"></span><span style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.16em; color: #1c6f7d">NOTHING IN EFFECT · MON SEP 21</span></div>
+<h1 style="margin: 0; font-weight: 800; font-size: 30px; line-height: 1.05; letter-spacing: -0.03em">No alerts in effect across Hawaiʻi right now.</h1>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #3d3d3d">Checked at 9:40 AM against NWS Honolulu, Hawaiʻi County Civil Defense and Hawaiian Electric. This is not an all clear: conditions can change quickly, and new alerts show up here as soon as they're issued.</p>
+</section>
+<div style="display: flex; align-items: center; gap: 10px; padding: 16px 4px 0">
+<span style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.16em; white-space: nowrap">A GOOD DAY TO GET READY</span>
+<span style="flex-grow: 1; height: 2px; background: #101010; display: block"></span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<a href="#prepare" style="background: #faf8f5; padding: 16px; min-height: 44px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: #101010">
+<span style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1"><span style="font-weight: 800; font-size: 17px; letter-spacing: -0.01em">Prepare</span><span style="font-size: 13px; color: #5c5c5c; line-height: 1.35">Make a plan for your household before a storm is on the way.</span></span>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#101010" stroke-width="2" aria-hidden="true"><path d="M5 3l5 5-5 5"></path></svg>
+</a>
+<a href="#shelters" style="background: #faf8f5; padding: 16px; min-height: 44px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: #101010">
+<span style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1"><span style="font-weight: 800; font-size: 17px; letter-spacing: -0.01em">Shelters</span><span style="font-size: 13px; color: #5c5c5c; line-height: 1.35">Know where you would go on your island, and what to bring.</span></span>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#101010" stroke-width="2" aria-hidden="true"><path d="M5 3l5 5-5 5"></path></svg>
+</a>
+<a href="#kit" style="background: #faf8f5; padding: 16px; min-height: 44px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: #101010">
+<span style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1"><span style="font-weight: 800; font-size: 17px; letter-spacing: -0.01em">Kit checklist</span><span style="font-size: 13px; color: #5c5c5c; line-height: 1.35">What to have on hand for a week without power or water.</span></span>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#101010" stroke-width="2" aria-hidden="true"><path d="M5 3l5 5-5 5"></path></svg>
+</a>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 16px 4px 0">
+<span style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.16em; white-space: nowrap">RECENTLY ENDED</span>
+<span style="flex-grow: 1; height: 2px; background: #101010; display: block"></span>
+</div>
+<div style="background: #faf8f5; padding: 12px 14px; display: flex; align-items: center; gap: 12px; opacity: 0.8">
+<div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px"><span style="background: #e6e1d9; color: #5c5c5c; padding: 2px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em">ENDED</span><span style="font-size: 12px; color: #5c5c5c">Fri Sep 18 · 2:59 AM</span></div>
+<span style="font-weight: 800; font-size: 15px; line-height: 1.2">Flood Watch cancelled</span>
+<span style="font-size: 13px; color: #5c5c5c; line-height: 1.35">No longer in effect for any island.</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px"><svg width="60" height="40" viewBox="-2 -2 156 104" aria-hidden="true" style="display: block; flex-shrink: 0"><path d="M1.5 13.3L1.9 12.2L3.1 11.1L4.9 9.9L5.1 9.0L6.2 8.7L6.4 9.5L5.9 11.0L6.1 11.9L4.2 12.6L2.6 15.0L1.4 14.3L1.5 13.3Z" fill="#8c8c8c"></path><path d="M14.1 7.9L14.2 6.9L15.3 6.0L15.7 4.7L19.0 2.9L19.8 2.2L22.0 2.7L22.3 2.1L23.9 2.3L24.7 2.0L26.2 2.5L27.2 3.4L27.7 4.6L27.7 5.7L26.6 7.3L26.7 10.0L26.3 10.7L23.5 12.7L22.7 12.3L19.2 12.0L17.4 10.2L15.0 9.5L14.1 7.9Z" fill="#8c8c8c"></path><path d="M55.6 21.2L59.9 21.0L61.2 19.8L61.6 18.9L62.8 17.7L64.2 17.3L64.8 18.0L65.4 19.7L67.4 21.8L67.8 23.2L67.4 23.5L67.7 24.7L69.5 26.1L69.8 24.7L71.0 24.7L70.6 26.3L71.3 27.0L71.2 27.7L72.9 29.5L71.7 30.4L70.7 29.9L68.6 30.7L68.0 30.0L66.3 29.2L63.8 28.9L60.9 29.5L60.2 29.4L59.5 27.2L58.4 26.4L58.3 25.6L56.9 23.9L56.9 22.4L55.6 21.2Z" fill="#8c8c8c"></path><path d="M82.3 35.2L82.9 33.9L83.8 33.2L83.6 31.7L85.3 31.8L85.6 32.1L90.9 32.9L91.9 32.0L92.3 33.1L94.5 33.4L97.1 32.9L98.8 33.6L98.0 35.0L96.2 36.2L94.3 36.8L90.8 36.0L88.2 35.2L86.8 35.5L83.9 35.7L82.3 35.2Z" fill="#8c8c8c"></path><path d="M89.1 41.1L89.8 40.4L91.1 40.2L93.7 40.7L95.4 42.2L96.2 43.5L95.3 45.2L93.4 45.9L91.7 46.0L91.0 44.5L90.7 42.7L89.3 41.9L89.1 41.1Z" fill="#8c8c8c"></path><path d="M99.1 40.6L99.6 38.8L100.7 37.4L102.1 37.3L103.4 38.1L104.4 40.1L105.3 41.3L107.7 40.6L109.5 39.7L112.1 40.2L112.1 40.6L113.7 41.9L114.7 42.3L115.2 43.3L118.3 44.3L118.8 45.1L118.8 46.4L118.0 47.5L116.7 48.5L116.1 48.4L114.4 49.3L113.0 49.1L110.1 50.4L108.0 50.6L106.3 50.0L105.6 44.7L104.9 44.2L103.6 44.8L101.0 43.5L99.7 42.0L99.1 40.6Z" fill="#8c8c8c"></path><path d="M99.0 52.0L99.7 51.3L102.5 49.8L103.5 50.6L103.1 51.7L103.6 52.1L102.3 52.6L101.8 52.2L100.0 52.8L99.0 52.0Z" fill="#8c8c8c"></path><path d="M116.8 75.2L117.0 74.1L118.9 72.2L120.1 72.0L121.3 69.7L122.9 68.3L123.2 66.9L121.5 64.5L121.2 63.4L121.1 60.7L121.8 59.8L123.6 60.0L125.4 60.8L125.7 61.6L127.9 62.7L129.4 63.9L130.5 63.8L133.0 64.6L136.9 66.5L138.1 67.0L140.3 68.5L141.9 70.0L143.6 71.9L143.3 73.1L143.4 75.4L144.2 75.6L145.8 75.3L146.4 76.8L146.3 78.2L148.5 80.3L150.7 81.2L151.2 81.8L150.8 82.9L149.5 84.2L147.8 85.4L146.4 86.8L144.2 87.7L142.2 88.9L140.2 89.4L138.6 89.0L137.8 89.2L136.0 90.9L134.4 91.5L133.1 92.7L131.7 93.2L130.5 94.6L130.6 95.5L129.8 96.4L129.4 97.9L127.4 99.5L125.9 98.0L123.7 96.6L121.5 95.9L120.6 93.5L121.1 90.6L121.4 86.8L120.5 84.2L120.6 83.0L119.7 82.7L119.2 79.8L118.5 78.1L117.6 77.9L116.8 75.2Z" fill="#8c8c8c"></path></svg><span style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.1em; color: #5c5c5c">ALL ISLANDS</span></div>
+</div>
+<div style="background: #faf8f5; padding: 12px 14px; display: flex; align-items: center; gap: 12px; opacity: 0.8">
+<div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-width: 0">
+<div style="display: flex; align-items: center; gap: 8px"><span style="background: #e6e1d9; color: #5c5c5c; padding: 2px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em">ENDED</span><span style="font-size: 12px; color: #5c5c5c">Thu Sep 17 · expired 11:15 PM</span></div>
+<span style="font-weight: 800; font-size: 15px; line-height: 1.2">Flood Advisory</span>
+<span style="font-size: 13px; color: #5c5c5c; line-height: 1.35">Minor flooding over South Hilo, Puna and Kaʻū.</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px"><svg width="60" height="40" viewBox="-2 -2 156 104" aria-hidden="true" style="display: block; flex-shrink: 0"><path d="M1.5 13.3L1.9 12.2L3.1 11.1L4.9 9.9L5.1 9.0L6.2 8.7L6.4 9.5L5.9 11.0L6.1 11.9L4.2 12.6L2.6 15.0L1.4 14.3L1.5 13.3Z" fill="#d6cfc2"></path><path d="M14.1 7.9L14.2 6.9L15.3 6.0L15.7 4.7L19.0 2.9L19.8 2.2L22.0 2.7L22.3 2.1L23.9 2.3L24.7 2.0L26.2 2.5L27.2 3.4L27.7 4.6L27.7 5.7L26.6 7.3L26.7 10.0L26.3 10.7L23.5 12.7L22.7 12.3L19.2 12.0L17.4 10.2L15.0 9.5L14.1 7.9Z" fill="#d6cfc2"></path><path d="M55.6 21.2L59.9 21.0L61.2 19.8L61.6 18.9L62.8 17.7L64.2 17.3L64.8 18.0L65.4 19.7L67.4 21.8L67.8 23.2L67.4 23.5L67.7 24.7L69.5 26.1L69.8 24.7L71.0 24.7L70.6 26.3L71.3 27.0L71.2 27.7L72.9 29.5L71.7 30.4L70.7 29.9L68.6 30.7L68.0 30.0L66.3 29.2L63.8 28.9L60.9 29.5L60.2 29.4L59.5 27.2L58.4 26.4L58.3 25.6L56.9 23.9L56.9 22.4L55.6 21.2Z" fill="#d6cfc2"></path><path d="M82.3 35.2L82.9 33.9L83.8 33.2L83.6 31.7L85.3 31.8L85.6 32.1L90.9 32.9L91.9 32.0L92.3 33.1L94.5 33.4L97.1 32.9L98.8 33.6L98.0 35.0L96.2 36.2L94.3 36.8L90.8 36.0L88.2 35.2L86.8 35.5L83.9 35.7L82.3 35.2Z" fill="#d6cfc2"></path><path d="M89.1 41.1L89.8 40.4L91.1 40.2L93.7 40.7L95.4 42.2L96.2 43.5L95.3 45.2L93.4 45.9L91.7 46.0L91.0 44.5L90.7 42.7L89.3 41.9L89.1 41.1Z" fill="#d6cfc2"></path><path d="M99.1 40.6L99.6 38.8L100.7 37.4L102.1 37.3L103.4 38.1L104.4 40.1L105.3 41.3L107.7 40.6L109.5 39.7L112.1 40.2L112.1 40.6L113.7 41.9L114.7 42.3L115.2 43.3L118.3 44.3L118.8 45.1L118.8 46.4L118.0 47.5L116.7 48.5L116.1 48.4L114.4 49.3L113.0 49.1L110.1 50.4L108.0 50.6L106.3 50.0L105.6 44.7L104.9 44.2L103.6 44.8L101.0 43.5L99.7 42.0L99.1 40.6Z" fill="#d6cfc2"></path><path d="M99.0 52.0L99.7 51.3L102.5 49.8L103.5 50.6L103.1 51.7L103.6 52.1L102.3 52.6L101.8 52.2L100.0 52.8L99.0 52.0Z" fill="#d6cfc2"></path><path d="M116.8 75.2L117.0 74.1L118.9 72.2L120.1 72.0L121.3 69.7L122.9 68.3L123.2 66.9L121.5 64.5L121.2 63.4L121.1 60.7L121.8 59.8L123.6 60.0L125.4 60.8L125.7 61.6L127.9 62.7L129.4 63.9L130.5 63.8L133.0 64.6L136.9 66.5L138.1 67.0L140.3 68.5L141.9 70.0L143.6 71.9L143.3 73.1L143.4 75.4L144.2 75.6L145.8 75.3L146.4 76.8L146.3 78.2L148.5 80.3L150.7 81.2L151.2 81.8L150.8 82.9L149.5 84.2L147.8 85.4L146.4 86.8L144.2 87.7L142.2 88.9L140.2 89.4L138.6 89.0L137.8 89.2L136.0 90.9L134.4 91.5L133.1 92.7L131.7 93.2L130.5 94.6L130.6 95.5L129.8 96.4L129.4 97.9L127.4 99.5L125.9 98.0L123.7 96.6L121.5 95.9L120.6 93.5L121.1 90.6L121.4 86.8L120.5 84.2L120.6 83.0L119.7 82.7L119.2 79.8L118.5 78.1L117.6 77.9L116.8 75.2Z" fill="#8c8c8c"></path></svg><span style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 9px; letter-spacing: 0.1em; color: #5c5c5c">HAWAIʻI ISLAND</span></div>
+</div>
+<div style="padding: 12px 4px 0; font-size: 13px; line-height: 1.5; color: #3d3d3d">Older alerts live in the <a href="#archive" style="font-weight: 700">archive</a>.</div>
+</main>
+<footer style="margin-top: auto; background: #101010; color: #9a9a9a; padding: 24px 20px 32px; display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.16em; color: #ffffff">WHAT THE LABELS MEAN</div>
+<div style="display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px 12px; align-items: center; font-size: 13px; line-height: 1.35"><span style="background: #c22e22; color: #ffffff; border: 2px solid #c22e22; padding: 3px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-align: center">WARNING</span><span>Happening or about to. Act now.</span><span style="background: #1c6f7d; color: #ffffff; border: 2px solid #1c6f7d; padding: 3px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-align: center">WATCH</span><span>Possible soon. Get ready.</span><span style="background: #e8a317; color: #101010; border: 2px solid #e8a317; padding: 3px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-align: center">ADVISORY</span><span>Less serious, still take care.</span><span style="background: #1c1c1c; color: #ffffff; border: 2px solid #9a9a9a; padding: 3px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-align: center">STATEMENT</span><span>Updates and context.</span><span style="background: #ffd93b; color: #101010; border: 2px solid #ffd93b; padding: 3px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-align: center">NOTICE</span><span>Government action: closures, shelters.</span><span style="background: #3a3a3a; color: #9a9a9a; border: 2px solid #3a3a3a; padding: 3px 6px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 0.12em; text-align: center">ENDED</span><span>Cancelled or expired.</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.16em; color: #ffffff">WHERE ALERTS COME FROM</div>
+<div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.35"><div style="display: flex; flex-direction: column; gap: 2px"><span style="color: #ffffff; font-weight: 700">NWS Honolulu</span><span>Warnings, watches, advisories, storm statements</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span style="color: #ffffff; font-weight: 700">Hawaiʻi County Civil Defense</span><span>Road closures and shelters</span></div><div style="display: flex; flex-direction: column; gap: 2px"><span style="color: #ffffff; font-weight: 700">Hawaiian Electric</span><span>Storm and outage news releases</span></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-weight: 900; font-size: 18px; letter-spacing: -0.02em"><span style="color: #ffffff">808</span><span style="color: #ffd93b">ALERTS</span></div>
+<p style="margin: 0; font-size: 13px; line-height: 1.5">808 Alerts gathers official alerts in one place. It is not an official alert system. Every card links to the agency that issued it. In an emergency, call 911.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; font-family: 'Archivo Narrow', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.1em"><a href="#prepare" style="color: #ffffff">PREPARE</a><a href="#shelters" style="color: #ffffff">SHELTERS</a><a href="#kit" style="color: #ffffff">KIT CHECKLIST</a><a href="#archive" style="color: #ffffff">ARCHIVE</a></div>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startIsland":{"editor":"enum","options":["ALL","KAU","OAH","MOL","LAN","MAU","HAW"],"default":"ALL"},"$preview":{"width":390,"height":1900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { isl: 'ALL' }; }
+  renderVals() {
+    var self = this;
+    return { isl: this.state.isl, onIsland: function (e) { self.setState({ isl: e.target.value }); } };
+  }
+}
+</script>
+</body>
+</html>
