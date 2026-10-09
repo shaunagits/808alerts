@@ -70,13 +70,15 @@ proclamations are wanted but have no feed yet.
 
 ## Open to-dos for the next session
 
-- **Add a credit link to the owner's agency website** (requested 2026-09-24). A small
-  "Site by <agency>" line in the footer of `tools/site/src/page.html`, then rebuild
-  with `python3 tools/site/build.py`. The agency name and URL are not recorded
-  anywhere in this repo yet: ask the owner for both before adding it. Keep it one
-  quiet line in the footer's existing style, and add the same line to the
-  hand-written pages (map, tracker, tsunami, shelters, preparation, kit) so every
-  page carries it.
+- **Add a credit link to the owner's agency website** (requested 2026-09-24; agency
+  settled 2026-10-08). The agency is **shauna.digital**, URL `https://shauna.digital`
+  (threadhawaii.com is retired and now redirects there). Use the standard credit the
+  owner's other sites carry, "Built with ♥ by shauna.digital" (see hawaiidogmap.com and
+  hawaii311.org), as one quiet line in the footer of `tools/site/src/page.html`, then
+  rebuild with `python3 tools/site/build.py`. Add the same line to the hand-written
+  pages (map, tracker, tsunami, shelters, preparation, kit) so every page carries it.
+  The heart must be an inline SVG or a glyph Archivo actually has: check before
+  shipping, same trap as the okina.
 - Search Console set up 2026-09-24: Domain property, sitemap reading Success,
   indexing requested for the home, island, road closure and map pages. Bing
   Webmaster Tools added the same day. After a few days, review Search Console's
@@ -1789,6 +1791,7 @@ Excluded, and why:
 | `*.bak` | working backups |
 | `archive/`, `index-v5.html` | older copies of the homepage |
 | `tools/` | build scripts, not site content |
+| `README.md` | the GitHub repo page. Added 2026-10-08; it was served publicly at `/README.md` until this exclusion shipped |
 | `.gitignore`, `.git/`, `.github/`, `.claude/`, `.wrangler/`, `node_modules/` | repo and CI internals |
 
 `sources.json` **stays published on purpose.** It is the portable registry and the schema

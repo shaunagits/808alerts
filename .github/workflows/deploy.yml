@@ -71,6 +71,7 @@ jobs:
             --exclude='*.bak' \
             --exclude='archive/' \
             --exclude='tools/' \
+            --exclude='README.md' \
             --exclude='functions/' \
             --exclude='index-v5.html' \
             ./ .cf-publish/
@@ -81,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           fail=0
-          for bad in CLAUDE.md docs worker; do
+          for bad in CLAUDE.md README.md docs worker; do
             if [ -e ".cf-publish/$bad" ]; then
               echo "::error::$bad is staged for publication"
               fail=1
